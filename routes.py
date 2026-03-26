@@ -209,6 +209,11 @@ def api_container_logs(name):
     logs = ssh_docker.fetch_container_logs(config.SSH_HOST, config.SSH_USER, config.SSH_PASS, name)
     return jsonify({"logs": logs})
 
+@bp.route("/api/container/<name>/logs-since-start", methods=["GET"])
+def api_container_logs_since_start(name):
+    logs = ssh_docker.fetch_container_logs_since_last_start(config.SSH_HOST, config.SSH_USER, config.SSH_PASS, name)
+    return jsonify({"logs": logs})
+
 @bp.route("/api/container/<name>/exec", methods=["POST"])
 def api_container_exec(name):
     cmd = request.json.get("command")

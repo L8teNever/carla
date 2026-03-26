@@ -641,6 +641,9 @@
                         <div class="flex gap-3">
                             <button onclick="copyTerminalContent()"
                                 class="bg-[#2B2930] hover:bg-[#36343B] px-4 py-2 rounded-xl text-sm border border-white/5 transition-all text-[#938F99]">Kopieren</button>
+                            <button onclick="copyLogsSinceStart()"
+                                class="bg-[#2B2930] hover:bg-[#36343B] px-4 py-2 rounded-xl text-sm border border-white/5 transition-all text-[#D0BCFF]">Session
+                                kopieren</button>
                             <button onclick="document.getElementById('terminal-output').innerText = '';"
                                 class="bg-[#2B2930] hover:bg-[#36343B] px-4 py-2 rounded-xl text-sm border border-white/5 transition-all text-[#938F99]">Konsole
                                 leeren</button>
@@ -1455,6 +1458,31 @@
                 btn.innerText = "✓ Kopiert!";
                 setTimeout(() => btn.innerText = oldText, 2000);
             });
+        }
+
+        async function copyLogsSinceStart() {
+            if (!activeContainer) return;
+            const btn = document.querySelector('[onclick="copyLogsSinceStart()"]');
+            const oldText = btn.innerText;
+            btn.innerText = "Lade...";
+            btn.disabled = true;
+            try {
+                const res = await fetch(`/api/container/${encodeURIComponent(activeContainer)}/logs-since-start`);
+                const data = await res.json();
+                if (data.logs) {
+                    await navigator.clipboard.writeText(data.logs);
+                    btn.innerText = "✓ Kopiert!";
+                } else {
+                    btn.innerText = "Fehler!";
+                }
+            } catch (e) {
+                console.error(e);
+                btn.innerText = "Error";
+            }
+            setTimeout(() => {
+                btn.innerText = oldText;
+                btn.disabled = false;
+            }, 2000);
         }
 
         // Global Keyboard Listeners (Terminal & Hotkeys)
