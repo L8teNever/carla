@@ -3,8 +3,6 @@
 # Holt das fertige Image direkt von Docker Hub (l8tenever/carla).
 # Ideal für die Bereitstellung auf entfernten Servern.
 # ==============================================================
-version: '3.8'
-
 services:
   carla:
     image: l8tenever/carla:latest
@@ -13,14 +11,17 @@ services:
     ports:
       - "10.7.0.1:1070:8080"
     volumes:
-      # Für 'local' Modus: Zugriff auf die lokale Docker-Engine des Zielservers
       - /var/run/docker.sock:/var/run/docker.sock
-      # Persistente Speicherung der Metriken und des Caches
       - ./storage:/app/storage
       - ./data:/app/data
-      # Deine individuelle Konfiguration
-      - ./config.py:/app/config.py
     environment:
+      - CARLA_MODE=ssh
+      - CARLA_SSH_HOST=deine-ip
+      - CARLA_SSH_USER=root
+      - CARLA_SSH_PASS=dein-passwort
+      - CARLA_GITHUB_TOKEN=ghp_dein_token
+      - CARLA_CF_API_TOKEN=cfut_dein_token
+      - CARLA_CF_ACCOUNT_ID=deine-id
       - TZ=Europe/Berlin
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]

@@ -2,8 +2,6 @@
 # CARLA – Docker Compose
 # Startet CARLA im Container mit Zugriff auf den lokalen Docker-Socket.
 # ==============================================================
-version: '3.8'
-
 services:
   carla:
     build: .
@@ -12,15 +10,17 @@ services:
     ports:
       - "10.7.0.1:1070:8080"
     volumes:
-      # Für 'local' Modus: Zugriff auf die lokale Docker-Engine
       - /var/run/docker.sock:/var/run/docker.sock
-      # Persistente Speicherung der Metriken und des Caches
       - ./storage:/app/storage
       - ./data:/app/data
-      # Die Konfiguration (kann auch über Env-Variablen gelöst werden)
-      - ./config.py:/app/config.py
     environment:
-      # Hier können alternativ Umgebungsvariablen gesetzt werden
+      - CARLA_MODE=ssh
+      - CARLA_SSH_HOST=deine-ip
+      - CARLA_SSH_USER=root
+      - CARLA_SSH_PASS=dein-passwort
+      - CARLA_GITHUB_TOKEN=ghp_dein_token
+      - CARLA_CF_API_TOKEN=cfut_dein_token
+      - CARLA_CF_ACCOUNT_ID=deine-id
       - TZ=Europe/Berlin
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]
