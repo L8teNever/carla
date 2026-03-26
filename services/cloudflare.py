@@ -75,12 +75,15 @@ class CloudflareClient:
             for pol in policies:
                 for inc in pol.get("include", []):
                     if "email" in inc:
-                        entries.append(str(inc["email"]))
+                        val = inc["email"]
+                        entries.append(val.get("email", str(val)) if isinstance(val, dict) else str(val))
                     elif "email_domain" in inc:
-                        entries.append(f"@{inc['email_domain']}")
+                        val = inc["email_domain"]
+                        domain = val.get("domain", str(val)) if isinstance(val, dict) else str(val)
+                        entries.append(f"@{domain}")
                     elif "group" in inc:
                         group = inc["group"]
-                        group_id = group.get("id", "Unknown") if isinstance(group, dict) else group
+                        group_id = group.get("name", group.get("id", str(group))) if isinstance(group, dict) else str(group)
                         entries.append(f"Gruppe: {group_id}")
                     elif "everyone" in inc:
                         entries.append("Jeder")
