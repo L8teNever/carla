@@ -17,15 +17,13 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Abhängigkeiten kopieren und installieren
-COPY installer.py .
-RUN python3 installer.py
+# Abhängigkeiten zuerst (Docker Layer Cache)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Quellcode kopieren
 COPY . .
 
-# Ports freigeben
 EXPOSE 8080
 
-# Starte CARLA
 CMD ["python3", "main.py"]

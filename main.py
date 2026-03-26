@@ -3,9 +3,6 @@
 # Startet den Flask-Webserver sofort, fragt parallel Daten ab.
 # ==============================================================
 
-from installer import check_and_install_dependencies
-check_and_install_dependencies()
-
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
