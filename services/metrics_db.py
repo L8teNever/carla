@@ -1,0 +1,165 @@
+import sqlite3
+import os
+import time
+
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "storage", "metrics.db")
+
+def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    # Server Metrics: cpu_usage in %, ram_usage in MB, ram_total in MB
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS server_metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER,
+            cpu_usage REAL,
+            ram_usage REAL,
+            ram_total REAL,
+            disk_used REAL,
+            disk_total REAL,
+            cpu_temp REAL
+        )
+    ''')
+    
+    # Stack Metrics: cpu_usage in %, ram_usage in MB
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS stack_metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER,
+            stack_name TEXT,
+            cpu_usage REAL,
+            ram_usage REAL
+        )
+    ''')
+
+    # Container Metrics: Jedes einzelne Docker-Subjekt
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS container_metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER,
+            container_name TEXT,
+            stack_name TEXT,
+            cpu_usage REAL,
+            ram_usage REAL,
+            uptime TEXT
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def log_metrics(server_cpu, server_ram_used, server_ram_total, disk_used, disk_total, cpu_temp, stack_data, container_stats):
+    """
+    stack_data: list of dicts [{'stack': 'carlin', 'cpu': 12.5, 'ram': 512.0}, ...]
+    container_stats: list of dicts [{'name': 'grafana', 'stack': 'monitoring', 'cpu': 1.2, 'ram': 256.0, 'uptime': '12d 4h'}]
+    """
+    init_db()
+    ts = int(time.time())
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO server_metrics (timestamp, cpu_usage, ram_usage, ram_total, disk_used, disk_total, cpu_temp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+              (ts, server_cpu, server_ram_used, server_ram_total, disk_used, disk_total, cpu_temp))
+    for s in stack_data:
+        c.execute("INSERT INTO stack_metrics (timestamp, stack_name, cpu_usage, ram_usage) VALUES (?, ?, ?, ?)",
+                  (ts, s['stack'], s['cpu'], s['ram']))
+                  
+    for cs in container_stats:
+        c.execute("INSERT INTO container_metrics (timestamp, container_name, stack_name, cpu_usage, ram_usage, uptime) VALUES (?, ?, ?, ?, ?, ?)",
+                  (ts, cs['name'], cs['stack'], cs['cpu'], cs['ram'], cs['uptime']))
+    conn.commit()
+    conn.close()
+
+def get_server_metrics_history(limit=100):
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM server_metrics ORDER BY timestamp DESC LIMIT ?", (limit,))
+    rows = c.fetchall()
+    conn.close()
+    return [dict(r) for r in reversed(rows)]
+
+def get_latest_stack_metrics():
+    """Gibt die Stack-Metriken des neuesten Zeitstempels zurück für ein Pie-Chart"""
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    
+    c.execute("SELECT MAX(timestamp) as ts FROM stack_metrics")
+    row = c.fetchone()
+    if not row or not row['ts']:
+        return []
+        
+    latest_ts = row['ts']
+    c.execute("SELECT stack_name, cpu_usage, ram_usage FROM stack_metrics WHERE timestamp = ?", (latest_ts,))
+    rows = c.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_latest_container_metrics():
+    """Gibt die aktuellsten Metriken für alle Container zurück."""
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT MAX(timestamp) as ts FROM container_metrics")
+    row = c.fetchone()
+    if not row or not row['ts']: return []
+    latest_ts = row['ts']
+    c.execute("SELECT * FROM container_metrics WHERE timestamp = ?", (latest_ts,))
+    rows = c.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_stack_history(stack_name, limit=60):
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM stack_metrics WHERE stack_name = ? ORDER BY timestamp DESC LIMIT ?", (stack_name, limit))
+    rows = c.fetchall()
+    conn.close()
+    return [dict(r) for r in reversed(rows)]
+
+
+def get_timeline_snapshots(limit=100):
+    """Gibt eine Liste aller verfügbaren Zeitstempel zurück."""
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT timestamp, cpu_usage FROM server_metrics ORDER BY timestamp DESC LIMIT ?", (limit,))
+    rows = c.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_full_snapshot(timestamp):
+    """Gibt den kompletten Zustand des Systems zu einem bestimmten Zeitpunkt zurück."""
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    
+    # 1. Server Metrics
+    c.execute("SELECT * FROM server_metrics WHERE timestamp = ?", (timestamp,))
+    server = c.fetchone()
+    
+    # 2. Stack Metrics
+    c.execute("SELECT * FROM stack_metrics WHERE timestamp = ?", (timestamp,))
+    stacks = c.fetchall()
+    
+    # 3. Container Metrics
+    c.execute("SELECT * FROM container_metrics WHERE timestamp = ?", (timestamp,))
+    containers = c.fetchall()
+    
+    conn.close()
+    return {
+        "timestamp": timestamp,
+        "server": dict(server) if server else None,
+        "stacks": [dict(s) for s in stacks],
+        "containers": [dict(co) for co in containers]
+    }

@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CARLA | Infrastructure Monitoring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --m3-surface: #1C1B1F;
+            --m3-surface-container: #2B2930;
+            --m3-surface-container-high: #36343B;
+            --m3-primary: #D0BCFF;
+            --m3-on-primary: #381E72;
+            --m3-secondary: #CCC2DC;
+            --m3-outline: #938F99;
+            --m3-error: #F2B8B5;
+            --m3-tertiary: #EFB8C8;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--m3-surface);
+            color: #E6E1E5;
+            overflow: hidden;
+        }
+        .nav-rail-item {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .nav-rail-item.active {
+            background-color: var(--m3-surface-container);
+            color: var(--m3-primary);
+        }
+        .nav-rail-item.active .icon-bg {
+            background-color: #4A4458;
+        }
+        .glass-card {
+            background: rgba(43, 41, 48, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 28px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .stack-card:hover {
+            background: var(--m3-surface-container-high);
+            transform: scale(1.01);
+            cursor: pointer;
+            border-color: var(--m3-primary);
+        }
+        
+        #carla-canvas {
+            width: 100%;
+            height: calc(100vh - 80px);
+            background: #0F0E11;
+        }
+
+        .graph-sidebar {
+            position: absolute;
+            right: 24px;
+            top: 24px;
+            bottom: 24px;
+            width: 320px;
+            transform: translateX(calc(100% + 40px));
+            z-index: 100;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .graph-sidebar.open {
+            transform: translateX(0);
+        }
+        .filter-toggle-btn {
+            position: absolute;
+            right: 24px;
+            top: 24px;
+            z-index: 101;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .routing-node {
+            position: relative;
+            padding-left: 1.5rem;
+        }
+        .routing-node::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.5rem;
+            bottom: -1.5rem;
+            width: 2px;
+            background: repeating-linear-gradient(to bottom, #4A4458 0, #4A4458 4px, transparent 4px, transparent 8px);
+        }
+        .routing-node:last-child::before { display: none; }
+        .routing-dot {
+            position: absolute;
+            left: -4px;
+            top: 0.5rem;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--m3-primary);
+            border: 2px solid var(--m3-surface);
+        }
+
+        .toggle-switch {
+            width: 36px;
+            height: 18px;
+            background: #4A4458;
+            border-radius: 20px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+        }
+        .toggle-switch.on { background: var(--m3-primary); }
+        .toggle-switch.on::after { transform: translateX(18px); }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4A4458; border-radius: 10px; }
+        
+        canvas { max-width: 100% !important; max-height: 100% !important; }
+
+        .fade-enter-active { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .filter-chip {
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid var(--m3-outline);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-chip.active {
+            background-color: var(--m3-secondary);
+            color: var(--m3-on-primary);
+            border-color: var(--m3-secondary);
+        }
+        
+        .loader-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--m3-surface);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out;
+        }
+    </style>
+</head>
+<body class="flex h-screen w-screen overflow-hidden">
+
+    <div id="app-loader" class="loader-overlay">
+        <div class="w-16 h-16 border-4 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-bold text-[#D0BCFF]">CARLA wird geladen...</h2>
+        <p id="loader-msg" class="text-xs text-[#938F99] mt-2">SSH & Cloudflare Synchronisation</p>
+    </div>
+
+    <!-- Navigation Rail -->
+    <nav class="w-16 flex flex-col items-center py-6 space-y-6 bg-[#1C1B1F] border-r border-[#4A4458]/30 z-50">
+        <div class="mb-2">
+            <div class="w-10 h-10 rounded-xl bg-[#D0BCFF] flex items-center justify-center text-[#381E72] shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </div>
+        </div>
+        
+        <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="nav-rail-item active flex flex-col items-center group w-full">
+            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </div>
+            <span class="text-[8px] font-medium tracking-wide">Home</span>
+        </button>
+
+        <button id="nav-timeline" onclick="navigateTo('timeline')" class="nav-rail-item flex flex-col items-center group w-full">
+            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
+            </div>
+            <span class="text-[8px] font-medium tracking-wide">Timeline</span>
+        </button>
+        <button onclick="navigateTo('carla')" id="nav-carla" class="nav-rail-item flex flex-col items-center group w-full">
+            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <span class="text-[8px] font-medium tracking-wide">Flow</span>
+        </button>
+
+        <button onclick="navigateTo('performance')" id="nav-performance" class="nav-rail-item flex flex-col items-center group w-full">
+            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <span class="text-[8px] font-medium tracking-wide">Stats</span>
+        </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-hidden relative">
+        <header class="h-14 flex items-center justify-between px-6 bg-[#1C1B1F]/80 backdrop-blur-md z-40 border-b border-[#4A4458]/20">
+            <div class="flex-1 max-w-2xl">
+                <div class="relative group">
+                    <span class="absolute inset-y-0 left-4 flex items-center text-[#938F99]">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    </span>
+                    <input type="text" id="global-search" onkeyup="filterStacks()" placeholder="Suche in Stacks, Containern oder Domains..." 
+                           class="w-full bg-[#2B2930] rounded-full py-3 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#D0BCFF] transition-all text-sm border border-transparent">
+                </div>
+            </div>
+            <div class="flex items-center space-x-6 ml-8">
+                <button onclick="forceRefresh()" class="w-10 h-10 rounded-full bg-[#2B2930] border border-[#4A4458] flex items-center justify-center text-[#D0BCFF] hover:bg-[#4A4458] transition-all" id="refresh-btn">
+                     <svg id="refresh-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                </button>
+                <div class="text-right hidden sm:block">
+                    <div class="text-xs text-[#938F99]">Admin: l8tenever@gmail.com</div>
+                    <div id="header-ip" class="text-sm font-semibold text-[#D0BCFF]">CARLA Node</div>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-[#4A4458] border border-[#938F99] flex items-center justify-center overflow-hidden">
+                    <img src="https://api.dicebear.com/7.x/identicon/svg?seed=l8tenever" alt="User">
+                </div>
+            </div>
+        </header>
+
+        <div id="page-container" class="flex-1 overflow-y-auto p-8 relative">
+            
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="page-view space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-card p-6 flex items-center space-x-6 border-l-4 border-[#D0BCFF]">
+                        <div class="w-16 h-16 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-xs text-[#938F99] uppercase tracking-widest font-bold">Host OS</p>
+                            <h2 id="os-text" class="text-2xl font-light">Lädt...</h2>
+                        </div>
+                    </div>
+                    <div class="glass-card p-6 flex items-center space-x-6">
+                        <div class="w-16 h-16 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-xs text-[#938F99] uppercase tracking-widest font-bold">Node IP</p>
+                            <h2 id="ip-text" class="text-2xl font-mono text-[#D0BCFF]">--.--.--.--</h2>
+                        </div>
+                    </div>
+                </div>
+                <div id="stacks-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-8"></div>
+            </section>
+
+            <!-- Carla View -->
+            <section id="view-carla" class="page-view hidden absolute inset-0 bg-[#0F0E11] overflow-hidden">
+                <div id="carla-canvas"></div>
+                <button onclick="toggleSidebar()" class="filter-toggle-btn w-12 h-12 bg-[#D0BCFF] text-[#381E72] rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-xl">
+                    <svg id="toggle-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 4H3"/><path d="M18 9H6"/><path d="M15 14H9"/><path d="M12 19H12"/></svg>
+                </button>
+                <aside id="graph-sidebar" class="graph-sidebar flex flex-col">
+                    <div class="glass-card flex-1 p-8 flex flex-col space-y-8 overflow-y-auto shadow-2xl border border-white/10">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-xl font-bold text-white tracking-tight">Netzwerk Baum</h2>
+                            <button onclick="toggleSidebar()" class="text-[#938F99] hover:text-white transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                        </div>
+                        <div class="relative pointer-events-auto">
+                            <input type="text" id="graph-search" oninput="filterGraphNodes()" placeholder="Knoten suchen..." 
+                                   class="w-full bg-[#1C1B1F] rounded-2xl py-3 pl-10 pr-4 outline-none text-xs border border-white/5 focus:border-[#D0BCFF]">
+                            <span class="absolute left-3.5 top-3 text-[#938F99]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                            </span>
+                        </div>
+                        <div class="space-y-4 pointer-events-auto">
+                            <p class="text-[10px] text-[#938F99] font-bold uppercase tracking-wider">Ebenen Filter</p>
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl cursor-pointer" onclick="toggleLayer('stack')">
+                                    <span class="text-xs font-medium text-white/90">Docker Stacks</span>
+                                    <div id="toggle-stack" class="toggle-switch on"></div>
+                                </div>
+                                <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl cursor-pointer" onclick="toggleLayer('container')">
+                                    <span class="text-xs font-medium text-white/90">Container Nodes</span>
+                                    <div id="toggle-container" class="toggle-switch on"></div>
+                                </div>
+                                <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl cursor-pointer" onclick="toggleLayer('tunnel')">
+                                    <span class="text-xs font-medium text-white/90">Cloudflare Tunnel</span>
+                                    <div id="toggle-tunnel" class="toggle-switch on"></div>
+                                </div>
+                                <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl cursor-pointer" onclick="toggleLayer('hostname')">
+                                    <span class="text-xs font-medium text-white/90">Domains / Hostnames</span>
+                                    <div id="toggle-hostname" class="toggle-switch on"></div>
+                                </div>
+                                <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl cursor-pointer" onclick="toggleLayer('access')">
+                                    <span class="text-xs font-medium text-white/90">Access Policies</span>
+                                    <div id="toggle-access" class="toggle-switch on"></div>
+                                </div>
+                                <div class="flex items-center justify-between bg-white/5 p-4 rounded-2xl cursor-pointer" onclick="toggleLayer('member')">
+                                    <span class="text-xs font-medium text-white/90">User Memberships</span>
+                                    <div id="toggle-member" class="toggle-switch on"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-6 mt-auto border-t border-white/5 space-y-3">
+                            <div class="text-[10px] uppercase font-bold text-[#D0BCFF] tracking-widest">Hierarchie</div>
+                            <div class="text-[10px] text-[#938F99] flex items-center"><span class="w-2 h-2 rounded-full bg-[#D0BCFF] mr-2"></span> Edge / Root</div>
+                            <div class="text-[10px] text-[#938F99] flex items-center"><span class="w-2 h-2 rounded-full bg-[#4A4458] mr-2"></span> Tunnel</div>
+                            <div class="text-[10px] text-[#938F99] flex items-center"><span class="w-2 h-2 rounded-full bg-[#81C784] mr-2"></span> Service / URL</div>
+                        </div>
+                    </div>
+                </aside>
+            </section>
+
+            <!-- Performance View -->
+            <section id="view-performance" class="page-view flex-1 hidden overflow-y-auto space-y-8">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="glass-card p-5"><p class="text-xs text-[#938F99] mb-1">CPU Last</p><p id="kpi-cpu" class="text-3xl font-bold">--%</p></div>
+                    <div class="glass-card p-5"><p class="text-xs text-[#938F99] mb-1">RAM</p><p id="kpi-ram" class="text-3xl font-bold">-- GB</p></div>
+                    <div class="glass-card p-5"><p class="text-xs text-[#938F99] mb-1">Storage</p><p id="kpi-disk" class="text-3xl font-bold">-- GB</p></div>
+                    <div class="glass-card p-5 border-t-4 border-t-green-400"><p class="text-xs text-[#938F99] mb-1">Temp</p><p id="kpi-temp" class="text-3xl font-bold">--°C</p></div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="glass-card p-6 h-[400px]">
+                        <h3 class="text-sm font-bold mb-4">CPU Historie (%)</h3>
+                        <div class="h-[320px] relative"><canvas id="chart-cpu"></canvas></div>
+                    </div>
+                    <div class="glass-card p-6 h-[400px]">
+                        <h3 class="text-sm font-bold mb-4">RAM Historie (MB)</h3>
+                        <div class="h-[320px] relative"><canvas id="chart-ram"></canvas></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stack Performance History View -->
+            <section id="view-stack-performance" class="page-view flex-1 hidden overflow-y-auto">
+                <div class="max-w-6xl mx-auto space-y-10">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <button onclick="window.history.back()" class="flex items-center gap-2 text-[#938F99] hover:text-white mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                                <span>Zurück zum Stack</span>
+                            </button>
+                            <h1 id="stack-perf-title" class="text-4xl font-bold tracking-tight text-white">Stack-Historie</h1>
+                        </div>
+                        <div class="flex space-x-2" id="stack-time-filters">
+                            <button onclick="updateStackTimeFilter('1h', this)" class="filter-chip active">1 Std</button>
+                            <button onclick="updateStackTimeFilter('1w', this)" class="filter-chip">1 Woche</button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 gap-12">
+                        <div class="glass-card p-10">
+                            <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
+                                <span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span> 
+                                CPU-Last (%)
+                            </h3>
+                            <div class="h-[300px] relative"><canvas id="chart-stack-cpu"></canvas></div>
+                        </div>
+                        <div class="glass-card p-10">
+                            <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
+                                <span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span> 
+                                RAM-Nutzung (MB)
+                            </h3>
+                            <div class="h-[300px] relative"><canvas id="chart-stack-ram"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Timeline History View -->
+            <section id="view-timeline" class="page-view flex-1 hidden h-full flex overflow-hidden">
+                <!-- Sidebar: Checkpoints -->
+                <aside class="w-72 bg-[#1C1B1F]/50 border-r border-white/5 flex flex-col overflow-hidden">
+                    <div class="p-6 border-b border-white/5 bg-[#2B2930]/30">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-xl font-bold flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D0BCFF" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                Checkpoints
+                            </h2>
+                            <button onclick="showTimeline()" class="text-[#938F99] hover:text-[#D0BCFF] transition-colors p-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-[#938F99] mt-1 uppercase tracking-widest font-bold">Historical Snapshots</p>
+                    </div>
+                    <div id="timeline-list" class="flex-1 overflow-y-auto p-4 space-y-2">
+                        <!-- Timestamps go here -->
+                        <div class="text-center py-10 text-[#938F99] text-xs">Lade Historie...</div>
+                    </div>
+                </aside>
+                
+                <!-- Main Snapshot Area -->
+                <div class="flex-1 overflow-y-auto p-10 bg-[#1C1B1F]/20">
+                    <div id="snapshot-empty" class="h-full flex flex-col items-center justify-center text-center">
+                        <div class="w-20 h-20 rounded-full bg-[#2B2930] flex items-center justify-center text-[#938F99] mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        </div>
+                        <h3 class="text-2xl font-bold text-white mb-2">Kein Snapshot gewählt</h3>
+                        <p class="text-[#938F99] max-w-sm">Wähle links einen Zeitpunkt aus der Historie, um den Zustand deines CARLA-Servers zu diesem Moment zu rekonstruieren.</p>
+                    </div>
+                    
+                    <div id="snapshot-details" class="hidden space-y-10">
+                        <div class="flex items-center justify-between">
+                            <h2 id="snapshot-title" class="text-3xl font-bold text-white tracking-tight">Snapshot: --:--</h2>
+                            <div class="text-sm font-mono text-[#D0BCFF] bg-[#D0BCFF]/5 border border-[#D0BCFF]/20 px-4 py-2 rounded-xl" id="snapshot-ts-raw">TS: 0</div>
+                        </div>
+                        
+                        <div id="snapshot-content-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <!-- Global Stats -->
+                        </div>
+                        
+                        <div class="glass-card overflow-hidden">
+                            <div class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99]">Container Status (Snapshot)</div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-sm">
+                                    <thead class="bg-[#1C1B1F] text-[#938F99] uppercase text-[10px] tracking-widest">
+                                        <tr>
+                                            <th class="px-6 py-4">Container</th>
+                                            <th class="px-6 py-4">Stack</th>
+                                            <th class="px-6 py-4">CPU</th>
+                                            <th class="px-6 py-4">RAM</th>
+                                            <th class="px-6 py-4">Uptime</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="snapshot-table-body" class="divide-y divide-white/5">
+                                        <!-- Rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Container Terminal & Logs View -->
+            <section id="view-container-terminal" class="page-view flex-1 hidden overflow-y-auto">
+                <div class="max-w-6xl mx-auto space-y-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <button onclick="window.history.back()" class="flex items-center gap-2 text-[#938F99] hover:text-white mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                                <span>Zurück zum Stack</span>
+                            </button>
+                            <h1 id="terminal-title" class="text-3xl font-bold text-white">Container Terminal</h1>
+                            <p id="terminal-subtitle" class="text-sm text-[#938F99] font-mono mt-1">Status: Verbunden via SSH</p>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="copyTerminalContent()" class="bg-[#2B2930] hover:bg-[#36343B] px-4 py-2 rounded-xl text-sm border border-white/5 transition-all text-[#938F99]">Kopieren</button>
+                            <button onclick="document.getElementById('terminal-output').innerText = '';" class="bg-[#2B2930] hover:bg-[#36343B] px-4 py-2 rounded-xl text-sm border border-white/5 transition-all text-[#938F99]">Konsole leeren</button>
+                            <button onclick="refreshLogs()" class="bg-[#D0BCFF] hover:bg-[#EADDFF] px-4 py-2 rounded-xl text-sm border border-white/5 transition-all text-[#381E72] font-bold">Logs Refresh</button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-[#0D0D0D] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col" style="height: 70vh;">
+                        <div class="bg-[#1C1B1F] px-4 py-2 flex items-center justify-between border-b border-white/5">
+                            <div class="flex gap-1.5">
+                                <div class="w-3 h-3 rounded-full bg-[#FF5F56]"></div>
+                                <div class="w-3 h-3 rounded-full bg-[#FFBD2E]"></div>
+                                <div class="w-3 h-3 rounded-full bg-[#27C93F]"></div>
+                            </div>
+                            <span class="text-[10px] text-[#938F99] font-mono">tty0 – docker exec</span>
+                        </div>
+                        <div id="terminal-output" class="flex-1 overflow-y-auto p-6 font-mono text-sm text-[#81C784] leading-relaxed whitespace-pre-wrap" style="scroll-behavior: smooth;">
+                            Initialisiere Session...
+                        </div>
+                        <div class="p-4 bg-[#1C1B1F] border-t border-white/5 flex items-center gap-4">
+                            <span class="text-[#D0BCFF] font-bold font-mono">#</span>
+                            <input type="text" id="terminal-input" placeholder="Befehl eingeben..." 
+                                   class="bg-transparent border-none outline-none flex-1 text-white font-mono text-sm"
+                                   onkeydown="if(event.key==='Enter') sendExecCommand()">
+                            <svg onclick="sendExecCommand()" class="text-[#938F99] hover:text-[#D0BCFF] cursor-pointer" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stack Details View -->
+            <section id="view-stack-details" class="page-view flex-1 hidden overflow-y-auto">
+                <div id="stack-detail-content" class="max-w-6xl mx-auto space-y-8 pb-12">
+                    <button onclick="navigateTo('dashboard')" class="inline-flex items-center px-6 py-3 bg-[#2B2930] rounded-full text-[#D0BCFF] hover:bg-[#36343B] transition-all">
+                        <svg class="mr-2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Zurück
+                    </button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        let fullInfrastructureData = null;
+        let network = null;
+        let nodesView = null;
+        let edgesView = null;
+        let activeLayers = { root: true, stack: true, container: true, tunnel: true, hostname: true, service: true, access: true, member: true };
+        let graphSearchTerm = "";
+        let charts = {};
+
+        async function initLoad() {
+            try {
+                const res = await fetch('/api/full-infrastructure');
+                if (res.status === 202) {
+                    document.getElementById('loader-msg').innerText = "Warte auf erste Echtzeit-Daten...";
+                    setTimeout(initLoad, 2000);
+                    return;
+                }
+                const data = await res.json();
+                fullInfrastructureData = data;
+                
+                document.getElementById('os-text').innerText = data.os;
+                document.getElementById('ip-text').innerText = window.location.hostname;
+                document.getElementById('header-ip').innerText = window.location.hostname;
+                
+                // SPA Routing Initial Check
+                handleRouting();
+                
+                document.getElementById('app-loader').style.opacity = '0';
+                setTimeout(() => document.getElementById('app-loader').style.display = 'none', 500);
+            } catch (e) {
+                console.error("Init Fehler:", e);
+                document.getElementById('loader-msg').innerText = "Verbindungsfehler!";
+            }
+        }
+
+        function handleRouting() {
+            const path = window.location.pathname;
+            if (path.startsWith('/stack/')) {
+                const parts = path.split('/');
+                const stackName = decodeURIComponent(parts[2]);
+                if (parts[3] === 'performance') {
+                    showStackPerformance(stackName);
+                } else {
+                    showStackDetail(stackName);
+                }
+            } else if (path.startsWith('/container/')) {
+                const containerName = decodeURIComponent(path.split('/')[2]);
+                showTerminal(containerName);
+            } else if (path === '/timeline') {
+                navigateTo('timeline');
+            } else if (path === '/carla') {
+                navigateTo('carla');
+            } else if (path === '/performance') {
+                navigateTo('performance');
+            } else {
+                navigateTo('dashboard');
+            }
+        }
+
+        function navigateTo(pageId) {
+            // Update URL without reload
+            const url = pageId === 'dashboard' ? '/' : `/${pageId}`;
+            window.history.pushState({pageId}, '', url);
+            switchPage(pageId);
+        }
+
+        window.onpopstate = (event) => {
+            if (event.state && event.state.pageId) switchPage(event.state.pageId);
+            else handleRouting();
+        };
+
+        function switchPage(pageId) {
+            document.querySelectorAll('.page-view').forEach(p => p.classList.add('hidden'));
+            document.querySelectorAll('.nav-rail-item').forEach(n => n.classList.remove('active'));
+            const target = document.getElementById(`view-${pageId}`);
+            if(target) target.classList.remove('hidden');
+            
+            // Highlight nav rail based on logical page
+            let navId = pageId;
+            if(['stack-details', 'stack-performance', 'container-terminal'].includes(pageId)) navId = 'dashboard';
+            
+            const nav = document.getElementById(`nav-${navId}`);
+            if(nav) nav.classList.add('active');
+            
+            if(pageId === 'dashboard') renderDashboard();
+            if(pageId === 'carla') initCarla();
+            if(pageId === 'timeline') showTimeline();
+            if(pageId === 'performance') { startMetricsPolling(); } else { stopMetricsPolling(); }
+            if(pageId !== 'stack-performance') { stopStackPerfPolling(); }
+            if(pageId !== 'container-terminal') { stopTerminalPolling(); }
+        }
+
+        function stopStackPerfPolling() {
+            if(stackPerfInterval) { clearInterval(stackPerfInterval); stackPerfInterval = null; }
+        }
+
+        function renderDashboard() {
+            const grid = document.getElementById('stacks-grid');
+            if(!grid || !fullInfrastructureData) return;
+            
+            grid.innerHTML = Object.entries(fullInfrastructureData.stacks).map(([name, containers]) => {
+                let searchStr = name.toLowerCase();
+                containers.forEach(c => searchStr += ` ${c.name} ${c.image}`);
+                
+                return `
+                <div onclick="showStackDetail('${name}')" class="glass-card stack-card p-6 group flex justify-between items-center" data-search="${searchStr}">
+                    <div>
+                        <h4 class="text-xl font-bold group-hover:text-[#D0BCFF] transition-colors">${name}</h4>
+                        <p class="text-xs text-[#938F99] mt-1">${containers.length} Container aktiv</p>
+                    </div>
+                    <div class="flex -space-x-3">
+                        ${containers.slice(0, 3).map(c => `
+                            <div class="w-8 h-8 rounded-full border-2 border-[#1C1B1F] bg-[#2B2930] flex items-center justify-center text-[10px] font-bold text-[#D0BCFF]">
+                                ${c.name[0].toUpperCase()}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `}).join('');
+        }
+                function showStackDetail(name) {
+            if(!fullInfrastructureData) { setTimeout(() => showStackDetail(name), 500); return; }
+            window.history.pushState({pageId: 'stack-details'}, '', `/stack/${encodeURIComponent(name)}`);
+            switchPage('stack-details');
+            const containers = fullInfrastructureData.stacks[name];
+            if(!containers) return;
+            const content = document.getElementById('stack-detail-content');
+            
+            content.innerHTML = `
+                <div class="flex items-center justify-between mb-8">
+                    <h1 class="text-3xl font-bold tracking-tight text-white">${name}</h1>
+                    <div class="bg-white/5 px-4 py-2 rounded-full border border-white/5 text-[10px] text-[#938F99] uppercase font-bold tracking-widest">
+                        Stack Overview
+                    </div>
+                </div>
+                <div class="space-y-6 pb-20">${containers.map(c => {
+                    const isExposed = c.cloudflares && c.cloudflares.length > 0;
+                    const safeName = c.name.replace(/[^a-zA-Z0-9]/g, '_');
+                    return `
+                    <div id="cont-${c.name}" class="glass-card p-8 relative overflow-hidden group border-l-4 ${isExposed ? 'border-l-[#D0BCFF]' : 'border-l-gray-600'} hover:bg-white/5 transition-all">
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
+                            <!-- Linke Spalte: Meta & Performance -->
+                            <div class="lg:col-span-4 space-y-6">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-white mb-1">${c.name}</h3>
+                                        <p class="text-[11px] text-[#938F99] font-mono break-all opacity-60 uppercase tracking-tighter">${c.image}</p>
+                                    </div>
+                                    <button onclick="showTerminal('${c.name}')" class="w-10 h-10 rounded-xl bg-[#2B2930] border border-white/10 flex items-center justify-center text-[#938F99] hover:text-[#D0BCFF] hover:border-[#D0BCFF]/30 transition-all shadow-lg group/term">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg>
+                                    </button>
+                                </div>
+
+                                <div onclick="showStackPerformance('${name}')" class="bg-white/5 border border-white/10 rounded-3xl p-5 text-[#938F99] cursor-pointer hover:bg-white/10 transition-all hover:border-[#D0BCFF]/30">
+                                    <p class="text-[9px] uppercase font-bold tracking-[0.2em] mb-3 flex items-center justify-between">
+                                        Live Telemetry
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                                    </p>
+                                    <div class="flex justify-between items-center">
+                                        <div>
+                                            <p class="text-[9px] text-slate-500 uppercase">Uptime</p>
+                                            <p id="uptime-${safeName}" class="text-sm font-bold text-white">${c.uptime || 'N/A'}</p>
+                                        </div>
+                                        <div class="text-center">
+                                            <p class="text-[9px] text-slate-500 uppercase">CPU</p>
+                                            <p id="cpu-${safeName}" class="text-sm font-bold text-white">${c.cpu || '0%'}</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-[9px] text-slate-500 uppercase">RAM</p>
+                                            <p id="ram-${safeName}" class="text-sm font-bold text-white">${c.ram || '0MB'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-[#EFB8C8]/5 border border-[#EFB8C8]/10 rounded-2xl p-4">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EFB8C8" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                            <span class="text-[10px] uppercase font-bold text-[#EFB8C8] tracking-widest">Protection</span>
+                                        </div>
+                                        <span class="text-[10px] font-medium text-[#E6E1E5] opacity-80">
+                                            ${isExposed ? (c.cloudflares[0].allowed_emails.length > 0 ? 'Access Active' : 'WAF Shield') : 'Isolated'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Rechte Spalte: Network Flow Vertical -->
+                            <div class="lg:col-span-8 bg-black/20 rounded-3xl p-8 border border-white/5 flex items-center">
+                                <div class="space-y-6 w-full ml-4">
+                                    <div class="routing-node">
+                                        <div class="routing-dot bg-[#D0BCFF]"></div>
+                                        <p class="text-[9px] text-[#938F99] uppercase font-bold tracking-widest mb-2">Endpoint</p>
+                                        <a href="${c.local_url}" target="_blank" class="flex items-center gap-2 bg-[#1C1B1F] hover:bg-[#2B2930] border border-white/5 px-4 py-2 rounded-xl font-mono text-xs text-[#D0BCFF] w-fit shadow-md transition-all group/endp">
+                                            ${c.local_url || 'Hidden Logic'}
+                                            <svg class="opacity-0 group-hover/endp:opacity-100 transition-opacity" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+                                        </a>
+                                    </div>
+
+                                    ${isExposed ? `
+                                        <div class="routing-node">
+                                            <div class="routing-dot bg-[#4488FF]"></div>
+                                            <p class="text-[9px] text-[#4488FF] uppercase font-bold tracking-widest mb-2">Nexus Tunnel</p>
+                                            <div class="bg-[#1C1B1F] border border-white/10 px-4 py-2 rounded-xl font-mono text-xs text-white w-fit shadow-sm">
+                                                ${c.cloudflares[0].tunnel_name}
+                                            </div>
+                                        </div>
+
+                                        <div class="routing-node">
+                                            <div class="routing-dot bg-[#81C784]"></div>
+                                            <p class="text-[9px] text-[#81C784] uppercase font-bold tracking-widest mb-2">Public Routing</p>
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                ${c.cloudflares.map(cf => `
+                                                    <div class="bg-[#2B2930] hover:bg-[#36343B] border border-white/10 px-5 py-3 rounded-2xl transition-all cursor-pointer group/link shadow-lg">
+                                                        <a href="https://${cf.public_domain}" target="_blank" class="flex flex-col gap-1">
+                                                            <div class="flex justify-between items-center">
+                                                                <span class="text-xs font-bold text-white tracking-tight">${cf.public_domain}</span>
+                                                                <svg class="text-[#938F99] group-hover/link:text-white transition-colors" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M10 14 21 3"/></svg>
+                                                            </div>
+                                                            ${cf.allowed_emails && cf.allowed_emails.length > 0 ? `
+                                                                <div class="flex flex-wrap gap-1 mt-1 border-t border-white/5 pt-2">
+                                                                    ${cf.allowed_emails.map(e => `<span class="bg-[#D0BCFF]/10 text-[#D0BCFF] px-1.5 py-0.5 rounded-md text-[8px] border border-[#D0BCFF]/20 font-medium">${e}</span>`).join('')}
+                                                                </div>
+                                                            ` : ''}
+                                                        </a>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    ` : `
+                                        <div class="routing-node opacity-40">
+                                            <div class="routing-dot bg-gray-600"></div>
+                                            <p class="text-[9px] text-gray-400 uppercase font-bold mb-1">Local Identity Only</p>
+                                            <div class="text-[10px] italic text-gray-600">Isolation Layer Active</div>
+                                        </div>
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('')}</div>`;
+
+            startStackMetricsPolling();
+        }
+
+        let stackMetricsInterval = null;
+        function startStackMetricsPolling() {
+            updateStackMetrics();
+            if(!stackMetricsInterval) stackMetricsInterval = setInterval(updateStackMetrics, 5000);
+        }
+        function stopStackMetricsPolling() {
+            if(stackMetricsInterval) { clearInterval(stackMetricsInterval); stackMetricsInterval = null; }
+        }
+
+        async function updateStackMetrics() {
+            if(window.location.pathname.indexOf('/stack/') === -1) {
+                stopStackMetricsPolling(); return;
+            }
+            try {
+                const res = await fetch('/api/metrics/containers');
+                const data = await res.json();
+                data.forEach(c => {
+                    const safeName = c.container_name.replace(/[^a-zA-Z0-9]/g, '_');
+                    const cpuEl = document.getElementById(`cpu-${safeName}`);
+                    const ramEl = document.getElementById(`ram-${safeName}`);
+                    const uptimeEl = document.getElementById(`uptime-${safeName}`);
+                    
+                    if(cpuEl) cpuEl.innerText = c.cpu_usage.toFixed(1) + '%';
+                    if(ramEl) ramEl.innerText = c.ram_usage.toFixed(0) + 'MB';
+                    if(uptimeEl) uptimeEl.innerText = c.uptime;
+                });
+            } catch(e) { console.error("Stack Metrics Error:", e); }
+        }
+
+        function showStackPerformance(stackName) {
+            window.history.pushState({pageId: 'stack-performance', stack: stackName}, '', `/stack/${encodeURIComponent(stackName)}/performance`);
+            switchPage('stack-performance');
+            document.getElementById('stack-perf-title').innerText = `${stackName} | Performance`;
+            updateStackPerformance(stackName);
+        }
+
+        let stackPerfInterval = null;
+        let stackPerfLimit = 720;
+        let activeStackName = null;
+
+        async function updateStackPerformance(name) {
+            activeStackName = name;
+            try {
+                const res = await fetch(`/api/metrics/stack/${encodeURIComponent(name)}?limit=${stackPerfLimit}`);
+                const history = await res.json();
+                if(!history || history.length === 0) return;
+
+                const labels = history.map(h => {
+                    const d = new Date(h.timestamp * 1000);
+                    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+                });
+                const cpuData = history.map(h => h.cpu_usage);
+                const ramData = history.map(h => h.ram_usage);
+
+                if(!charts.stackCpu) {
+                    const ctx = document.getElementById('chart-stack-cpu').getContext('2d');
+                    charts.stackCpu = new Chart(ctx, getChartConfig('#D0BCFF', labels, cpuData));
+                    const ctxR = document.getElementById('chart-stack-ram').getContext('2d');
+                    charts.stackRam = new Chart(ctxR, getChartConfig('#81C784', labels, ramData));
+                } else {
+                    charts.stackCpu.data.labels = labels;
+                    charts.stackCpu.data.datasets[0].data = cpuData;
+                    charts.stackCpu.update();
+                    charts.stackRam.data.labels = labels;
+                    charts.stackRam.data.datasets[0].data = ramData;
+                    charts.stackRam.update();
+                }
+            } catch(e) { console.error("Stack History Error:", e); }
+            
+            stopStackPerfPolling();
+            stackPerfInterval = setInterval(() => updateStackPerformance(activeStackName), 10000);
+        }
+
+        function updateStackTimeFilter(range, btn) {
+            document.querySelectorAll('#stack-time-filters .filter-chip').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            stackPerfLimit = (range === '1h') ? 720 : 5000;
+            if(activeStackName) updateStackPerformance(activeStackName);
+        }
+
+        let activeContainer = null;
+        let logInterval = null;
+
+        function showTerminal(name) {
+            activeContainer = name;
+            window.history.pushState({pageId: 'container-terminal', container: name}, '', `/container/${encodeURIComponent(name)}/terminal`);
+            switchPage('container-terminal');
+            document.getElementById('terminal-title').innerText = `${name} – Console`;
+            document.getElementById('terminal-output').innerText = "Abfrage der Container-Logs läuft...\n";
+            refreshLogs();
+            if(!logInterval) logInterval = setInterval(refreshLogs, 5000);
+            setTimeout(() => document.getElementById('terminal-input')?.focus(), 300);
+        }
+
+        async function refreshLogs() {
+            if(!activeContainer) return;
+            try {
+                const res = await fetch(`/api/container/${encodeURIComponent(activeContainer)}/logs`);
+                const data = await res.json();
+                const out = document.getElementById('terminal-output');
+                out.innerText = data.logs;
+                out.scrollTop = out.scrollHeight;
+            } catch(e) { console.log(e); }
+        }
+
+        async function sendExecCommand() {
+            const input = document.getElementById('terminal-input');
+            const cmd = input.value;
+            if(!cmd || !activeContainer) return;
+            
+            const out = document.getElementById('terminal-output');
+            out.innerText += `\n\n# ${cmd}\n`;
+            input.value = "";
+            out.scrollTop = out.scrollHeight;
+
+            try {
+                const res = await fetch(`/api/container/${encodeURIComponent(activeContainer)}/exec`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({command: cmd})
+                });
+                const data = await res.json();
+                out.innerText += data.output + "\n";
+                out.scrollTop = out.scrollHeight;
+            } catch(e) { out.innerText += `\nError: ${e}\n`; }
+        }
+
+        function stopTerminalPolling() {
+            if(logInterval) { clearInterval(logInterval); logInterval = null; }
+            activeContainer = null;
+        }
+
+        function copyTerminalContent() {
+            const out = document.getElementById('terminal-output');
+            navigator.clipboard.writeText(out.innerText).then(() => {
+                const btn = document.querySelector('[onclick="copyTerminalContent()"]');
+                const oldText = btn.innerText;
+                btn.innerText = "✓ Kopiert!";
+                setTimeout(() => btn.innerText = oldText, 2000);
+            });
+        }
+
+        // Global Keyboard Listeners (Terminal & Hotkeys)
+        window.addEventListener('keydown', (e) => {
+            if(window.location.pathname.indexOf('/terminal') === -1) return;
+            
+            // Ctrl+L (Clear Console)
+            if(e.ctrlKey && e.key === 'l') {
+                e.preventDefault();
+                document.getElementById('terminal-output').innerText = '';
+            }
+            
+            // Ctrl+A (Select everything in the OUTPUT area if focus is generic)
+            if((e.ctrlKey || e.metaKey) && e.key === 'a' && document.activeElement.tagName !== 'INPUT') {
+                e.preventDefault();
+                const node = document.getElementById('terminal-output');
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+        });
+
+        async function showTimeline() {
+            try {
+                const res = await fetch('/api/timeline/snapshots?limit=50');
+                const list = await res.json();
+                const container = document.getElementById('timeline-list');
+                
+                container.innerHTML = list.map(s => {
+                    const d = new Date(s.timestamp * 1000);
+                    const time = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    const date = d.toLocaleDateString([], {day: '2-digit', month: 'short'});
+                    return `
+                        <div onclick="loadSnapshot(${s.timestamp})" class="p-3 bg-white/5 hover:bg-[#D0BCFF]/10 rounded-xl cursor-pointer border border-transparent hover:border-[#D0BCFF]/30 transition-all timeline-item group">
+                            <div class="flex items-center justify-between pointer-events-none">
+                                <span class="text-sm font-bold text-white/90 group-hover:text-[#D0BCFF]">${time}</span>
+                                <span class="text-[9px] text-[#938F99] uppercase font-bold tracking-tighter">${date}</span>
+                            </div>
+                            <div class="mt-2 flex items-center gap-2 pointer-events-none">
+                                <div class="h-1 flex-1 bg-white/5 rounded-full overflow-hidden">
+                                    <div class="h-full bg-[#D0BCFF]/40" style="width: ${s.cpu_usage || 0}%"></div>
+                                </div>
+                                <span class="text-[9px] text-[#938F99]">${Math.round(s.cpu_usage) || 0}% CPU</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch(e) { console.error("Timeline error:", e); }
+        }
+
+        async function loadSnapshot(ts) {
+            document.getElementById('snapshot-empty').classList.add('hidden');
+            document.getElementById('snapshot-details').classList.remove('hidden');
+            
+            try {
+                const res = await fetch(`/api/timeline/snapshot/${ts}`);
+                const data = await res.json();
+                
+                const d = new Date(ts * 1000);
+                document.getElementById('snapshot-title').innerText = `Snapshot: ${d.toLocaleString()}`;
+                
+                const grid = document.getElementById('snapshot-content-grid');
+                grid.innerHTML = `
+                    <div class="glass-card p-6 border-l-4 border-l-[#D0BCFF]">
+                        <p class="text-[10px] text-[#938F99] uppercase font-bold mb-1">Server CPU</p>
+                        <p class="text-2xl font-bold text-white">${data.server?.cpu_usage.toFixed(1)}%</p>
+                    </div>
+                    <div class="glass-card p-6 border-l-4 border-l-[#81C784]">
+                        <p class="text-[10px] text-[#938F99] uppercase font-bold mb-1">Server RAM</p>
+                        <p class="text-2xl font-bold text-white">${Math.round(data.server?.ram_usage || 0)} MB</p>
+                    </div>
+                    <div class="glass-card p-6 border-l-4 border-l-orange-400">
+                        <p class="text-[10px] text-[#938F99] uppercase font-bold mb-1">Temp Snapshot</p>
+                        <p class="text-2xl font-bold text-white">${data.server?.cpu_temp || '--'}°C</p>
+                    </div>
+                `;
+                
+                const table = document.getElementById('snapshot-table-body');
+                table.innerHTML = data.containers.map(c => `
+                    <tr class="hover:bg-white/5 transition-all text-white/80">
+                        <td class="px-6 py-4 font-bold text-white">${c.container_name}</td>
+                        <td class="px-6 py-4 font-mono text-xs text-[#938F99]">${c.stack_name}</td>
+                        <td class="px-6 py-4">${c.cpu_usage.toFixed(1)}%</td>
+                        <td class="px-6 py-4">${Math.round(c.ram_usage)} MB</td>
+                        <td class="px-6 py-4 text-xs italic opacity-70">${c.uptime}</td>
+                    </tr>
+                `).join('');
+                
+            } catch(e) { console.error("Load Snapshot error:", e); }
+        }
+
+        function initCarla() {
+            if(network) { network.redraw(); return; }
+            const container = document.getElementById('carla-canvas');
+            
+            const nodes = new vis.DataSet([
+                { id: 'hetzner', label: 'HETZNER NODE', shape: 'box', color: '#D0BCFF', font: {color: '#381E72', face: 'Inter', size: 16, bold: true}, group: 'root', level: 0 },
+                { id: 'cf_root', label: 'CLOUDFLARE EDGE', shape: 'diamond', color: '#F38020', font: {color: 'white', face: 'Inter', size: 16, bold: true}, group: 'root', level: 0 }
+            ]);
+            
+            const edges = new vis.DataSet([]);
+
+            Object.entries(fullInfrastructureData.stacks).forEach(([stackName, containers]) => {
+                nodes.add({ id: stackName, label: stackName, shape: 'dot', color: '#4A4458', font: {color: 'white'}, group: 'stack', level: 1 });
+                edges.add({ from: 'hetzner', to: stackName, color: '#4A4458' });
+
+                containers.forEach(cont => {
+                    const contId = `c-${cont.name}`;
+                    nodes.add({ id: contId, label: cont.name, shape: 'circularImage', image: 'https://api.dicebear.com/7.x/shapes/svg?seed='+cont.name, group: 'container', level: 2 });
+                    edges.add({ from: stackName, to: contId, color: '#4A4458' });
+
+                    if(cont.cloudflares && cont.cloudflares.length > 0) {
+                        cont.cloudflares.forEach((cf, i) => {
+                            const tunnelId = `tunnel-${cf.tunnel_name}`;
+                            if(!nodes.get(tunnelId)) {
+                                nodes.add({ id: tunnelId, label: cf.tunnel_name, shape: 'box', color: '#36343B', font: {color: '#D0BCFF'}, group: 'tunnel', level: 1 });
+                                edges.add({ from: 'cf_root', to: tunnelId, color: '#F38020' });
+                            }
+                            
+                            const dId = `domain-${cf.public_domain}`;
+                            if(!nodes.get(dId)) {
+                                nodes.add({ 
+                                    id: dId, 
+                                    label: cf.public_domain, 
+                                    shape: 'dot', 
+                                    size: 15,
+                                    color: '#81C784', 
+                                    font: {color: 'white', size: 10, face: 'Inter', bold: true}, 
+                                    group: 'hostname', 
+                                    level: 3 
+                                });
+                                edges.add({ from: tunnelId, to: dId, color: '#36343B' });
+                            }
+                            
+                            // Die magische Verbindung: Domain -> Container
+                            edges.add({ 
+                                from: dId, to: contId, 
+                                width: 2, color: '#D0BCFF', 
+                                arrows: 'to', 
+                                dashes: true,
+                                smooth: {type: 'curvedCW', roundness: 0.2} 
+                            });
+                        });
+                    }
+                });
+            });
+
+            nodesView = new vis.DataView(nodes, {
+                filter: (n) => activeLayers[n.group] !== false && (!graphSearchTerm || n.label.toLowerCase().includes(graphSearchTerm))
+            });
+
+            edgesView = new vis.DataView(edges);
+
+            const options = {
+                layout: { hierarchical: { enabled: true, direction: 'LR', sortMethod: 'directed', levelSeparation: 400, nodeSpacing: 120 } },
+                physics: { enabled: false },
+                interaction: { hover: true, zoomView: true, dragView: true }
+            };
+
+            network = new vis.Network(container, { nodes: nodesView, edges: edgesView }, options);
+        }
+
+        // Metrics Logic
+        let metricsInterval = null;
+        let currentMetricsLimit = 720; // Default: 1 Std (720 * 5s = 3600s)
+
+        function startMetricsPolling() {
+            updateMetrics();
+            if(!metricsInterval) metricsInterval = setInterval(updateMetrics, 5000);
+        }
+        function stopMetricsPolling() {
+            if(metricsInterval) { clearInterval(metricsInterval); metricsInterval = null; }
+        }
+
+        async function updateMetrics() {
+            try {
+                const res = await fetch(`/api/metrics/server?limit=${currentMetricsLimit}`);
+                const data = await res.json();
+                if(!data || data.length === 0) return;
+                
+                const latest = data[data.length - 1];
+                document.getElementById('kpi-cpu').innerText = latest.cpu_usage.toFixed(1) + '%';
+                document.getElementById('kpi-ram').innerText = (latest.ram_usage / 1024).toFixed(1) + ' GB';
+                document.getElementById('kpi-disk').innerText = (latest.disk_used / 1024).toFixed(1) + ' GB';
+                document.getElementById('kpi-temp').innerText = latest.cpu_temp.toFixed(1) + '°C';
+                
+                initOrUpdateCharts(data);
+            } catch(e) { console.error("Metrics Poll Error:", e); }
+        }
+
+        function updateTimeFilter(range, btn) {
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            
+            const mapping = {
+                '1m': 12,      // 12 * 5s = 60s
+                '1h': 720,     // 720 * 5s = 3600s
+                '1w': 5000,    // Woche gekappt für Performance
+                '1y': 10000    // Jahr gekappt für Performance
+            };
+            
+            currentMetricsLimit = mapping[range] || 720;
+            updateMetrics(); // Sofort neu laden
+        }
+
+        function initOrUpdateCharts(history) {
+            const labels = history.map(h => {
+                const d = new Date(h.timestamp * 1000);
+                return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+            });
+            const cpuData = history.map(h => h.cpu_usage);
+            const ramData = history.map(h => h.ram_usage);
+
+            if(!charts.cpu) {
+                const ctx = document.getElementById('chart-cpu').getContext('2d');
+                charts.cpu = new Chart(ctx, getChartConfig('#D0BCFF', labels, cpuData));
+                const ctxR = document.getElementById('chart-ram').getContext('2d');
+                charts.ram = new Chart(ctxR, getChartConfig('#81C784', labels, ramData));
+            } else {
+                charts.cpu.data.labels = labels; charts.cpu.data.datasets[0].data = cpuData; charts.cpu.update('none');
+                charts.ram.data.labels = labels; charts.ram.data.datasets[0].data = ramData; charts.ram.update('none');
+            }
+        }
+
+        function getChartConfig(color, labels, data) {
+            return {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: color + '11',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { font: { size: 10 } } },
+                        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0 } }
+                    }
+                }
+            };
+        }
+
+        function filterStacks() {
+            const query = document.getElementById('global-search').value.toLowerCase();
+            const cards = document.querySelectorAll('.stack-card');
+            cards.forEach(c => {
+                const searchData = c.getAttribute('data-search') || "";
+                c.style.display = searchData.includes(query) ? 'flex' : 'none';
+            });
+        }
+
+        async function forceRefresh() {
+            const icon = document.getElementById('refresh-icon');
+            icon.classList.add('animate-spin');
+            try {
+                await fetch('/api/refresh', { method: 'POST' });
+                setTimeout(() => {
+                    initLoad();
+                    icon.classList.remove('animate-spin');
+                }, 1000);
+            } catch(e) { icon.classList.remove('animate-spin'); }
+        }
+
+        function toggleSidebar() { document.getElementById('graph-sidebar').classList.toggle('open'); }
+        function toggleLayer(l) { 
+            activeLayers[l] = !activeLayers[l]; 
+            document.getElementById(`toggle-${l}`)?.classList.toggle('on');
+            if(network) network.setData({nodes: nodesView, edges: edgesView});
+        }
+        function filterGraphNodes() { 
+            graphSearchTerm = document.getElementById('graph-search').value.toLowerCase(); 
+            if(network) network.setData({nodes: nodesView, edges: edgesView});
+        }
+
+        window.onload = initLoad;
+    </script>
+</body>
+</html>
