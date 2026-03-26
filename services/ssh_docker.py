@@ -94,7 +94,7 @@ def container_action(container_name: str, action: str) -> str:
 
 def stack_action(stack_name: str, action: str) -> str:
     """Fuehrt eine Aktion auf einem gesamten Compose-Stack aus."""
-    allowed = ("start", "stop", "restart", "down")
+    allowed = ("start", "stop", "restart", "down", "update")
     if action not in allowed:
         return f"Unerlaubte Aktion: {action}"
     
@@ -105,7 +105,6 @@ def stack_action(stack_name: str, action: str) -> str:
     ).strip()
 
     if not workdir or "Error" in workdir:
-        # Fallback: Versuche es ueber Filter, falls Label nicht da (weniger verlaesslich fuer compose cmds)
         return f"Fehler: Working Directory fuer Stack '{stack_name}' nicht gefunden."
 
     if action == "restart":
@@ -116,6 +115,8 @@ def stack_action(stack_name: str, action: str) -> str:
         cmd = f"cd {workdir} && docker compose up -d 2>&1"
     elif action == "down":
         cmd = f"cd {workdir} && docker compose down 2>&1"
+    elif action == "update":
+        cmd = f"cd {workdir} && docker compose pull && docker compose up -d 2>&1"
     else:
         return "Unbekannte Aktion"
 

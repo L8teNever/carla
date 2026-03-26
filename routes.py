@@ -231,7 +231,7 @@ def api_container_action(name, action):
 
 @bp.route("/api/stack/<name>/<action>", methods=["POST"])
 def api_stack_action(name, action):
-    allowed = ("start", "stop", "restart", "down")
+    allowed = ("start", "stop", "restart", "down", "update")
     if action not in allowed:
         return jsonify({"error": f"Unerlaubte Aktion: {action}"}), 400
     output = ssh_docker.stack_action(name, action)
