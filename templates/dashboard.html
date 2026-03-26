@@ -626,7 +626,12 @@
             
             content.innerHTML = `
                 <div class="flex items-center justify-between mb-8">
-                    <h1 class="text-3xl font-bold tracking-tight text-white">${name}</h1>
+                    <div class="flex items-center gap-4">
+                        <button onclick="navigateTo('dashboard')" class="w-10 h-10 rounded-xl bg-[#2B2930] border border-white/10 flex items-center justify-center text-[#938F99] hover:text-[#D0BCFF] hover:border-[#D0BCFF]/30 transition-all">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <h1 class="text-3xl font-bold tracking-tight text-white">${name}</h1>
+                    </div>
                     <div class="bg-white/5 px-4 py-2 rounded-full border border-white/5 text-[10px] text-[#938F99] uppercase font-bold tracking-widest">
                         Stack Overview
                     </div>
