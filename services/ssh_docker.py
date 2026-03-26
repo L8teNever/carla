@@ -74,3 +74,11 @@ def execute_container_command(unused_host, unused_user, unused_pass, container_n
     """Führt einen Befehl im Docker-Container aus."""
     return system_executor.execute_command(f"docker exec {container_name} {cmd}")
 
+
+def container_action(container_name: str, action: str) -> str:
+    """Fuehrt eine Docker-Aktion auf einem Container aus (start/stop/restart/pause/unpause)."""
+    allowed = ("start", "stop", "restart", "pause", "unpause")
+    if action not in allowed:
+        return f"Unerlaubte Aktion: {action}"
+    return system_executor.execute_command(f"docker {action} {container_name}")
+

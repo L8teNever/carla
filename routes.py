@@ -216,6 +216,14 @@ def api_container_exec(name):
     output = ssh_docker.execute_container_command(config.SSH_HOST, config.SSH_USER, config.SSH_PASS, name, cmd)
     return jsonify({"output": output})
 
+@bp.route("/api/container/<name>/<action>", methods=["POST"])
+def api_container_action(name, action):
+    allowed = ("start", "stop", "restart", "pause", "unpause")
+    if action not in allowed:
+        return jsonify({"error": f"Unerlaubte Aktion: {action}"}), 400
+    output = ssh_docker.container_action(name, action)
+    return jsonify({"output": output, "action": action, "container": name})
+
 @bp.route("/api/refresh", methods=["POST"])
 def manual_refresh():
     global is_fetching
