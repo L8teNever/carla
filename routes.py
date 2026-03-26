@@ -98,10 +98,10 @@ def _fetch_and_cache_task():
 
     try:
         docker_data = ssh_docker.fetch_docker_data(
-            ssh_host=config.SSH_HOST,
-            ssh_user=config.SSH_USER,
-            ssh_pass=config.SSH_PASS,
-            github_token=config.GITHUB_TOKEN,
+            config.SSH_HOST,
+            config.SSH_USER,
+            config.SSH_PASS,
+            config.GITHUB_TOKEN,
         )
 
         cf = cloudflare.CloudflareClient(config.CF_API_TOKEN, config.CF_ACCOUNT_ID)
