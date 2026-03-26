@@ -11,7 +11,7 @@ services:
     container_name: carla_monitor
     restart: always
     ports:
-      - "8080:8080"
+      - "10.7.0.1:1070:8080"
     volumes:
       # Für 'local' Modus: Zugriff auf die lokale Docker-Engine des Zielservers
       - /var/run/docker.sock:/var/run/docker.sock
