@@ -1,0 +1,29 @@
+# ==============================================================
+# CARLA – Docker Compose (Production)
+# Holt das fertige Image direkt von Docker Hub (l8tenever/carla).
+# Ideal für die Bereitstellung auf entfernten Servern.
+# ==============================================================
+version: '3.8'
+
+services:
+  carla:
+    image: l8tenever/carla:latest
+    container_name: carla_monitor
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      # Für 'local' Modus: Zugriff auf die lokale Docker-Engine des Zielservers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persistente Speicherung der Metriken und des Caches
+      - ./storage:/app/storage
+      - ./data:/app/data
+      # Deine individuelle Konfiguration
+      - ./config.py:/app/config.py
+    environment:
+      - TZ=Europe/Berlin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
