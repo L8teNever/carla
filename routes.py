@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, ssh_docker, cache, metrics_db, setup
+from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater
 import config
 
 bp = Blueprint("main", __name__)
@@ -265,6 +265,7 @@ def api_setup_save():
     from services import metrics_worker, system_executor
     system_executor.close_ssh()
     metrics_worker.start_daemon()
+    updater.start_daemon()
     start_background_fetch()
 
     return jsonify({"status": "ok"})
@@ -279,3 +280,41 @@ def api_setup_status():
 def api_setup_reset():
     setup.delete_setup()
     return jsonify({"status": "ok", "message": "Setup zurueckgesetzt. Neustart erforderlich."})
+
+
+# ---------------------------------------------------------------
+# Auto-Update Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/updater/config", methods=["GET"])
+def api_updater_config_get():
+    cfg = updater.load_config()
+    cfg["available_stacks"] = updater.get_available_stacks()
+    return jsonify(cfg)
+
+
+@bp.route("/api/updater/config", methods=["POST"])
+def api_updater_config_save():
+    data = request.json
+    if not data:
+        return jsonify({"error": "Keine Daten"}), 400
+    cfg = updater.load_config()
+    cfg["enabled"] = data.get("enabled", cfg.get("enabled", False))
+    cfg["time"] = data.get("time", cfg.get("time", "04:00"))
+    cfg["mode"] = data.get("mode", cfg.get("mode", "all"))
+    cfg["stacks"] = data.get("stacks", cfg.get("stacks", []))
+    updater.save_config(cfg)
+    return jsonify({"status": "ok"})
+
+
+@bp.route("/api/updater/run", methods=["POST"])
+def api_updater_run_now():
+    data = request.json or {}
+    stacks = data.get("stacks", None)
+    threading.Thread(target=updater.run_update, args=(stacks,), daemon=True).start()
+    return jsonify({"status": "started", "message": "Update im Hintergrund gestartet."})
+
+
+@bp.route("/api/updater/log", methods=["GET"])
+def api_updater_log():
+    return jsonify(updater.get_log())

@@ -21,6 +21,8 @@ print("[CARLA] Webinterface ist SOFORT erreichbar.")
 if setup.is_setup_done():
     # Setup ist abgeschlossen – normal starten
     metrics_worker.start_daemon()
+    from services import updater
+    updater.start_daemon()
     if not cache.has_entry("full_infrastructure"):
         print("[CARLA] Kein Cache vorhanden. Starte ersten Download parallel im Hintergrund...")
         start_background_fetch()
