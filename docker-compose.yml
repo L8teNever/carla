@@ -1,0 +1,29 @@
+# ==============================================================
+# CARLA – Docker Compose
+# Startet CARLA im Container mit Zugriff auf den lokalen Docker-Socket.
+# ==============================================================
+version: '3.8'
+
+services:
+  carla:
+    build: .
+    container_name: carla_monitor
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      # Für 'local' Modus: Zugriff auf die lokale Docker-Engine
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persistente Speicherung der Metriken und des Caches
+      - ./storage:/app/storage
+      - ./data:/app/data
+      # Die Konfiguration (kann auch über Env-Variablen gelöst werden)
+      - ./config.py:/app/config.py
+    environment:
+      # Hier können alternativ Umgebungsvariablen gesetzt werden
+      - TZ=Europe/Berlin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

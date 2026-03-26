@@ -1,9 +1,9 @@
-# ==============================================================
-# CARLA – Configuration Template
-# Kopiere diese Datei zu config.py und trage deine echten Daten ein.
-# ==============================================================
+# --- Betriebsmodus ---
+# 'ssh'  : Monitoriert einen entfernten Server (Standard)
+# 'local': Monitoriert den lokalen Linux-Server, auf dem CARLA läuft
+MODE = "ssh"
 
-# --- SSH / Server ---
+# --- SSH / Server (Nur für MODE='ssh' relevant) ---
 SSH_HOST = "deine-ip"
 SSH_USER = "root"
 SSH_PASS = "dein-passwort"
