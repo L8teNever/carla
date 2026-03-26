@@ -1,6 +1,7 @@
 # ==============================================================
 # CARLA – Docker Compose
-# Startet CARLA im Container mit Zugriff auf den lokalen Docker-Socket.
+# Startet CARLA im Container. Konfiguration erfolgt beim ersten
+# Start ueber den Setup-Wizard im Browser.
 # ==============================================================
 services:
   carla:
@@ -14,13 +15,6 @@ services:
       - ./storage:/app/storage
       - ./data:/app/data
     environment:
-      - CARLA_MODE=ssh
-      - CARLA_SSH_HOST=deine-ip
-      - CARLA_SSH_USER=root
-      - CARLA_SSH_PASS=dein-passwort
-      - CARLA_GITHUB_TOKEN=ghp_dein_token
-      - CARLA_CF_API_TOKEN=cfut_dein_token
-      - CARLA_CF_ACCOUNT_ID=deine-id
       - TZ=Europe/Berlin
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]

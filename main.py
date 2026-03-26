@@ -11,25 +11,26 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from flask import Flask
 from routes import bp, start_background_fetch
-from services import cache, metrics_worker
+from services import cache, metrics_worker, setup
 import config
 
 app = Flask(__name__)
 app.register_blueprint(bp)
 
 print("\n" + "="*60)
-print("🚀 [CARLA] Server gestartet!")
-print("🌐 [CARLA] Webinterface ist SOFORT erreichbar.")
+print("[CARLA] Server gestartet!")
+print("[CARLA] Webinterface ist SOFORT erreichbar.")
 
-# Starte Worker für historische System-Metriken logging
-metrics_worker.start_daemon()
-
-# Starte asynchrone Erst-Abfrage, falls noch kein lokaler SQL-Cache existiert.
-if not cache.has_entry("full_infrastructure"):
-    print("📡 [CARLA] Kein Cache vorhanden. Starte ersten Download parallel im Hintergrund...")
-    start_background_fetch()
+if setup.is_setup_done():
+    # Setup ist abgeschlossen – normal starten
+    metrics_worker.start_daemon()
+    if not cache.has_entry("full_infrastructure"):
+        print("[CARLA] Kein Cache vorhanden. Starte ersten Download parallel im Hintergrund...")
+        start_background_fetch()
+    else:
+        print("[CARLA] SQL-Cache vorhanden – Ladevorgaenge sind blitzschnell.")
 else:
-    print("⏭️ [CARLA] SQL-Cache vorhanden – Ladevorgänge sind blitzschnell.")
+    print("[CARLA] Kein Setup gefunden – Setup-Wizard wird im Browser angezeigt.")
 
 print("="*60 + "\n")
 

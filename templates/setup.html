@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CARLA | Setup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --m3-surface: #1C1B1F;
+            --m3-surface-container: #2B2930;
+            --m3-surface-container-high: #36343B;
+            --m3-primary: #D0BCFF;
+            --m3-on-primary: #381E72;
+            --m3-secondary: #CCC2DC;
+            --m3-outline: #938F99;
+            --m3-error: #F2B8B5;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--m3-surface);
+            color: #E6E1E5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .setup-card {
+            background: rgba(43, 41, 48, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 28px;
+        }
+        .input-field {
+            background: var(--m3-surface);
+            border: 1px solid var(--m3-outline);
+            border-radius: 12px;
+            color: #E6E1E5;
+            padding: 12px 16px;
+            width: 100%;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: var(--m3-primary);
+        }
+        .input-field::placeholder {
+            color: var(--m3-outline);
+        }
+        .btn-primary {
+            background: var(--m3-primary);
+            color: var(--m3-on-primary);
+            border-radius: 100px;
+            padding: 12px 32px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .mode-card {
+            background: var(--m3-surface);
+            border: 2px solid var(--m3-outline);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-card:hover {
+            border-color: var(--m3-secondary);
+        }
+        .mode-card.selected {
+            border-color: var(--m3-primary);
+            background: rgba(208, 188, 255, 0.08);
+        }
+        .step-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--m3-outline);
+            transition: all 0.3s;
+        }
+        .step-indicator.active {
+            background: var(--m3-primary);
+            width: 24px;
+            border-radius: 4px;
+        }
+        .step-indicator.done {
+            background: var(--m3-primary);
+        }
+        .slide { display: none; }
+        .slide.active { display: block; }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .error-msg {
+            color: var(--m3-error);
+            font-size: 13px;
+            margin-top: 8px;
+        }
+        .label {
+            font-size: 12px;
+            color: var(--m3-secondary);
+            margin-bottom: 6px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(208, 188, 255, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-card p-8 w-full max-w-lg mx-4">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold mb-2" style="color: var(--m3-primary);">CARLA</h1>
+            <p class="text-sm" style="color: var(--m3-outline);">Infrastructure Monitoring Setup</p>
+        </div>
+
+        <!-- Step Indicators -->
+        <div class="flex items-center justify-center gap-2 mb-8" id="stepIndicators">
+            <div class="step-indicator active" data-step="0"></div>
+            <div class="step-indicator" data-step="1"></div>
+            <div class="step-indicator" data-step="2"></div>
+        </div>
+
+        <!-- Step 1: Modus-Auswahl -->
+        <div class="slide active fade-in" id="step0">
+            <h2 class="text-lg font-semibold mb-2">Betriebsmodus</h2>
+            <p class="text-sm mb-6" style="color: var(--m3-outline);">Wie soll CARLA auf Docker zugreifen?</p>
+
+            <div class="flex flex-col gap-3">
+                <div class="mode-card" onclick="selectMode('local')">
+                    <div class="flex items-center gap-3">
+                        <div class="text-2xl">&#x1F4BB;</div>
+                        <div>
+                            <div class="font-semibold">Lokal</div>
+                            <div class="text-sm" style="color: var(--m3-outline);">Docker auf diesem Server verwalten</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mode-card" onclick="selectMode('ssh')">
+                    <div class="flex items-center gap-3">
+                        <div class="text-2xl">&#x1F310;</div>
+                        <div>
+                            <div class="font-semibold">SSH (Remote)</div>
+                            <div class="text-sm" style="color: var(--m3-outline);">Docker auf einem entfernten Server via SSH verwalten</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Zugangsdaten -->
+        <div class="slide fade-in" id="step1">
+            <h2 class="text-lg font-semibold mb-2">Zugangsdaten</h2>
+            <p class="text-sm mb-6" style="color: var(--m3-outline);">Trage deine Verbindungsdaten ein.</p>
+
+            <!-- SSH Fields (nur bei SSH-Modus sichtbar) -->
+            <div id="sshFields" class="space-y-4 mb-6" style="display:none;">
+                <div>
+                    <div class="label">SSH Host (IP / Hostname)</div>
+                    <input type="text" class="input-field" id="sshHost" placeholder="192.168.1.100">
+                </div>
+                <div>
+                    <div class="label">SSH Benutzer</div>
+                    <input type="text" class="input-field" id="sshUser" placeholder="root" value="root">
+                </div>
+                <div>
+                    <div class="label">SSH Passwort</div>
+                    <input type="password" class="input-field" id="sshPass" placeholder="Passwort eingeben">
+                </div>
+            </div>
+
+            <div id="localInfo" class="mb-6 p-4 rounded-xl" style="background: var(--m3-surface); display:none;">
+                <p class="text-sm" style="color: var(--m3-secondary);">
+                    Im lokalen Modus greift CARLA direkt auf den Docker-Socket zu. Keine SSH-Daten noetig.
+                </p>
+            </div>
+
+            <!-- API Tokens -->
+            <div class="space-y-4">
+                <div>
+                    <div class="label">GitHub Token</div>
+                    <input type="password" class="input-field" id="githubToken" placeholder="ghp_...">
+                    <p class="text-xs mt-1" style="color: var(--m3-outline);">Fuer Compose-Dateien aus privaten Repos</p>
+                </div>
+                <div>
+                    <div class="label">Cloudflare API Token</div>
+                    <input type="password" class="input-field" id="cfToken" placeholder="cfut_...">
+                </div>
+                <div>
+                    <div class="label">Cloudflare Account ID</div>
+                    <input type="text" class="input-field" id="cfAccountId" placeholder="Account ID">
+                </div>
+            </div>
+
+            <div id="step1Error" class="error-msg" style="display:none;"></div>
+        </div>
+
+        <!-- Step 3: Fertig -->
+        <div class="slide fade-in" id="step2">
+            <div class="text-center py-4">
+                <div class="success-icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--m3-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </div>
+                <h2 class="text-xl font-semibold mb-2">Setup abgeschlossen</h2>
+                <p class="text-sm mb-2" style="color: var(--m3-outline);">CARLA ist bereit.</p>
+                <p class="text-sm" style="color: var(--m3-secondary);" id="summaryText"></p>
+            </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="flex justify-between items-center mt-8">
+            <button class="text-sm px-4 py-2 rounded-full transition-all" style="color: var(--m3-secondary);" id="btnBack" onclick="prevStep()" disabled>Zurueck</button>
+            <button class="btn-primary" id="btnNext" onclick="nextStep()" disabled>Weiter</button>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        let selectedMode = null;
+        const totalSteps = 3;
+
+        function selectMode(mode) {
+            selectedMode = mode;
+            document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+            event.currentTarget.closest('.mode-card').classList.add('selected');
+            document.getElementById('btnNext').disabled = false;
+        }
+
+        function updateStepUI() {
+            // Slides
+            document.querySelectorAll('.slide').forEach((s, i) => {
+                s.classList.toggle('active', i === currentStep);
+            });
+            // Indicators
+            document.querySelectorAll('.step-indicator').forEach((ind, i) => {
+                ind.classList.toggle('active', i === currentStep);
+                ind.classList.toggle('done', i < currentStep);
+            });
+            // Buttons
+            document.getElementById('btnBack').disabled = currentStep === 0;
+
+            if (currentStep === 0) {
+                document.getElementById('btnNext').disabled = !selectedMode;
+                document.getElementById('btnNext').textContent = 'Weiter';
+            } else if (currentStep === 1) {
+                document.getElementById('btnNext').disabled = false;
+                document.getElementById('btnNext').textContent = 'Speichern & Starten';
+            } else if (currentStep === 2) {
+                document.getElementById('btnNext').textContent = 'Zum Dashboard';
+                document.getElementById('btnNext').disabled = false;
+                document.getElementById('btnBack').style.display = 'none';
+            }
+
+            // SSH/Local toggle
+            if (currentStep === 1) {
+                document.getElementById('sshFields').style.display = selectedMode === 'ssh' ? 'block' : 'none';
+                document.getElementById('localInfo').style.display = selectedMode === 'local' ? 'block' : 'none';
+            }
+        }
+
+        function nextStep() {
+            if (currentStep === 1) {
+                // Validierung & Speichern
+                saveSetup();
+                return;
+            }
+            if (currentStep === 2) {
+                window.location.href = '/';
+                return;
+            }
+            currentStep++;
+            updateStepUI();
+        }
+
+        function prevStep() {
+            if (currentStep > 0) {
+                currentStep--;
+                updateStepUI();
+            }
+        }
+
+        async function saveSetup() {
+            const errorEl = document.getElementById('step1Error');
+            errorEl.style.display = 'none';
+
+            const data = {
+                mode: selectedMode,
+                github_token: document.getElementById('githubToken').value.trim(),
+                cf_api_token: document.getElementById('cfToken').value.trim(),
+                cf_account_id: document.getElementById('cfAccountId').value.trim(),
+            };
+
+            if (selectedMode === 'ssh') {
+                data.ssh_host = document.getElementById('sshHost').value.trim();
+                data.ssh_user = document.getElementById('sshUser').value.trim();
+                data.ssh_pass = document.getElementById('sshPass').value;
+
+                if (!data.ssh_host) {
+                    errorEl.textContent = 'SSH Host ist erforderlich.';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+            }
+
+            const btn = document.getElementById('btnNext');
+            btn.disabled = true;
+            btn.textContent = 'Speichere...';
+
+            try {
+                const resp = await fetch('/api/setup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.error || 'Fehler beim Speichern');
+                }
+
+                // Zusammenfassung
+                const modeLabel = selectedMode === 'ssh' ? `SSH (${data.ssh_host})` : 'Lokal';
+                document.getElementById('summaryText').textContent = `Modus: ${modeLabel}`;
+
+                currentStep = 2;
+                updateStepUI();
+            } catch (e) {
+                errorEl.textContent = e.message;
+                errorEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Speichern & Starten';
+            }
+        }
+    </script>
+</body>
+</html>

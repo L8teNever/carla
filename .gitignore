@@ -3,7 +3,4 @@ __pycache__/
 *.pyc
 storage/
 data/
-
-# Secrets (DANGER: DO NOT REMOVE)
-config.py
 .env

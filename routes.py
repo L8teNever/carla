@@ -3,14 +3,27 @@
 # Definiert alle URL-Endpunkte der Webanwendung.
 # ==============================================================
 
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, ssh_docker, cache, metrics_db
+from services import cloudflare, ssh_docker, cache, metrics_db, setup
 import config
 
 bp = Blueprint("main", __name__)
 CACHE_KEY = "full_infrastructure"
+
+
+# ---------------------------------------------------------------
+# Setup-Middleware: Redirect auf Setup wenn nicht eingerichtet
+# ---------------------------------------------------------------
+
+@bp.before_request
+def check_setup():
+    if not setup.is_setup_done():
+        # Erlaube nur Setup-Routes ohne Redirect
+        allowed = ('/setup', '/api/setup')
+        if not request.path.startswith(allowed):
+            return redirect('/setup')
 
 # Threading-Logik für Hintergrund-Abfragen
 fetch_lock = threading.Lock()
@@ -208,6 +221,53 @@ def manual_refresh():
     global is_fetching
     if is_fetching:
         return jsonify({"status": "loading", "message": "Refresh läuft bereits im Hintergrund."}), 202
-    
+
     start_background_fetch()
     return jsonify({"status": "started", "message": "Hintergrund-Refresh angestoßen."}), 202
+
+
+# ---------------------------------------------------------------
+# Setup Routes
+# ---------------------------------------------------------------
+
+@bp.route("/setup")
+def setup_page():
+    if setup.is_setup_done():
+        return redirect("/")
+    return render_template("setup.html")
+
+
+@bp.route("/api/setup", methods=["POST"])
+def api_setup_save():
+    data = request.json
+    if not data:
+        return jsonify({"error": "Keine Daten erhalten"}), 400
+
+    mode = data.get("mode")
+    if mode not in ("local", "ssh"):
+        return jsonify({"error": "Ungueltiger Modus"}), 400
+
+    if mode == "ssh" and not data.get("ssh_host"):
+        return jsonify({"error": "SSH Host ist erforderlich"}), 400
+
+    setup.save_setup(data)
+    config.reload()
+
+    # Starte Hintergrund-Abfrage nach Setup
+    from services import metrics_worker, system_executor
+    system_executor.close_ssh()
+    metrics_worker.start_daemon()
+    start_background_fetch()
+
+    return jsonify({"status": "ok"})
+
+
+@bp.route("/api/setup", methods=["GET"])
+def api_setup_status():
+    return jsonify({"setup_done": setup.is_setup_done()})
+
+
+@bp.route("/api/setup/reset", methods=["POST"])
+def api_setup_reset():
+    setup.delete_setup()
+    return jsonify({"status": "ok", "message": "Setup zurueckgesetzt. Neustart erforderlich."})

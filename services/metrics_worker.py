@@ -103,7 +103,13 @@ def run_metrics_daemon():
         
         time.sleep(5)
 
+_daemon_started = False
+
 def start_daemon():
+    global _daemon_started
+    if _daemon_started:
+        return None
+    _daemon_started = True
     thread = threading.Thread(target=run_metrics_daemon, daemon=True)
     thread.start()
     return thread
