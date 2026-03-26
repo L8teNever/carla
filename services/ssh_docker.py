@@ -26,28 +26,35 @@ def fetch_docker_data(unused_host, unused_user, unused_pass, github_token: str) 
 
     try:
         # OS-Info
-        os_name = system_executor.execute_command(
+        os_out = system_executor.execute_command(
             "grep '^PRETTY_NAME=' /etc/os-release | cut -d'=' -f2 | tr -d '\"'"
         )
-        if "Error" not in os_name: result["os"] = os_name
+        if os_out and "Error" not in os_out:
+            result["os"] = os_out.strip()
 
-        # Container-Info
-        cmd = "docker ps --format '{{.Label \"com.docker.compose.project\"}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}'"
+        # Container-Info (ALLE Container inkl. gestoppte)
+        # Tab-sep: Project | Name | Image | Ports | Status | RunningState
+        cmd = "docker ps -a --format '{{.Label \"com.docker.compose.project\"}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}\t{{.State}}'"
         out = system_executor.execute_command(cmd)
         
         for line in out.splitlines():
             parts = line.split("\t")
-            if len(parts) >= 3:
-                stack = parts[0] or "Einzelne"
-                name = parts[1]
-                img = parts[2]
-                ports = parts[3] if len(parts) > 3 else ""
+            if len(parts) >= 6:
+                stack = parts[0].strip() or "Einzelne"
+                name = parts[1].strip()
+                img = parts[2].strip()
+                ports = parts[3].strip()
+                status_text = parts[4].strip()
+                state = parts[5].strip() # running, exited, paused, etc.
 
                 local_url = ""
                 if "->" in ports:
-                    host_side = ports.split(",")[0].split("->")[0].strip()
-                    ip, port = host_side.rsplit(":", 1) if ":" in host_side else (target_ip, host_side)
-                    local_url = f"http://{target_ip if ip in ['0.0.0.0', '::', ''] else ip}:{port}"
+                    try:
+                        host_side = ports.split(",")[0].split("->")[0].strip()
+                        ip, port = host_side.rsplit(":", 1) if ":" in host_side else (target_ip, host_side)
+                        local_url = f"http://{target_ip if ip in ['0.0.0.0', '::', ''] else ip}:{port}"
+                    except Exception:
+                        pass
 
                 if stack not in result["stacks"]:
                     result["stacks"][stack] = []
@@ -57,6 +64,8 @@ def fetch_docker_data(unused_host, unused_user, unused_pass, github_token: str) 
                     "image": img,
                     "local_url": local_url,
                     "ports_raw": ports,
+                    "status_text": status_text,
+                    "state": state,
                     "github": get_github_url(img, github_token),
                 })
     except Exception as e:
@@ -81,4 +90,46 @@ def container_action(container_name: str, action: str) -> str:
     if action not in allowed:
         return f"Unerlaubte Aktion: {action}"
     return system_executor.execute_command(f"docker {action} {container_name}")
+
+
+def stack_action(stack_name: str, action: str) -> str:
+    """Fuehrt eine Aktion auf einem gesamten Compose-Stack aus."""
+    allowed = ("start", "stop", "restart", "down")
+    if action not in allowed:
+        return f"Unerlaubte Aktion: {action}"
+    
+    # Pfad zum Compose-File finden (Working Dir Label)
+    workdir = system_executor.execute_command(
+        f"docker ps -a --filter 'label=com.docker.compose.project={stack_name}' "
+        f"--format '{{{{.Label \"com.docker.compose.project.working_dir\"}}}}' | head -1"
+    ).strip()
+
+    if not workdir or "Error" in workdir:
+        # Fallback: Versuche es ueber Filter, falls Label nicht da (weniger verlaesslich fuer compose cmds)
+        return f"Fehler: Working Directory fuer Stack '{stack_name}' nicht gefunden."
+
+    if action == "restart":
+        cmd = f"cd {workdir} && docker compose restart 2>&1"
+    elif action == "stop":
+        cmd = f"cd {workdir} && docker compose stop 2>&1"
+    elif action == "start":
+        cmd = f"cd {workdir} && docker compose up -d 2>&1"
+    elif action == "down":
+        cmd = f"cd {workdir} && docker compose down 2>&1"
+    else:
+        return "Unbekannte Aktion"
+
+    return system_executor.execute_command(cmd)
+
+
+def fetch_container_logs_since_last_start(unused_host, unused_user, unused_pass, container_name) -> str:
+    """Holt alle Logs seit dem letzten Start des Containers."""
+    started_at = system_executor.execute_command(
+        f"docker inspect --format '{{{{.State.StartedAt}}}}' {container_name}"
+    ).strip()
+    
+    if not started_at or "Error" in started_at:
+        return "Konnte Startzeitpunkt nicht ermitteln."
+
+    return system_executor.execute_command(f"docker logs --since {started_at} {container_name}")
 
