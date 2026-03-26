@@ -1,0 +1,12 @@
+.git
+.github
+.gitignore
+.dockerignore
+.env
+__pycache__
+*.pyc
+*.pyo
+storage/
+data/
+*.md
+LICENSE
