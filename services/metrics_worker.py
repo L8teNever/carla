@@ -62,7 +62,7 @@ def run_metrics_daemon():
                     c_meta[name] = {"stack": stack or "Einzelne", "uptime": uptime}
 
             # 3. Docker Stats
-            cmd_stats = "docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}'"
+            cmd_stats = "docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}'"
             stats_out = system_executor.execute_command(cmd_stats).splitlines()
             
             stack_totals = {}
@@ -75,23 +75,35 @@ def run_metrics_daemon():
                     meta = c_meta.get(c_name, {"stack": "Einzelne", "uptime": "N/A"})
                     stack = meta["stack"]
                     uptime = meta["uptime"]
-                    
+
                     cpu_perc = float(parts[1].replace("%", "").strip()) if parts[1] and "%" in parts[1] else 0.0
                     mem_raw = parts[2]
                     mem_used_part = mem_raw.split("/")[0].strip() if "/" in mem_raw else mem_raw.strip()
                     ram_mb = parse_docker_memory(mem_used_part)
-                    
+
+                    # Network I/O parsing (e.g. "1.5MB / 2.3MB")
+                    net_rx, net_tx = 0.0, 0.0
+                    if len(parts) >= 4 and "/" in parts[3]:
+                        try:
+                            net_parts = parts[3].split("/")
+                            net_rx = parse_docker_memory(net_parts[0])
+                            net_tx = parse_docker_memory(net_parts[1])
+                        except Exception:
+                            pass
+
                     if stack not in stack_totals:
                         stack_totals[stack] = {"cpu": 0.0, "ram": 0.0}
                     stack_totals[stack]["cpu"] += cpu_perc
                     stack_totals[stack]["ram"] += ram_mb
-                    
+
                     container_stats.append({
                         "name": c_name,
                         "stack": stack,
                         "cpu": cpu_perc,
                         "ram": ram_mb,
-                        "uptime": uptime
+                        "uptime": uptime,
+                        "net_rx": net_rx,
+                        "net_tx": net_tx,
                     })
             
             stack_data = [{"stack": k, "cpu": v["cpu"], "ram": v["ram"]} for k, v in stack_totals.items()]

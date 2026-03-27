@@ -89,3 +89,64 @@ class CloudflareClient:
                         entries.append("Jeder")
             access_info[app["domain"]] = list(set(entries))
         return access_info
+
+    def list_tunnels(self) -> list:
+        """Gibt alle Tunnel mit ID und Name zurueck."""
+        tunnels = self.fetch("cfd_tunnel")
+        return [{"id": t["id"], "name": t["name"], "status": t.get("status", "unknown")} for t in tunnels]
+
+    def get_tunnel_ingress(self, tunnel_id: str) -> list:
+        """Gibt alle Ingress-Regeln eines Tunnels zurueck."""
+        cfg = self.get_tunnel_config(tunnel_id)
+        ingress = cfg.get("config", {}).get("ingress", [])
+        result = []
+        for i, rule in enumerate(ingress):
+            result.append({
+                "index": i,
+                "hostname": rule.get("hostname", ""),
+                "service": rule.get("service", ""),
+                "is_catchall": "hostname" not in rule,
+            })
+        return result
+
+    def update_tunnel_ingress(self, tunnel_id: str, ingress_rules: list) -> dict:
+        """Schreibt die komplette Ingress-Konfiguration eines Tunnels.
+        ingress_rules: Liste von dicts mit 'hostname' und 'service'.
+        Der letzte Eintrag muss der Catch-All (ohne hostname) sein.
+        """
+        # Stelle sicher, dass ein Catch-All existiert
+        has_catchall = any("hostname" not in r or r.get("is_catchall") for r in ingress_rules)
+        cleaned = []
+        for r in ingress_rules:
+            if r.get("is_catchall") or "hostname" not in r:
+                continue
+            entry = {"hostname": r["hostname"], "service": r["service"]}
+            if r.get("path"):
+                entry["path"] = r["path"]
+            cleaned.append(entry)
+
+        # Catch-All am Ende (Pflicht bei Cloudflare)
+        catchall_service = "http_status:404"
+        for r in ingress_rules:
+            if r.get("is_catchall") or "hostname" not in r:
+                catchall_service = r.get("service", "http_status:404")
+                break
+        cleaned.append({"service": catchall_service})
+
+        payload = {"config": {"ingress": cleaned}}
+
+        try:
+            res = requests.put(
+                f"{self.base_url}/accounts/{self.account_id}/cfd_tunnel/{tunnel_id}/configurations",
+                headers=self.headers,
+                json=payload,
+                timeout=10,
+            )
+            resp = res.json()
+            # Cache invalidieren
+            self._cache.pop(f"t_cfg_{tunnel_id}", None)
+            if resp.get("success"):
+                return {"success": True}
+            return {"success": False, "errors": resp.get("errors", [])}
+        except Exception as e:
+            return {"success": False, "errors": [{"message": str(e)}]}

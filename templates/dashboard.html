@@ -65,6 +65,13 @@
             background: #0F0E11;
         }
 
+        #livemap-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #0A090D;
+        }
+
         .graph-sidebar {
             position: absolute;
             right: 24px;
@@ -257,6 +264,19 @@
             </div>
             <span class="text-[8px] font-medium tracking-wide">Timeline</span>
         </button>
+        <button onclick="navigateTo('livemap')" id="nav-livemap"
+            class="nav-rail-item flex flex-col items-center group w-full">
+            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                    <path d="M2 12h20"/>
+                </svg>
+            </div>
+            <span class="text-[8px] font-medium tracking-wide">Live</span>
+        </button>
+
         <button onclick="navigateTo('carla')" id="nav-carla"
             class="nav-rail-item flex flex-col items-center group w-full">
             <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
@@ -304,6 +324,18 @@
                 </svg>
             </div>
             <span class="text-[8px] font-medium tracking-wide">Backup</span>
+        </button>
+
+        <button onclick="navigateTo('settings')" id="nav-settings"
+            class="nav-rail-item flex flex-col items-center group w-full">
+            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+            </div>
+            <span class="text-[8px] font-medium tracking-wide">Settings</span>
         </button>
     </nav>
 
@@ -385,6 +417,32 @@
                     </div>
                 </div>
                 <div id="stacks-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-8"></div>
+            </section>
+
+            <!-- Live Map View -->
+            <section id="view-livemap" class="page-view hidden absolute inset-0 bg-[#0A090D] overflow-hidden">
+                <canvas id="livemap-canvas"></canvas>
+                <div id="livemap-tooltip" class="hidden fixed z-50 pointer-events-none px-4 py-3 rounded-2xl text-xs shadow-2xl border border-white/10" style="background:rgba(43,41,48,0.95);backdrop-filter:blur(12px)"></div>
+                <!-- Legend -->
+                <div class="absolute bottom-6 left-6 glass-card p-4 space-y-2 text-[10px] z-10 pointer-events-none" style="border-radius:16px">
+                    <div class="text-[#D0BCFF] font-bold uppercase tracking-widest mb-1">Live Network Map</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span><span class="text-[#938F99]">Server Node</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-[#4A4458]"></span><span class="text-[#938F99]">Docker Stack</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#81C784]"></span><span class="text-[#938F99]">Container (running)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#F38020]"></span><span class="text-[#938F99]">Cloudflare Domain</span></div>
+                    <div class="flex items-center gap-2"><div class="w-6 h-0.5 bg-[#D0BCFF]"></div><span class="text-[#938F99]">Verbindung</span></div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-[#D0BCFF] animate-ping opacity-50"></div><span class="text-[#938F99]">Netzwerk-Traffic</span></div>
+                </div>
+                <!-- Stats Panel -->
+                <div class="absolute top-6 right-6 glass-card p-5 space-y-3 z-10 min-w-[220px]" style="border-radius:20px">
+                    <div class="text-[10px] text-[#D0BCFF] font-bold uppercase tracking-widest">Live Statistiken</div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Stacks</span><span id="lm-stat-stacks" class="text-white font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Container</span><span id="lm-stat-containers" class="text-white font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Domains</span><span id="lm-stat-domains" class="text-white font-bold">-</span></div>
+                    <div class="border-t border-white/5 pt-2 mt-1"></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">RX Total</span><span id="lm-stat-rx" class="text-[#81C784] font-mono font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">TX Total</span><span id="lm-stat-tx" class="text-[#D0BCFF] font-mono font-bold">-</span></div>
+                </div>
             </section>
 
             <!-- Carla View -->
@@ -471,6 +529,248 @@
                         </div>
                     </div>
                 </aside>
+            </section>
+
+            <!-- Settings View -->
+            <section id="view-settings" class="page-view flex-1 hidden overflow-y-auto">
+                <div class="max-w-4xl mx-auto space-y-8 pb-12 p-10">
+                    <div>
+                        <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Einstellungen</h1>
+                        <p class="text-[#938F99]">API-Keys und Zugangsdaten verwalten und aktualisieren.</p>
+                    </div>
+
+                    <!-- Status Banner -->
+                    <div id="settings-status" class="hidden glass-card p-4 border-l-4 transition-all">
+                        <p id="settings-status-text" class="text-sm font-medium"></p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- GitHub Token -->
+                        <div class="glass-card p-8 space-y-6">
+                            <div class="flex items-center gap-4 mb-2">
+                                <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold text-white">GitHub Token</h3>
+                                    <p class="text-xs text-[#938F99] mt-1">Fuer Docker-Image und Compose-Zugriff</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktueller Token</label>
+                                <div id="settings-github-current" class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">Laden...</div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neuer Token</label>
+                                <input type="password" id="settings-github-token" placeholder="ghp_xxxxxxxxxxxx"
+                                    class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                            </div>
+                        </div>
+
+                        <!-- Cloudflare API Token -->
+                        <div class="glass-card p-8 space-y-6">
+                            <div class="flex items-center gap-4 mb-2">
+                                <div class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold text-white">Cloudflare API Token</h3>
+                                    <p class="text-xs text-[#938F99] mt-1">Fuer Tunnel- und Access-Verwaltung</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktueller Token</label>
+                                <div id="settings-cf-token-current" class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">Laden...</div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neuer Token</label>
+                                <input type="password" id="settings-cf-token" placeholder="Neuen Cloudflare Token eingeben"
+                                    class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                            </div>
+                        </div>
+
+                        <!-- Cloudflare Account ID -->
+                        <div class="glass-card p-8 space-y-6">
+                            <div class="flex items-center gap-4 mb-2">
+                                <div class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold text-white">Cloudflare Account ID</h3>
+                                    <p class="text-xs text-[#938F99] mt-1">Cloudflare Konto-Identifikation</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktuelle ID</label>
+                                <div id="settings-cf-account-current" class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">Laden...</div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neue Account ID</label>
+                                <input type="text" id="settings-cf-account" placeholder="Neue Account ID eingeben"
+                                    class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                            </div>
+                        </div>
+
+                        <!-- Info Card -->
+                        <div class="glass-card p-8 space-y-6">
+                            <div class="flex items-center gap-4 mb-2">
+                                <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <line x1="12" y1="16" x2="12" y2="12"/>
+                                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-bold text-white">Hinweise</h3>
+                            </div>
+                            <div class="space-y-3 text-sm text-[#938F99]">
+                                <div class="flex items-start gap-3">
+                                    <span class="w-2 h-2 rounded-full bg-[#D0BCFF] mt-1.5 shrink-0"></span>
+                                    <span>Nur ausgefuellte Felder werden aktualisiert. Leere Felder bleiben unveraendert.</span>
+                                </div>
+                                <div class="flex items-start gap-3">
+                                    <span class="w-2 h-2 rounded-full bg-[#D0BCFF] mt-1.5 shrink-0"></span>
+                                    <span>Nach dem Speichern wird der Cache geleert und die Infrastruktur-Daten neu abgerufen.</span>
+                                </div>
+                                <div class="flex items-start gap-3">
+                                    <span class="w-2 h-2 rounded-full bg-[#D0BCFF] mt-1.5 shrink-0"></span>
+                                    <span>Alle Keys werden verschluesselt gespeichert (AES-256).</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Save Button -->
+                    <button onclick="saveApiKeys()"
+                        class="w-full bg-[#D0BCFF] text-[#381E72] font-bold py-4 rounded-3xl hover:bg-[#EADDFF] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg text-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                            <polyline points="17 21 17 13 7 13 7 21"/>
+                            <polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        Keys speichern
+                    </button>
+
+                    <!-- Divider -->
+                    <div class="border-t border-white/10 pt-8 mt-4"></div>
+
+                    <!-- Cloudflare Tunnel Management -->
+                    <div>
+                        <h2 class="text-3xl font-bold tracking-tight text-white mb-2">Cloudflare Tunnel Routen</h2>
+                        <p class="text-[#938F99]">Ingress-Regeln direkt verwalten — Hostname-zu-Service-Zuordnungen hinzufuegen, bearbeiten oder entfernen.</p>
+                    </div>
+
+                    <!-- Tunnel Status -->
+                    <div id="tunnel-status" class="hidden glass-card p-4 border-l-4 transition-all">
+                        <p id="tunnel-status-text" class="text-sm font-medium"></p>
+                    </div>
+
+                    <!-- Tunnel Selector -->
+                    <div class="glass-card p-8 space-y-6">
+                        <div class="flex items-center gap-4 mb-2">
+                            <div class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold text-white">Tunnel auswaehlen</h3>
+                                <p class="text-xs text-[#938F99] mt-1">Waehle einen Tunnel um dessen Routen zu verwalten</p>
+                            </div>
+                            <button onclick="loadTunnelList()" class="text-[#D0BCFF] hover:text-white transition-colors p-2 rounded-xl hover:bg-white/5" title="Neu laden">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                                    <path d="M21 3v5h-5"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="tunnel-list-loading" class="hidden flex items-center gap-3 text-[#938F99]">
+                            <div class="w-5 h-5 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin"></div>
+                            <span class="text-sm">Tunnel werden geladen...</span>
+                        </div>
+                        <div id="tunnel-selector" class="space-y-2"></div>
+                    </div>
+
+                    <!-- Ingress Rules Table -->
+                    <div id="ingress-section" class="hidden space-y-6">
+                        <div class="glass-card p-8 space-y-6">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-xl font-bold text-white">Ingress-Regeln</h3>
+                                        <p id="ingress-tunnel-name" class="text-xs text-[#938F99] mt-1">-</p>
+                                    </div>
+                                </div>
+                                <button onclick="showAddIngressModal()"
+                                    class="bg-[#D0BCFF] text-[#381E72] font-bold px-6 py-3 rounded-2xl hover:bg-[#EADDFF] transition-all flex items-center gap-2 active:scale-95 text-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                        <path d="M12 5v14"/><path d="M5 12h14"/>
+                                    </svg>
+                                    Route hinzufuegen
+                                </button>
+                            </div>
+
+                            <!-- Rules List -->
+                            <div id="ingress-rules" class="space-y-3"></div>
+
+                            <!-- Catch-All Info -->
+                            <div id="ingress-catchall" class="hidden bg-white/5 rounded-2xl p-4 flex items-center gap-3 border border-white/5">
+                                <span class="w-3 h-3 rounded-full bg-[#938F99]"></span>
+                                <span class="text-sm text-[#938F99] font-mono flex-1">Catch-All</span>
+                                <span class="text-xs text-[#938F99]" id="catchall-service">http_status:404</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add/Edit Ingress Modal -->
+                    <div id="ingress-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                        <div class="glass-card p-8 w-full max-w-lg mx-4 space-y-6 border border-white/10 shadow-2xl">
+                            <div class="flex items-center justify-between">
+                                <h3 id="ingress-modal-title" class="text-xl font-bold text-white">Route hinzufuegen</h3>
+                                <button onclick="closeIngressModal()" class="text-[#938F99] hover:text-white transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Hostname (Domain)</label>
+                                    <input type="text" id="ingress-modal-hostname" placeholder="app.example.com"
+                                        class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Service (Ziel-Adresse)</label>
+                                    <input type="text" id="ingress-modal-service" placeholder="http://localhost:8080"
+                                        class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                                    <p class="text-xs text-[#938F99] mt-2 italic">z.B. http://10.7.0.1:3000, http://localhost:8080, tcp://localhost:22</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-3 pt-2">
+                                <button onclick="closeIngressModal()"
+                                    class="flex-1 border border-white/10 text-white font-bold py-3 rounded-2xl hover:bg-white/5 transition-all text-sm">
+                                    Abbrechen
+                                </button>
+                                <button id="ingress-modal-save" onclick="saveIngressRule()"
+                                    class="flex-1 bg-[#D0BCFF] text-[#381E72] font-bold py-3 rounded-2xl hover:bg-[#EADDFF] transition-all text-sm">
+                                    Speichern
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- Performance View -->
@@ -1054,12 +1354,16 @@
                 showTerminal(containerName);
             } else if (path === '/timeline') {
                 navigateTo('timeline');
+            } else if (path === '/livemap') {
+                navigateTo('livemap');
             } else if (path === '/carla') {
                 navigateTo('carla');
             } else if (path === '/performance') {
                 navigateTo('performance');
             } else if (path === '/backup') {
                 navigateTo('backup');
+            } else if (path === '/settings') {
+                navigateTo('settings');
             } else {
                 navigateTo('dashboard');
             }
@@ -1091,13 +1395,722 @@
             if (nav) nav.classList.add('active');
 
             if (pageId === 'dashboard') renderDashboard();
+            if (pageId === 'livemap') initLiveMap();
+            if (pageId !== 'livemap') stopLiveMap();
             if (pageId === 'carla') initCarla();
             if (pageId === 'timeline') showTimeline();
             if (pageId === 'updates') loadUpdaterConfig();
             if (pageId === 'backup') loadBackupView();
+            if (pageId === 'settings') loadSettingsView();
             if (pageId === 'performance') { startMetricsPolling(); } else { stopMetricsPolling(); }
             if (pageId !== 'stack-performance') { stopStackPerfPolling(); }
             if (pageId !== 'container-terminal') { stopTerminalPolling(); }
+        }
+
+        // -----------------------------------------------------------
+        // LIVE MAP – Canvas-basierte Netzwerk-Visualisierung
+        // -----------------------------------------------------------
+        let lmCanvas, lmCtx, lmAnimId = null, lmInterval = null;
+        let lmNodes = [], lmEdges = [], lmParticles = [];
+        let lmNetData = {};
+        let lmDragNode = null, lmOffsetX = 0, lmOffsetY = 0;
+        let lmHoverNode = null;
+        let lmPan = { x: 0, y: 0 }, lmZoom = 1, lmIsPanning = false, lmPanStart = {};
+
+        function initLiveMap() {
+            if (!fullInfrastructureData) return;
+            lmCanvas = document.getElementById('livemap-canvas');
+            lmCtx = lmCanvas.getContext('2d');
+            resizeLiveMap();
+            window.addEventListener('resize', resizeLiveMap);
+            lmCanvas.addEventListener('mousedown', lmMouseDown);
+            lmCanvas.addEventListener('mousemove', lmMouseMove);
+            lmCanvas.addEventListener('mouseup', lmMouseUp);
+            lmCanvas.addEventListener('mouseleave', lmMouseUp);
+            lmCanvas.addEventListener('wheel', lmWheel, { passive: false });
+            buildLiveMapGraph();
+            fetchNetworkData();
+            lmInterval = setInterval(fetchNetworkData, 5000);
+            lmAnimate();
+        }
+
+        function stopLiveMap() {
+            if (lmAnimId) { cancelAnimationFrame(lmAnimId); lmAnimId = null; }
+            if (lmInterval) { clearInterval(lmInterval); lmInterval = null; }
+            window.removeEventListener('resize', resizeLiveMap);
+        }
+
+        function resizeLiveMap() {
+            if (!lmCanvas) return;
+            lmCanvas.width = lmCanvas.parentElement.clientWidth;
+            lmCanvas.height = lmCanvas.parentElement.clientHeight;
+        }
+
+        function buildLiveMapGraph() {
+            lmNodes = []; lmEdges = []; lmParticles = [];
+            const W = lmCanvas.width, H = lmCanvas.height;
+            const cx = W / 2, cy = H / 2;
+
+            // Server Node (Zentrum)
+            lmNodes.push({ id: 'server', label: window.location.hostname, x: cx, y: cy, r: 32, type: 'server', color: '#D0BCFF' });
+
+            const stacks = Object.entries(fullInfrastructureData.stacks);
+            const stackCount = stacks.length;
+            let allDomains = new Set();
+            let totalContainers = 0;
+
+            stacks.forEach(([stackName, containers], si) => {
+                // Stacks im Kreis um den Server
+                const stackAngle = (si / stackCount) * Math.PI * 2 - Math.PI / 2;
+                const stackDist = Math.min(W, H) * 0.22;
+                const sx = cx + Math.cos(stackAngle) * stackDist;
+                const sy = cy + Math.sin(stackAngle) * stackDist;
+
+                lmNodes.push({ id: `s-${stackName}`, label: stackName, x: sx, y: sy, r: 22, type: 'stack', color: '#4A4458', stackName });
+                lmEdges.push({ from: 'server', to: `s-${stackName}`, color: '#4A4458' });
+
+                // Container um den Stack
+                const contCount = containers.length;
+                totalContainers += contCount;
+                containers.forEach((cont, ci) => {
+                    const cAngle = stackAngle + ((ci - (contCount - 1) / 2) * 0.35);
+                    const cDist = stackDist + 90 + ci * 15;
+                    const cxx = cx + Math.cos(cAngle) * cDist;
+                    const cyy = cy + Math.sin(cAngle) * cDist;
+                    const isRunning = cont.state === 'running';
+
+                    lmNodes.push({
+                        id: `c-${cont.name}`, label: cont.name,
+                        x: cxx, y: cyy, r: 14, type: 'container',
+                        color: isRunning ? '#81C784' : '#F2B8B5',
+                        state: cont.state, stack: stackName, image: cont.image,
+                    });
+                    lmEdges.push({ from: `s-${stackName}`, to: `c-${cont.name}`, color: '#36343B' });
+
+                    // Cloudflare Domains
+                    if (cont.cloudflares) {
+                        cont.cloudflares.forEach(cf => {
+                            const domId = `d-${cf.public_domain}`;
+                            if (!lmNodes.find(n => n.id === domId)) {
+                                allDomains.add(cf.public_domain);
+                                const dAngle = cAngle + (Math.random() - 0.5) * 0.3;
+                                const dDist = cDist + 80;
+                                lmNodes.push({
+                                    id: domId, label: cf.public_domain,
+                                    x: cx + Math.cos(dAngle) * dDist,
+                                    y: cy + Math.sin(dAngle) * dDist,
+                                    r: 10, type: 'domain', color: '#F38020',
+                                    tunnel: cf.tunnel_name,
+                                });
+                            }
+                            if (!lmEdges.find(e => e.from === `c-${cont.name}` && e.to === domId)) {
+                                lmEdges.push({ from: `c-${cont.name}`, to: domId, color: '#F38020', dashed: true });
+                            }
+                        });
+                    }
+                });
+            });
+
+            document.getElementById('lm-stat-stacks').textContent = stackCount;
+            document.getElementById('lm-stat-containers').textContent = totalContainers;
+            document.getElementById('lm-stat-domains').textContent = allDomains.size;
+        }
+
+        function fetchNetworkData() {
+            fetch('/api/metrics/network')
+                .then(r => r.json())
+                .then(data => {
+                    let totalRx = 0, totalTx = 0;
+                    lmNetData = {};
+                    data.forEach(c => {
+                        lmNetData[c.name] = c;
+                        totalRx += c.net_rx || 0;
+                        totalTx += c.net_tx || 0;
+
+                        // Spawn Partikel basierend auf Aktivitaet
+                        if (c.activity > 0) {
+                            const node = lmNodes.find(n => n.id === `c-${c.name}`);
+                            if (node) {
+                                // Partikel von Domain zu Container (eingehend)
+                                const domEdges = lmEdges.filter(e => e.to === `d-` || (e.from === node.id && e.color === '#F38020'));
+                                const connDomains = lmEdges.filter(e => e.from === node.id).map(e => e.to).filter(id => id.startsWith('d-'));
+                                const intensity = Math.min(Math.ceil(c.activity / 0.5), 4);
+                                for (let i = 0; i < intensity; i++) {
+                                    if (connDomains.length > 0) {
+                                        const domId = connDomains[Math.floor(Math.random() * connDomains.length)];
+                                        const domNode = lmNodes.find(n => n.id === domId);
+                                        if (domNode) {
+                                            lmParticles.push({ fromX: domNode.x, fromY: domNode.y, toX: node.x, toY: node.y, t: Math.random() * 0.3, speed: 0.008 + Math.random() * 0.008, color: '#F38020' });
+                                        }
+                                    }
+                                    // Partikel von Container zum Stack
+                                    const stackEdge = lmEdges.find(e => e.to === node.id && e.from.startsWith('s-'));
+                                    if (stackEdge) {
+                                        const stackNode = lmNodes.find(n => n.id === stackEdge.from);
+                                        if (stackNode) {
+                                            lmParticles.push({ fromX: node.x, fromY: node.y, toX: stackNode.x, toY: stackNode.y, t: Math.random() * 0.3, speed: 0.006 + Math.random() * 0.006, color: '#D0BCFF' });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    document.getElementById('lm-stat-rx').textContent = formatBytes(totalRx * 1024 * 1024);
+                    document.getElementById('lm-stat-tx').textContent = formatBytes(totalTx * 1024 * 1024);
+                })
+                .catch(() => {});
+        }
+
+        function formatBytes(b) {
+            if (b === 0) return '0 B';
+            const k = 1024, s = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(b) / Math.log(k));
+            return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + s[i];
+        }
+
+        function lmAnimate() {
+            if (!lmCtx || !lmCanvas) return;
+            const W = lmCanvas.width, H = lmCanvas.height;
+            lmCtx.clearRect(0, 0, W, H);
+
+            lmCtx.save();
+            lmCtx.translate(lmPan.x, lmPan.y);
+            lmCtx.scale(lmZoom, lmZoom);
+
+            // Subtiles Hintergrundgitter
+            lmCtx.strokeStyle = 'rgba(74,68,88,0.08)';
+            lmCtx.lineWidth = 0.5;
+            const gridSize = 60;
+            for (let x = 0; x < W / lmZoom; x += gridSize) {
+                lmCtx.beginPath(); lmCtx.moveTo(x, 0); lmCtx.lineTo(x, H / lmZoom); lmCtx.stroke();
+            }
+            for (let y = 0; y < H / lmZoom; y += gridSize) {
+                lmCtx.beginPath(); lmCtx.moveTo(0, y); lmCtx.lineTo(W / lmZoom, y); lmCtx.stroke();
+            }
+
+            // Kanten zeichnen
+            lmEdges.forEach(e => {
+                const from = lmNodes.find(n => n.id === e.from);
+                const to = lmNodes.find(n => n.id === e.to);
+                if (!from || !to) return;
+
+                lmCtx.beginPath();
+                lmCtx.strokeStyle = e.color + '60';
+                lmCtx.lineWidth = 1.5;
+                if (e.dashed) lmCtx.setLineDash([6, 4]); else lmCtx.setLineDash([]);
+                lmCtx.moveTo(from.x, from.y);
+                lmCtx.lineTo(to.x, to.y);
+                lmCtx.stroke();
+                lmCtx.setLineDash([]);
+            });
+
+            // Partikel (Traffic)
+            lmParticles = lmParticles.filter(p => p.t <= 1);
+            lmParticles.forEach(p => {
+                p.t += p.speed;
+                const x = p.fromX + (p.toX - p.fromX) * p.t;
+                const y = p.fromY + (p.toY - p.fromY) * p.t;
+                const alpha = p.t < 0.1 ? p.t / 0.1 : p.t > 0.8 ? (1 - p.t) / 0.2 : 1;
+
+                lmCtx.beginPath();
+                const grad = lmCtx.createRadialGradient(x, y, 0, x, y, 6);
+                grad.addColorStop(0, p.color + Math.round(alpha * 255).toString(16).padStart(2, '0'));
+                grad.addColorStop(1, p.color + '00');
+                lmCtx.fillStyle = grad;
+                lmCtx.arc(x, y, 6, 0, Math.PI * 2);
+                lmCtx.fill();
+
+                // Glowing trail
+                lmCtx.beginPath();
+                lmCtx.fillStyle = p.color + Math.round(alpha * 180).toString(16).padStart(2, '0');
+                lmCtx.arc(x, y, 2.5, 0, Math.PI * 2);
+                lmCtx.fill();
+            });
+
+            // Knoten zeichnen
+            lmNodes.forEach(node => {
+                const nd = lmNetData[node.label] || {};
+                const hasTraffic = nd.activity > 0;
+
+                // Glow fuer aktive Container
+                if (node.type === 'container' && hasTraffic) {
+                    const glow = lmCtx.createRadialGradient(node.x, node.y, node.r, node.x, node.y, node.r * 3);
+                    glow.addColorStop(0, node.color + '30');
+                    glow.addColorStop(1, node.color + '00');
+                    lmCtx.fillStyle = glow;
+                    lmCtx.beginPath();
+                    lmCtx.arc(node.x, node.y, node.r * 3, 0, Math.PI * 2);
+                    lmCtx.fill();
+                }
+
+                // Ring fuer Server
+                if (node.type === 'server') {
+                    lmCtx.beginPath();
+                    lmCtx.arc(node.x, node.y, node.r + 4, 0, Math.PI * 2);
+                    lmCtx.strokeStyle = '#D0BCFF40';
+                    lmCtx.lineWidth = 2;
+                    lmCtx.stroke();
+
+                    // Pulsierender Ring
+                    const pulse = (Math.sin(Date.now() / 1000) + 1) / 2;
+                    lmCtx.beginPath();
+                    lmCtx.arc(node.x, node.y, node.r + 8 + pulse * 6, 0, Math.PI * 2);
+                    lmCtx.strokeStyle = `rgba(208,188,255,${0.1 + pulse * 0.1})`;
+                    lmCtx.lineWidth = 1;
+                    lmCtx.stroke();
+                }
+
+                // Hauptknoten
+                lmCtx.beginPath();
+                if (node.type === 'stack') {
+                    // Abgerundetes Rechteck fuer Stacks
+                    const sz = node.r;
+                    roundRect(lmCtx, node.x - sz, node.y - sz * 0.7, sz * 2, sz * 1.4, 8);
+                    lmCtx.fillStyle = node.color;
+                    lmCtx.fill();
+                } else {
+                    lmCtx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+                    lmCtx.fillStyle = node.color;
+                    lmCtx.fill();
+                }
+
+                // Label
+                lmCtx.fillStyle = '#E6E1E5';
+                lmCtx.textAlign = 'center';
+                if (node.type === 'server') {
+                    lmCtx.font = 'bold 11px Inter';
+                    lmCtx.fillText(node.label, node.x, node.y + node.r + 18);
+                } else if (node.type === 'stack') {
+                    lmCtx.font = 'bold 10px Inter';
+                    lmCtx.fillStyle = '#E6E1E5';
+                    lmCtx.fillText(node.label, node.x, node.y + 4);
+                } else if (node.type === 'domain') {
+                    lmCtx.font = '9px Inter';
+                    lmCtx.fillStyle = '#F38020';
+                    lmCtx.fillText(node.label, node.x, node.y + node.r + 14);
+                } else {
+                    lmCtx.font = '9px Inter';
+                    lmCtx.fillText(node.label.length > 18 ? node.label.slice(0, 16) + '..' : node.label, node.x, node.y + node.r + 14);
+                }
+
+                // Traffic-Badge
+                if (node.type === 'container' && hasTraffic) {
+                    lmCtx.font = 'bold 8px Inter';
+                    lmCtx.fillStyle = '#D0BCFF';
+                    lmCtx.fillText(`${nd.rx_rate?.toFixed(1) || 0} MB/s`, node.x, node.y - node.r - 6);
+                }
+            });
+
+            lmCtx.restore();
+
+            // Tooltip
+            if (lmHoverNode) {
+                const tip = document.getElementById('livemap-tooltip');
+                const nd = lmNetData[lmHoverNode.label] || {};
+                let html = `<div class="font-bold text-white mb-1">${lmHoverNode.label}</div>`;
+                html += `<div class="text-[#938F99]">Typ: <span class="text-[#D0BCFF]">${lmHoverNode.type}</span></div>`;
+                if (lmHoverNode.type === 'container') {
+                    html += `<div class="text-[#938F99]">Status: <span class="${lmHoverNode.state === 'running' ? 'text-[#81C784]' : 'text-[#F2B8B5]'}">${lmHoverNode.state}</span></div>`;
+                    html += `<div class="text-[#938F99]">Stack: <span class="text-white">${lmHoverNode.stack}</span></div>`;
+                    if (nd.cpu !== undefined) html += `<div class="text-[#938F99]">CPU: <span class="text-white">${nd.cpu?.toFixed(1)}%</span></div>`;
+                    if (nd.ram !== undefined) html += `<div class="text-[#938F99]">RAM: <span class="text-white">${nd.ram?.toFixed(0)} MB</span></div>`;
+                    if (nd.net_rx !== undefined) html += `<div class="text-[#938F99]">RX: <span class="text-[#81C784]">${formatBytes((nd.net_rx || 0) * 1024 * 1024)}</span> TX: <span class="text-[#D0BCFF]">${formatBytes((nd.net_tx || 0) * 1024 * 1024)}</span></div>`;
+                }
+                if (lmHoverNode.type === 'domain') html += `<div class="text-[#938F99]">Tunnel: <span class="text-[#F38020]">${lmHoverNode.tunnel || '-'}</span></div>`;
+                if (lmHoverNode.image) html += `<div class="text-[#938F99] truncate max-w-[220px]">Image: <span class="text-white">${lmHoverNode.image}</span></div>`;
+                tip.innerHTML = html;
+                tip.classList.remove('hidden');
+            } else {
+                document.getElementById('livemap-tooltip').classList.add('hidden');
+            }
+
+            lmAnimId = requestAnimationFrame(lmAnimate);
+        }
+
+        function roundRect(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        }
+
+        function lmScreenToWorld(sx, sy) {
+            return { x: (sx - lmPan.x) / lmZoom, y: (sy - lmPan.y) / lmZoom };
+        }
+
+        function lmFindNode(sx, sy) {
+            const { x, y } = lmScreenToWorld(sx, sy);
+            for (let i = lmNodes.length - 1; i >= 0; i--) {
+                const n = lmNodes[i];
+                const dx = x - n.x, dy = y - n.y;
+                if (dx * dx + dy * dy <= (n.r + 4) * (n.r + 4)) return n;
+            }
+            return null;
+        }
+
+        function lmMouseDown(e) {
+            const rect = lmCanvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            const node = lmFindNode(mx, my);
+            if (node) {
+                lmDragNode = node;
+                const wp = lmScreenToWorld(mx, my);
+                lmOffsetX = node.x - wp.x;
+                lmOffsetY = node.y - wp.y;
+            } else {
+                lmIsPanning = true;
+                lmPanStart = { x: e.clientX - lmPan.x, y: e.clientY - lmPan.y };
+            }
+        }
+
+        function lmMouseMove(e) {
+            const rect = lmCanvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+            if (lmDragNode) {
+                const wp = lmScreenToWorld(mx, my);
+                lmDragNode.x = wp.x + lmOffsetX;
+                lmDragNode.y = wp.y + lmOffsetY;
+                // Update Partikel-Endpunkte
+                lmParticles.forEach(p => {
+                    if (Math.abs(p.toX - lmDragNode.x) < 2) p.toX = lmDragNode.x;
+                    if (Math.abs(p.toY - lmDragNode.y) < 2) p.toY = lmDragNode.y;
+                });
+            } else if (lmIsPanning) {
+                lmPan.x = e.clientX - lmPanStart.x;
+                lmPan.y = e.clientY - lmPanStart.y;
+            } else {
+                lmHoverNode = lmFindNode(mx, my);
+                lmCanvas.style.cursor = lmHoverNode ? 'pointer' : 'grab';
+                // Tooltip position
+                const tip = document.getElementById('livemap-tooltip');
+                tip.style.left = (e.clientX + 16) + 'px';
+                tip.style.top = (e.clientY + 16) + 'px';
+            }
+        }
+
+        function lmMouseUp() {
+            lmDragNode = null;
+            lmIsPanning = false;
+        }
+
+        function lmWheel(e) {
+            e.preventDefault();
+            const rect = lmCanvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = Math.max(0.3, Math.min(3, lmZoom * delta));
+
+            // Zoom zum Mauszeiger hin
+            lmPan.x = mx - (mx - lmPan.x) * (newZoom / lmZoom);
+            lmPan.y = my - (my - lmPan.y) * (newZoom / lmZoom);
+            lmZoom = newZoom;
+        }
+
+        // -----------------------------------------------------------
+        // SETTINGS / API-KEY LOGIC
+        // -----------------------------------------------------------
+
+        function loadSettingsView() {
+            fetch('/api/setup/keys')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('settings-github-current').textContent = data.github_token || '(nicht gesetzt)';
+                    document.getElementById('settings-cf-token-current').textContent = data.cf_api_token || '(nicht gesetzt)';
+                    document.getElementById('settings-cf-account-current').textContent = data.cf_account_id || '(nicht gesetzt)';
+                    // Clear input fields
+                    document.getElementById('settings-github-token').value = '';
+                    document.getElementById('settings-cf-token').value = '';
+                    document.getElementById('settings-cf-account').value = '';
+                    hideSettingsStatus();
+                })
+                .catch(() => showSettingsStatus('Fehler beim Laden der Keys.', true));
+
+            // Tunnel-Liste laden
+            loadTunnelList();
+        }
+
+        function saveApiKeys() {
+            const payload = {};
+            const gh = document.getElementById('settings-github-token').value.trim();
+            const cf = document.getElementById('settings-cf-token').value.trim();
+            const cfId = document.getElementById('settings-cf-account').value.trim();
+
+            if (gh) payload.github_token = gh;
+            if (cf) payload.cf_api_token = cf;
+            if (cfId) payload.cf_account_id = cfId;
+
+            if (Object.keys(payload).length === 0) {
+                showSettingsStatus('Bitte mindestens einen neuen Key eingeben.', true);
+                return;
+            }
+
+            fetch('/api/setup/keys', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+            .then(({ ok, data }) => {
+                if (ok) {
+                    showSettingsStatus('Keys erfolgreich aktualisiert! Daten werden neu geladen...', false);
+                    loadSettingsView();
+                } else {
+                    showSettingsStatus(data.error || 'Fehler beim Speichern.', true);
+                }
+            })
+            .catch(() => showSettingsStatus('Netzwerkfehler beim Speichern.', true));
+        }
+
+        function showSettingsStatus(msg, isError) {
+            const el = document.getElementById('settings-status');
+            const txt = document.getElementById('settings-status-text');
+            el.classList.remove('hidden');
+            txt.textContent = msg;
+            if (isError) {
+                el.classList.remove('border-green-400');
+                el.classList.add('border-[#F2B8B5]');
+                txt.classList.remove('text-green-400');
+                txt.classList.add('text-[#F2B8B5]');
+            } else {
+                el.classList.remove('border-[#F2B8B5]');
+                el.classList.add('border-green-400');
+                txt.classList.remove('text-[#F2B8B5]');
+                txt.classList.add('text-green-400');
+            }
+        }
+
+        function hideSettingsStatus() {
+            document.getElementById('settings-status').classList.add('hidden');
+        }
+
+        // -----------------------------------------------------------
+        // CLOUDFLARE TUNNEL MANAGEMENT
+        // -----------------------------------------------------------
+        let selectedTunnelId = null;
+        let selectedTunnelName = '';
+        let currentIngressRules = [];
+        let editingIngressIndex = -1; // -1 = add mode, >= 0 = edit mode
+
+        function loadTunnelList() {
+            const selector = document.getElementById('tunnel-selector');
+            const loading = document.getElementById('tunnel-list-loading');
+            selector.innerHTML = '';
+            loading.classList.remove('hidden');
+            document.getElementById('ingress-section').classList.add('hidden');
+
+            fetch('/api/cf/tunnels')
+                .then(r => r.json())
+                .then(tunnels => {
+                    loading.classList.add('hidden');
+                    if (tunnels.error) {
+                        selector.innerHTML = `<p class="text-sm text-[#F2B8B5]">${tunnels.error}</p>`;
+                        return;
+                    }
+                    if (tunnels.length === 0) {
+                        selector.innerHTML = '<p class="text-sm text-[#938F99]">Keine Tunnel gefunden.</p>';
+                        return;
+                    }
+                    tunnels.forEach(t => {
+                        const statusColor = t.status === 'healthy' ? 'bg-green-400' : t.status === 'inactive' ? 'bg-[#938F99]' : 'bg-yellow-400';
+                        const isSelected = t.id === selectedTunnelId;
+                        const btn = document.createElement('button');
+                        btn.className = `w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${isSelected ? 'bg-[#D0BCFF]/10 border-[#D0BCFF]/40' : 'bg-white/5 border-white/5 hover:border-[#D0BCFF]/20'}`;
+                        btn.onclick = () => selectTunnel(t.id, t.name);
+                        btn.innerHTML = `
+                            <span class="w-3 h-3 rounded-full ${statusColor} shrink-0"></span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-white truncate">${t.name}</p>
+                                <p class="text-[10px] text-[#938F99] font-mono truncate">${t.id}</p>
+                            </div>
+                            <span class="text-[10px] uppercase font-bold tracking-wider ${t.status === 'healthy' ? 'text-green-400' : 'text-[#938F99]'}">${t.status}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#938F99] shrink-0"><path d="m9 18 6-6-6-6"/></svg>
+                        `;
+                        selector.appendChild(btn);
+                    });
+                })
+                .catch(() => {
+                    loading.classList.add('hidden');
+                    selector.innerHTML = '<p class="text-sm text-[#F2B8B5]">Fehler beim Laden der Tunnel.</p>';
+                });
+        }
+
+        function selectTunnel(tunnelId, tunnelName) {
+            selectedTunnelId = tunnelId;
+            selectedTunnelName = tunnelName;
+            document.getElementById('ingress-tunnel-name').textContent = `Tunnel: ${tunnelName}`;
+            document.getElementById('ingress-section').classList.remove('hidden');
+            loadTunnelList(); // re-render selection state
+            loadIngressRules();
+        }
+
+        function loadIngressRules() {
+            if (!selectedTunnelId) return;
+            const container = document.getElementById('ingress-rules');
+            container.innerHTML = '<div class="flex items-center gap-3 text-[#938F99] py-4"><div class="w-5 h-5 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin"></div><span class="text-sm">Regeln werden geladen...</span></div>';
+
+            fetch(`/api/cf/tunnel/${selectedTunnelId}/ingress`)
+                .then(r => r.json())
+                .then(rules => {
+                    currentIngressRules = rules;
+                    renderIngressRules();
+                })
+                .catch(() => {
+                    container.innerHTML = '<p class="text-sm text-[#F2B8B5]">Fehler beim Laden der Ingress-Regeln.</p>';
+                });
+        }
+
+        function renderIngressRules() {
+            const container = document.getElementById('ingress-rules');
+            const catchallEl = document.getElementById('ingress-catchall');
+            container.innerHTML = '';
+            let catchall = null;
+
+            currentIngressRules.forEach((rule, i) => {
+                if (rule.is_catchall) {
+                    catchall = rule;
+                    return;
+                }
+                const div = document.createElement('div');
+                div.className = 'bg-white/5 rounded-2xl p-5 flex items-center gap-4 border border-white/5 hover:border-[#D0BCFF]/20 transition-all group';
+                div.innerHTML = `
+                    <span class="w-3 h-3 rounded-full bg-[#D0BCFF] shrink-0"></span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-white truncate">${rule.hostname}</p>
+                        <p class="text-xs text-[#938F99] font-mono truncate mt-1">${rule.service}</p>
+                    </div>
+                    <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="editIngressRule(${i})" class="p-2 rounded-xl hover:bg-[#D0BCFF]/10 text-[#D0BCFF] transition-all" title="Bearbeiten">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                        </button>
+                        <button onclick="deleteIngressRule(${i}, '${rule.hostname}')" class="p-2 rounded-xl hover:bg-[#F2B8B5]/10 text-[#F2B8B5] transition-all" title="Loeschen">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            if (currentIngressRules.filter(r => !r.is_catchall).length === 0) {
+                container.innerHTML = '<p class="text-sm text-[#938F99] py-4 text-center">Keine Ingress-Regeln vorhanden. Fuege eine neue Route hinzu.</p>';
+            }
+
+            if (catchall) {
+                catchallEl.classList.remove('hidden');
+                document.getElementById('catchall-service').textContent = catchall.service;
+            } else {
+                catchallEl.classList.add('hidden');
+            }
+        }
+
+        function showAddIngressModal() {
+            editingIngressIndex = -1;
+            document.getElementById('ingress-modal-title').textContent = 'Route hinzufuegen';
+            document.getElementById('ingress-modal-hostname').value = '';
+            document.getElementById('ingress-modal-service').value = '';
+            document.getElementById('ingress-modal').classList.remove('hidden');
+        }
+
+        function editIngressRule(index) {
+            const rule = currentIngressRules.filter(r => !r.is_catchall)[index];
+            if (!rule) return;
+            editingIngressIndex = index;
+            document.getElementById('ingress-modal-title').textContent = 'Route bearbeiten';
+            document.getElementById('ingress-modal-hostname').value = rule.hostname;
+            document.getElementById('ingress-modal-service').value = rule.service;
+            document.getElementById('ingress-modal').classList.remove('hidden');
+        }
+
+        function closeIngressModal() {
+            document.getElementById('ingress-modal').classList.remove('hidden');
+            document.getElementById('ingress-modal').classList.add('hidden');
+        }
+
+        function saveIngressRule() {
+            const hostname = document.getElementById('ingress-modal-hostname').value.trim();
+            const service = document.getElementById('ingress-modal-service').value.trim();
+            if (!hostname || !service) {
+                showTunnelStatus('Bitte Hostname und Service ausfuellen.', true);
+                return;
+            }
+
+            let url, method;
+            if (editingIngressIndex >= 0) {
+                url = `/api/cf/tunnel/${selectedTunnelId}/ingress/${editingIngressIndex}`;
+                method = 'PUT';
+            } else {
+                url = `/api/cf/tunnel/${selectedTunnelId}/ingress/add`;
+                method = 'POST';
+            }
+
+            const btn = document.getElementById('ingress-modal-save');
+            btn.disabled = true;
+            btn.textContent = 'Speichern...';
+
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hostname, service })
+            })
+            .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+            .then(({ ok, data }) => {
+                btn.disabled = false;
+                btn.textContent = 'Speichern';
+                if (ok) {
+                    closeIngressModal();
+                    showTunnelStatus(data.message || 'Gespeichert!', false);
+                    loadIngressRules();
+                } else {
+                    showTunnelStatus(data.error || 'Fehler beim Speichern.', true);
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.textContent = 'Speichern';
+                showTunnelStatus('Netzwerkfehler.', true);
+            });
+        }
+
+        function deleteIngressRule(index, hostname) {
+            if (!confirm(`Route "${hostname}" wirklich loeschen?`)) return;
+
+            fetch(`/api/cf/tunnel/${selectedTunnelId}/ingress/${index}`, { method: 'DELETE' })
+                .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+                .then(({ ok, data }) => {
+                    if (ok) {
+                        showTunnelStatus(data.message || 'Geloescht!', false);
+                        loadIngressRules();
+                    } else {
+                        showTunnelStatus(data.error || 'Fehler beim Loeschen.', true);
+                    }
+                })
+                .catch(() => showTunnelStatus('Netzwerkfehler.', true));
+        }
+
+        function showTunnelStatus(msg, isError) {
+            const el = document.getElementById('tunnel-status');
+            const txt = document.getElementById('tunnel-status-text');
+            el.classList.remove('hidden');
+            txt.textContent = msg;
+            if (isError) {
+                el.classList.remove('border-green-400');
+                el.classList.add('border-[#F2B8B5]');
+                txt.classList.remove('text-green-400');
+                txt.classList.add('text-[#F2B8B5]');
+            } else {
+                el.classList.remove('border-[#F2B8B5]');
+                el.classList.add('border-green-400');
+                txt.classList.remove('text-[#F2B8B5]');
+                txt.classList.add('text-green-400');
+            }
+            setTimeout(() => el.classList.add('hidden'), 5000);
         }
 
         // -----------------------------------------------------------

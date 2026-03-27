@@ -153,6 +153,8 @@ def start_background_fetch():
 @bp.route("/timeline")
 @bp.route("/carla")
 @bp.route("/backup")
+@bp.route("/settings")
+@bp.route("/livemap")
 def index(stack_name=None, name=None):
     return render_template("dashboard.html")
 
@@ -197,6 +199,13 @@ def api_metrics_stacks():
 def api_metrics_containers():
     containers = metrics_db.get_latest_container_metrics()
     return jsonify(containers)
+
+@bp.route("/api/metrics/network", methods=["GET"])
+def api_metrics_network():
+    """Gibt Live-Netzwerk-Aktivitaet pro Container zurueck (Delta zwischen letzten 2 Messungen)."""
+    data = metrics_db.get_container_net_activity()
+    return jsonify(data)
+
 
 @bp.route("/api/metrics/stack/<stack_name>", methods=["GET"])
 def api_stack_performance(stack_name):
@@ -294,6 +303,208 @@ def api_setup_status():
 def api_setup_reset():
     setup.delete_setup()
     return jsonify({"status": "ok", "message": "Setup zurueckgesetzt. Neustart erforderlich."})
+
+
+@bp.route("/api/setup/keys", methods=["GET"])
+def api_setup_keys_get():
+    """Gibt die aktuellen API-Keys maskiert zurueck."""
+    data = setup.load_setup()
+    def mask(val):
+        if not val:
+            return ""
+        if len(val) <= 8:
+            return "*" * len(val)
+        return val[:4] + "*" * (len(val) - 8) + val[-4:]
+
+    return jsonify({
+        "github_token": mask(data.get("github_token", "")),
+        "cf_api_token": mask(data.get("cf_api_token", "")),
+        "cf_account_id": mask(data.get("cf_account_id", "")),
+        "mode": data.get("mode", "local"),
+    })
+
+
+@bp.route("/api/setup/keys", methods=["PUT"])
+def api_setup_keys_update():
+    """Aktualisiert einzelne API-Keys ohne das gesamte Setup zurueckzusetzen."""
+    incoming = request.json
+    if not incoming:
+        return jsonify({"error": "Keine Daten erhalten"}), 400
+
+    allowed_keys = ("github_token", "cf_api_token", "cf_account_id")
+    data = setup.load_setup()
+
+    changed = False
+    for key in allowed_keys:
+        if key in incoming and incoming[key]:
+            data[key] = incoming[key]
+            changed = True
+
+    if not changed:
+        return jsonify({"error": "Keine gültigen Keys angegeben"}), 400
+
+    setup.save_setup(data)
+    config.reload()
+
+    # Cache leeren damit neue Keys verwendet werden
+    cache.clear(CACHE_KEY)
+    from services import system_executor
+    system_executor.close_ssh()
+    start_background_fetch()
+
+    return jsonify({"status": "ok", "message": "API-Keys aktualisiert."})
+
+
+# ---------------------------------------------------------------
+# Cloudflare Tunnel Management Routes
+# ---------------------------------------------------------------
+
+def _get_cf_client():
+    """Erstellt einen CloudflareClient mit aktuellen Config-Werten."""
+    if not config.CF_API_TOKEN or not config.CF_ACCOUNT_ID:
+        return None
+    return cloudflare.CloudflareClient(config.CF_API_TOKEN, config.CF_ACCOUNT_ID)
+
+
+@bp.route("/api/cf/tunnels", methods=["GET"])
+def api_cf_tunnels():
+    """Listet alle Cloudflare Tunnel auf."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+    tunnels = cf.list_tunnels()
+    return jsonify(tunnels)
+
+
+@bp.route("/api/cf/tunnel/<tunnel_id>/ingress", methods=["GET"])
+def api_cf_tunnel_ingress(tunnel_id):
+    """Gibt die Ingress-Regeln eines Tunnels zurueck."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+    rules = cf.get_tunnel_ingress(tunnel_id)
+    return jsonify(rules)
+
+
+@bp.route("/api/cf/tunnel/<tunnel_id>/ingress", methods=["PUT"])
+def api_cf_tunnel_ingress_update(tunnel_id):
+    """Aktualisiert die gesamte Ingress-Konfiguration eines Tunnels."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+
+    data = request.json
+    if not data or "ingress" not in data:
+        return jsonify({"error": "Keine Ingress-Regeln angegeben"}), 400
+
+    result = cf.update_tunnel_ingress(tunnel_id, data["ingress"])
+    if result["success"]:
+        # Cache invalidieren damit Dashboard neue Daten zeigt
+        cache.clear(CACHE_KEY)
+        return jsonify({"status": "ok", "message": "Tunnel-Konfiguration aktualisiert."})
+    else:
+        errors = result.get("errors", [])
+        msg = errors[0].get("message", "Unbekannter Fehler") if errors else "Unbekannter Fehler"
+        return jsonify({"error": msg}), 400
+
+
+@bp.route("/api/cf/tunnel/<tunnel_id>/ingress/add", methods=["POST"])
+def api_cf_tunnel_ingress_add(tunnel_id):
+    """Fuegt eine einzelne Ingress-Regel hinzu."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+
+    data = request.json
+    hostname = (data or {}).get("hostname", "").strip()
+    service = (data or {}).get("service", "").strip()
+    if not hostname or not service:
+        return jsonify({"error": "hostname und service sind erforderlich"}), 400
+
+    # Bestehende Regeln laden und neue einfuegen (vor dem Catch-All)
+    rules = cf.get_tunnel_ingress(tunnel_id)
+    new_rules = [r for r in rules if not r.get("is_catchall")]
+    new_rules.append({"hostname": hostname, "service": service})
+    # Catch-All wieder anhaengen
+    catchall = [r for r in rules if r.get("is_catchall")]
+    if catchall:
+        new_rules.append(catchall[0])
+    else:
+        new_rules.append({"service": "http_status:404", "is_catchall": True})
+
+    result = cf.update_tunnel_ingress(tunnel_id, new_rules)
+    if result["success"]:
+        cache.clear(CACHE_KEY)
+        return jsonify({"status": "ok", "message": f"Route {hostname} hinzugefuegt."})
+    errors = result.get("errors", [])
+    msg = errors[0].get("message", "Unbekannter Fehler") if errors else "Unbekannter Fehler"
+    return jsonify({"error": msg}), 400
+
+
+@bp.route("/api/cf/tunnel/<tunnel_id>/ingress/<int:index>", methods=["DELETE"])
+def api_cf_tunnel_ingress_delete(tunnel_id, index):
+    """Loescht eine Ingress-Regel anhand ihres Index."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+
+    rules = cf.get_tunnel_ingress(tunnel_id)
+    # Nur nicht-Catchall Regeln zaehlen
+    non_catchall = [r for r in rules if not r.get("is_catchall")]
+    if index < 0 or index >= len(non_catchall):
+        return jsonify({"error": "Ungueltiger Index"}), 400
+
+    removed = non_catchall.pop(index)
+    # Catch-All wieder anhaengen
+    catchall = [r for r in rules if r.get("is_catchall")]
+    new_rules = non_catchall
+    if catchall:
+        new_rules.append(catchall[0])
+    else:
+        new_rules.append({"service": "http_status:404", "is_catchall": True})
+
+    result = cf.update_tunnel_ingress(tunnel_id, new_rules)
+    if result["success"]:
+        cache.clear(CACHE_KEY)
+        return jsonify({"status": "ok", "message": f"Route {removed.get('hostname', '')} entfernt."})
+    errors = result.get("errors", [])
+    msg = errors[0].get("message", "Unbekannter Fehler") if errors else "Unbekannter Fehler"
+    return jsonify({"error": msg}), 400
+
+
+@bp.route("/api/cf/tunnel/<tunnel_id>/ingress/<int:index>", methods=["PUT"])
+def api_cf_tunnel_ingress_edit(tunnel_id, index):
+    """Bearbeitet eine bestehende Ingress-Regel."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+
+    data = request.json
+    hostname = (data or {}).get("hostname", "").strip()
+    service = (data or {}).get("service", "").strip()
+    if not hostname or not service:
+        return jsonify({"error": "hostname und service sind erforderlich"}), 400
+
+    rules = cf.get_tunnel_ingress(tunnel_id)
+    non_catchall = [r for r in rules if not r.get("is_catchall")]
+    if index < 0 or index >= len(non_catchall):
+        return jsonify({"error": "Ungueltiger Index"}), 400
+
+    non_catchall[index] = {"hostname": hostname, "service": service}
+    catchall = [r for r in rules if r.get("is_catchall")]
+    new_rules = non_catchall
+    if catchall:
+        new_rules.append(catchall[0])
+    else:
+        new_rules.append({"service": "http_status:404", "is_catchall": True})
+
+    result = cf.update_tunnel_ingress(tunnel_id, new_rules)
+    if result["success"]:
+        cache.clear(CACHE_KEY)
+        return jsonify({"status": "ok", "message": f"Route {hostname} aktualisiert."})
+    errors = result.get("errors", [])
+    msg = errors[0].get("message", "Unbekannter Fehler") if errors else "Unbekannter Fehler"
+    return jsonify({"error": msg}), 400
 
 
 # ---------------------------------------------------------------

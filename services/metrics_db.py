@@ -46,6 +46,16 @@ def init_db():
             uptime TEXT
         )
     ''')
+
+    # Network I/O Spalten nachrüsten (ignoriert Fehler wenn schon vorhanden)
+    try:
+        c.execute("ALTER TABLE container_metrics ADD COLUMN net_rx REAL DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE container_metrics ADD COLUMN net_tx REAL DEFAULT 0")
+    except Exception:
+        pass
     
     conn.commit()
     conn.close()
@@ -66,8 +76,8 @@ def log_metrics(server_cpu, server_ram_used, server_ram_total, disk_used, disk_t
                   (ts, s['stack'], s['cpu'], s['ram']))
                   
     for cs in container_stats:
-        c.execute("INSERT INTO container_metrics (timestamp, container_name, stack_name, cpu_usage, ram_usage, uptime) VALUES (?, ?, ?, ?, ?, ?)",
-                  (ts, cs['name'], cs['stack'], cs['cpu'], cs['ram'], cs['uptime']))
+        c.execute("INSERT INTO container_metrics (timestamp, container_name, stack_name, cpu_usage, ram_usage, uptime, net_rx, net_tx) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                  (ts, cs['name'], cs['stack'], cs['cpu'], cs['ram'], cs['uptime'], cs.get('net_rx', 0), cs.get('net_tx', 0)))
     conn.commit()
     conn.close()
 
@@ -113,6 +123,50 @@ def get_latest_container_metrics():
     rows = c.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+def get_container_net_activity():
+    """Gibt die Netzwerk-Delta-Werte pro Container zurueck (Differenz letzte zwei Messungen)."""
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    # Letzte 2 Timestamps holen
+    c.execute("SELECT DISTINCT timestamp FROM container_metrics ORDER BY timestamp DESC LIMIT 2")
+    ts_rows = c.fetchall()
+    if len(ts_rows) < 2:
+        conn.close()
+        return []
+
+    ts_new, ts_old = ts_rows[0]['timestamp'], ts_rows[1]['timestamp']
+    dt = max(ts_new - ts_old, 1)
+
+    c.execute("SELECT container_name, stack_name, cpu_usage, ram_usage, net_rx, net_tx FROM container_metrics WHERE timestamp = ?", (ts_new,))
+    new_rows = {r['container_name']: dict(r) for r in c.fetchall()}
+
+    c.execute("SELECT container_name, net_rx, net_tx FROM container_metrics WHERE timestamp = ?", (ts_old,))
+    old_rows = {r['container_name']: dict(r) for r in c.fetchall()}
+
+    conn.close()
+
+    result = []
+    for name, data in new_rows.items():
+        old = old_rows.get(name, {})
+        rx_delta = max(0, (data.get('net_rx', 0) or 0) - (old.get('net_rx', 0) or 0))
+        tx_delta = max(0, (data.get('net_tx', 0) or 0) - (old.get('net_tx', 0) or 0))
+        result.append({
+            "name": name,
+            "stack": data.get('stack_name', ''),
+            "cpu": data.get('cpu_usage', 0),
+            "ram": data.get('ram_usage', 0),
+            "net_rx": data.get('net_rx', 0) or 0,
+            "net_tx": data.get('net_tx', 0) or 0,
+            "rx_rate": round(rx_delta / dt, 2),
+            "tx_rate": round(tx_delta / dt, 2),
+            "activity": rx_delta + tx_delta,
+        })
+    return result
+
 
 def get_stack_history(stack_name, limit=60):
     init_db()
