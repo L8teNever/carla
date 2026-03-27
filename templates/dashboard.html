@@ -292,6 +292,19 @@
             </div>
             <span class="text-[8px] font-medium tracking-wide">Updates</span>
         </button>
+
+        <button onclick="navigateTo('backup')" id="nav-backup"
+            class="nav-rail-item flex flex-col items-center group w-full">
+            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
+                </svg>
+            </div>
+            <span class="text-[8px] font-medium tracking-wide">Backup</span>
+        </button>
     </nav>
 
     <!-- Main Content -->
@@ -461,33 +474,64 @@
             </section>
 
             <!-- Performance View -->
-            <section id="view-performance" class="page-view flex-1 hidden overflow-y-auto space-y-8">
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="glass-card p-5">
-                        <p class="text-xs text-[#938F99] mb-1">CPU Last</p>
-                        <p id="kpi-cpu" class="text-3xl font-bold">--%</p>
+            <section id="view-performance" class="page-view flex-1 hidden overflow-y-auto space-y-10 p-10">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Systems-Performance</h1>
+                        <p class="text-[#938F99]">Echtzeit-Telemetrie und historische Analyse der Server-Ressourcen.</p>
                     </div>
-                    <div class="glass-card p-5">
-                        <p class="text-xs text-[#938F99] mb-1">RAM</p>
-                        <p id="kpi-ram" class="text-3xl font-bold">-- GB</p>
-                    </div>
-                    <div class="glass-card p-5">
-                        <p class="text-xs text-[#938F99] mb-1">Storage</p>
-                        <p id="kpi-disk" class="text-3xl font-bold">-- GB</p>
-                    </div>
-                    <div class="glass-card p-5 border-t-4 border-t-green-400">
-                        <p class="text-xs text-[#938F99] mb-1">Temp</p>
-                        <p id="kpi-temp" class="text-3xl font-bold">--°C</p>
+                    <div class="flex space-x-2" id="global-time-filters">
+                        <button onclick="updateTimeFilter('1m', this)" class="filter-chip">1 Min</button>
+                        <button onclick="updateTimeFilter('1h', this)" class="filter-chip active">1 Std</button>
+                        <button onclick="updateTimeFilter('1d', this)" class="filter-chip">1 Tag</button>
+                        <button onclick="updateTimeFilter('1w', this)" class="filter-chip">1 Woche</button>
+                        <button onclick="updateTimeFilter('1M', this)" class="filter-chip">1 Monat</button>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div class="glass-card p-6 h-[400px]">
-                        <h3 class="text-sm font-bold mb-4">CPU Historie (%)</h3>
+
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="glass-card p-6 border-l-4 border-[#D0BCFF]">
+                        <p class="text-xs text-[#938F99] uppercase font-bold tracking-wider mb-2">CPU Last</p>
+                        <p id="kpi-cpu" class="text-4xl font-bold text-white">--%</p>
+                    </div>
+                    <div class="glass-card p-6 border-l-4 border-[#81C784]">
+                        <p class="text-xs text-[#938F99] uppercase font-bold tracking-wider mb-2">RAM Nutzung</p>
+                        <p id="kpi-ram" class="text-4xl font-bold text-white">-- GB</p>
+                    </div>
+                    <div class="glass-card p-6 border-l-4 border-[#FFB74D]">
+                        <p class="text-xs text-[#938F99] uppercase font-bold tracking-wider mb-2">Storage (Used)</p>
+                        <p id="kpi-disk" class="text-4xl font-bold text-white">-- GB</p>
+                    </div>
+                    <div class="glass-card p-6 border-l-4 border-green-400">
+                        <p class="text-xs text-[#938F99] uppercase font-bold tracking-wider mb-2">CPU Temp</p>
+                        <p id="kpi-temp" class="text-4xl font-bold text-white">--°C</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                    <div class="glass-card p-10 h-[450px]">
+                        <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span> CPU-Last (%)
+                        </h3>
                         <div class="h-[320px] relative"><canvas id="chart-cpu"></canvas></div>
                     </div>
-                    <div class="glass-card p-6 h-[400px]">
-                        <h3 class="text-sm font-bold mb-4">RAM Historie (MB)</h3>
+                    <div class="glass-card p-10 h-[450px]">
+                        <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-[#81C784]"></span> RAM-Verlauf (MB)
+                        </h3>
                         <div class="h-[320px] relative"><canvas id="chart-ram"></canvas></div>
+                    </div>
+                    <div class="glass-card p-10 h-[450px]">
+                        <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-[#FFB74D]"></span> Storage (Used MB)
+                        </h3>
+                        <div class="h-[320px] relative"><canvas id="chart-disk-his"></canvas></div>
+                    </div>
+                    <div class="glass-card p-10 h-[450px]">
+                        <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-green-400"></span> Temperatur (°C)
+                        </h3>
+                        <div class="h-[320px] relative"><canvas id="chart-temp-his"></canvas></div>
                     </div>
                 </div>
             </section>
@@ -823,6 +867,140 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Backup View -->
+            <section id="view-backup" class="page-view flex-1 hidden overflow-y-auto">
+                <div class="max-w-4xl mx-auto space-y-8 pb-12">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Backup Center</h1>
+                            <p class="text-[#938F99]">Sichere alle Docker-Stacks vollstaendig — Volumes, Configs, Compose-Dateien.</p>
+                        </div>
+                    </div>
+
+                    <!-- Progress Banner (hidden by default) -->
+                    <div id="backup-progress-banner" class="hidden glass-card p-6 border-l-4 border-[#D0BCFF]">
+                        <div class="flex items-center gap-4">
+                            <div class="w-6 h-6 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin"></div>
+                            <div class="flex-1">
+                                <p class="text-white font-bold" id="backup-progress-text">Backup laeuft...</p>
+                                <div class="w-full bg-white/10 rounded-full h-2 mt-2">
+                                    <div id="backup-progress-bar" class="bg-[#D0BCFF] h-2 rounded-full transition-all" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <span id="backup-progress-count" class="text-sm text-[#938F99]">0/0</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Backup Dir Card -->
+                        <div class="glass-card p-8 space-y-6">
+                            <div class="flex items-center gap-4 mb-2">
+                                <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-bold text-white">Backup-Pfad</h3>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Zielverzeichnis</label>
+                                    <input type="text" id="backup-dir" placeholder="/backup/carla"
+                                        class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-lg font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                                </div>
+                                <p class="text-xs text-[#938F99] italic">Jedes Backup wird in einem Unterordner mit Zeitstempel gespeichert.</p>
+                            </div>
+                        </div>
+
+                        <!-- Info Card -->
+                        <div class="glass-card p-8 space-y-6">
+                            <div class="flex items-center gap-4 mb-2">
+                                <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <line x1="12" y1="16" x2="12" y2="12"/>
+                                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-bold text-white">Was wird gesichert?</h3>
+                            </div>
+                            <div class="space-y-3 text-sm text-[#938F99]">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                                    <span>Docker-Compose Dateien & .env</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                                    <span>Gesamtes Working Directory (tar.gz)</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                                    <span>Alle benannten Docker Volumes</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                                    <span>Container-Konfigurationen (Inspect)</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#938F99] italic mt-4">Beim Restore werden Volumes wiederhergestellt und Stacks automatisch mit <code class="text-[#D0BCFF]">docker compose up -d</code> gestartet.</p>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-4">
+                        <button onclick="saveBackupConfig()"
+                            class="flex-1 bg-[#D0BCFF] text-[#381E72] font-bold py-4 rounded-3xl hover:bg-[#EADDFF] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                <polyline points="17 21 17 13 7 13 7 21"/>
+                                <polyline points="7 3 7 8 15 8"/>
+                            </svg>
+                            Pfad speichern
+                        </button>
+                        <button onclick="runBackupNow()"
+                            class="px-8 bg-green-500/20 border border-green-400/30 text-green-400 font-bold py-4 rounded-3xl hover:bg-green-500/30 transition-all flex items-center justify-center gap-3 active:scale-95">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                <polyline points="17 21 17 13 7 13 7 21"/>
+                                <polyline points="7 3 7 8 15 8"/>
+                            </svg>
+                            Jetzt Backup erstellen
+                        </button>
+                    </div>
+
+                    <!-- Existing Backups (Restore) -->
+                    <div class="glass-card overflow-hidden">
+                        <div class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99] flex items-center justify-between">
+                            <span>Vorhandene Backups</span>
+                            <button onclick="loadBackupList()" class="text-[#D0BCFF] hover:text-white transition-all text-xs normal-case font-normal">Aktualisieren</button>
+                        </div>
+                        <div id="backup-list-container" class="p-6 space-y-4">
+                            <p class="text-sm text-[#938F99] text-center py-4">Lade Backups...</p>
+                        </div>
+                    </div>
+
+                    <!-- Backup History Log -->
+                    <div class="glass-card overflow-hidden">
+                        <div class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99]">
+                            Backup Historie (Letzte 30)</div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-[#1C1B1F] text-[#938F99] uppercase text-[10px] tracking-widest">
+                                    <tr>
+                                        <th class="px-6 py-4">Zeitpunkt</th>
+                                        <th class="px-6 py-4">Status</th>
+                                        <th class="px-6 py-4">Stacks</th>
+                                        <th class="px-6 py-4">Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="backup-log-body" class="divide-y divide-white/5">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -880,6 +1058,8 @@
                 navigateTo('carla');
             } else if (path === '/performance') {
                 navigateTo('performance');
+            } else if (path === '/backup') {
+                navigateTo('backup');
             } else {
                 navigateTo('dashboard');
             }
@@ -914,6 +1094,7 @@
             if (pageId === 'carla') initCarla();
             if (pageId === 'timeline') showTimeline();
             if (pageId === 'updates') loadUpdaterConfig();
+            if (pageId === 'backup') loadBackupView();
             if (pageId === 'performance') { startMetricsPolling(); } else { stopMetricsPolling(); }
             if (pageId !== 'stack-performance') { stopStackPerfPolling(); }
             if (pageId !== 'container-terminal') { stopTerminalPolling(); }
@@ -1686,36 +1867,46 @@
         }
 
         function updateTimeFilter(range, btn) {
-            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('#global-time-filters .filter-chip').forEach(c => c.classList.remove('active'));
             btn.classList.add('active');
 
             const mapping = {
-                '1m': 12,      // 12 * 5s = 60s
-                '1h': 720,     // 720 * 5s = 3600s
-                '1w': 5000,    // Woche gekappt für Performance
-                '1y': 10000    // Jahr gekappt für Performance
+                '1m': 12,        // 12 * 5s = 60s
+                '1h': 720,       // 720 * 5s = 3600s
+                '1d': 17280,     // 24 * 720
+                '1w': 50000,     // Begrenzt auf 50k Punkte für UI-Performance
+                '1M': 100000     // Begrenzt auf 100k Punkte
             };
 
             currentMetricsLimit = mapping[range] || 720;
-            updateMetrics(); // Sofort neu laden
+            updateMetrics();
         }
 
         function initOrUpdateCharts(history) {
             const labels = history.map(h => {
                 const d = new Date(h.timestamp * 1000);
-                return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+                if (currentMetricsLimit <= 720) {
+                    return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+                } else {
+                    return d.toLocaleDateString([], { day: '2-digit', month: '2-digit' }) + ' ' + d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+                }
             });
+
             const cpuData = history.map(h => h.cpu_usage);
             const ramData = history.map(h => h.ram_usage);
+            const diskData = history.map(h => h.disk_used);
+            const tempData = history.map(h => h.cpu_temp);
 
             if (!charts.cpu) {
-                const ctx = document.getElementById('chart-cpu').getContext('2d');
-                charts.cpu = new Chart(ctx, getChartConfig('#D0BCFF', labels, cpuData));
-                const ctxR = document.getElementById('chart-ram').getContext('2d');
-                charts.ram = new Chart(ctxR, getChartConfig('#81C784', labels, ramData));
+                charts.cpu = new Chart(document.getElementById('chart-cpu').getContext('2d'), getChartConfig('#D0BCFF', labels, cpuData));
+                charts.ram = new Chart(document.getElementById('chart-ram').getContext('2d'), getChartConfig('#81C784', labels, ramData));
+                charts.disk = new Chart(document.getElementById('chart-disk-his').getContext('2d'), getChartConfig('#FFB74D', labels, diskData));
+                charts.temp = new Chart(document.getElementById('chart-temp-his').getContext('2d'), getChartConfig('#4ADE80', labels, tempData));
             } else {
                 charts.cpu.data.labels = labels; charts.cpu.data.datasets[0].data = cpuData; charts.cpu.update('none');
                 charts.ram.data.labels = labels; charts.ram.data.datasets[0].data = ramData; charts.ram.update('none');
+                charts.disk.data.labels = labels; charts.disk.data.datasets[0].data = diskData; charts.disk.update('none');
+                charts.temp.data.labels = labels; charts.temp.data.datasets[0].data = tempData; charts.temp.update('none');
             }
         }
 
@@ -1775,6 +1966,171 @@
         function filterGraphNodes() {
             graphSearchTerm = document.getElementById('graph-search').value.toLowerCase();
             if (network) network.setData({ nodes: nodesView, edges: edgesView });
+        }
+
+        // -----------------------------------------------------------
+        // BACKUP LOGIC
+        // -----------------------------------------------------------
+        let backupPollInterval = null;
+
+        async function loadBackupView() {
+            try {
+                const res = await fetch('/api/backup/config');
+                const cfg = await res.json();
+                document.getElementById('backup-dir').value = cfg.backup_dir || '/backup/carla';
+            } catch (e) { console.error("Backup Config Error:", e); }
+            loadBackupList();
+            loadBackupLogs();
+            checkBackupProgress();
+        }
+
+        async function saveBackupConfig() {
+            const backupDir = document.getElementById('backup-dir').value.trim();
+            const btn = document.querySelector('[onclick="saveBackupConfig()"]');
+            btn.innerHTML = '<div class="w-5 h-5 border-2 border-[#381E72]/20 border-t-[#381E72] rounded-full animate-spin"></div> Speichere...';
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/backup/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ backup_dir: backupDir })
+                });
+                if (res.ok) {
+                    btn.innerHTML = '&#10003; Gespeichert';
+                    setTimeout(() => {
+                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Pfad speichern';
+                        btn.disabled = false;
+                    }, 2000);
+                }
+            } catch (e) { btn.innerHTML = 'Error'; btn.disabled = false; }
+        }
+
+        async function runBackupNow() {
+            if (!confirm("Backup aller Docker-Stacks jetzt starten? Alle Volumes, Configs und Compose-Dateien werden gesichert.")) return;
+            const btn = document.querySelector('[onclick="runBackupNow()"]');
+            btn.innerHTML = '<div class="w-5 h-5 border-2 border-green-400/20 border-t-green-400 rounded-full animate-spin"></div> Startet...';
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/backup/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+                if (res.ok) {
+                    startBackupPolling();
+                }
+            } catch (e) { btn.disabled = false; }
+        }
+
+        function startBackupPolling() {
+            if (backupPollInterval) return;
+            document.getElementById('backup-progress-banner').classList.remove('hidden');
+            backupPollInterval = setInterval(checkBackupProgress, 2000);
+        }
+
+        async function checkBackupProgress() {
+            try {
+                const res = await fetch('/api/backup/progress');
+                const p = await res.json();
+                const banner = document.getElementById('backup-progress-banner');
+                if (p.running) {
+                    banner.classList.remove('hidden');
+                    const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
+                    document.getElementById('backup-progress-bar').style.width = pct + '%';
+                    document.getElementById('backup-progress-text').innerText = p.current_stack ? `Sichere: ${p.current_stack}` : 'Backup laeuft...';
+                    document.getElementById('backup-progress-count').innerText = `${p.done}/${p.total}`;
+                    if (!backupPollInterval) startBackupPolling();
+                } else {
+                    if (backupPollInterval) {
+                        clearInterval(backupPollInterval);
+                        backupPollInterval = null;
+                        banner.classList.add('hidden');
+                        const btn = document.querySelector('[onclick="runBackupNow()"]');
+                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Jetzt Backup erstellen';
+                        btn.disabled = false;
+                        loadBackupList();
+                        loadBackupLogs();
+                    }
+                }
+            } catch (e) {}
+        }
+
+        async function loadBackupList() {
+            const container = document.getElementById('backup-list-container');
+            try {
+                const res = await fetch('/api/backup/list');
+                const backups = await res.json();
+                if (!backups.length) {
+                    container.innerHTML = '<p class="text-sm text-[#938F99] text-center py-4">Noch keine Backups vorhanden.</p>';
+                    return;
+                }
+                container.innerHTML = backups.map(b => {
+                    const stackBadges = b.stacks.map(s =>
+                        `<span class="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-[10px]">${s}</span>`
+                    ).join(' ');
+                    return `
+                        <div class="bg-[#1C1B1F] rounded-2xl p-5 flex items-center justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="text-white font-bold font-mono">${b.id}</span>
+                                    <span class="text-xs text-[#938F99]">${b.size}</span>
+                                </div>
+                                <div class="flex flex-wrap gap-1">${stackBadges}</div>
+                            </div>
+                            <button onclick="restoreBackup('${b.id}')"
+                                class="px-6 py-3 bg-[#D0BCFF]/10 border border-[#D0BCFF]/20 text-[#D0BCFF] font-bold rounded-2xl hover:bg-[#D0BCFF]/20 transition-all text-sm flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="1 4 1 10 7 10"/>
+                                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                                </svg>
+                                Restore
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = '<p class="text-sm text-red-400 text-center py-4">Fehler beim Laden der Backups.</p>';
+            }
+        }
+
+        async function restoreBackup(backupId) {
+            if (!confirm(`Sicher? Alle Stacks aus Backup "${backupId}" werden wiederhergestellt. Bestehende Volumes werden ueberschrieben und Stacks neu gestartet.`)) return;
+            try {
+                const res = await fetch('/api/backup/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ backup_id: backupId })
+                });
+                if (res.ok) {
+                    startBackupPolling();
+                    document.getElementById('backup-progress-text').innerText = 'Restore laeuft...';
+                }
+            } catch (e) { console.error("Restore Error:", e); }
+        }
+
+        async function loadBackupLogs() {
+            try {
+                const res = await fetch('/api/backup/log');
+                const logs = await res.json();
+                const body = document.getElementById('backup-log-body');
+                body.innerHTML = logs.reverse().map(l => {
+                    const d = new Date(l.timestamp);
+                    const time = d.toLocaleString();
+                    const statusIcon = l.stacks.every(s => s.status === 'ok') ? '&#9989;' : '&#9888;&#65039;';
+                    const details = l.stacks.map(s => {
+                        const sColor = s.status === 'ok' ? 'text-green-400' : (s.status === 'error' ? 'text-red-400' : 'text-yellow-400');
+                        const volCount = s.volumes_backed_up ? s.volumes_backed_up.length : 0;
+                        const fileCount = s.files_backed_up ? s.files_backed_up.length : 0;
+                        return `<div class="mb-1"><span class="font-bold">${s.stack}:</span> <span class="${sColor}">${s.status}</span> — ${fileCount} Dateien, ${volCount} Volumes</div>`;
+                    }).join('');
+                    return `
+                        <tr class="hover:bg-white/5 transition-all">
+                            <td class="px-6 py-4 font-mono text-xs whitespace-nowrap">${time}</td>
+                            <td class="px-6 py-4 text-center">${statusIcon}</td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-[10px]">${l.stacks.length} Stacks</span>
+                            </td>
+                            <td class="px-6 py-4 text-[10px] text-[#938F99] font-mono max-w-xs break-words">${details}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {}
         }
 
         window.onload = initLoad;

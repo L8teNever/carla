@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater
+from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup
 import config
 
 bp = Blueprint("main", __name__)
@@ -152,6 +152,7 @@ def start_background_fetch():
 @bp.route("/performance")
 @bp.route("/timeline")
 @bp.route("/carla")
+@bp.route("/backup")
 def index(stack_name=None, name=None):
     return render_template("dashboard.html")
 
@@ -331,3 +332,58 @@ def api_updater_run_now():
 @bp.route("/api/updater/log", methods=["GET"])
 def api_updater_log():
     return jsonify(updater.get_log())
+
+
+# ---------------------------------------------------------------
+# Backup Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/backup/config", methods=["GET"])
+def api_backup_config_get():
+    cfg = backup.load_config()
+    return jsonify(cfg)
+
+
+@bp.route("/api/backup/config", methods=["POST"])
+def api_backup_config_save():
+    data = request.json
+    if not data:
+        return jsonify({"error": "Keine Daten"}), 400
+    cfg = backup.load_config()
+    cfg["backup_dir"] = data.get("backup_dir", cfg.get("backup_dir", "/backup/carla"))
+    backup.save_config(cfg)
+    return jsonify({"status": "ok"})
+
+
+@bp.route("/api/backup/run", methods=["POST"])
+def api_backup_run():
+    data = request.json or {}
+    stacks = data.get("stacks", None)
+    threading.Thread(target=backup.run_backup, args=(stacks,), daemon=True).start()
+    return jsonify({"status": "started", "message": "Backup im Hintergrund gestartet."})
+
+
+@bp.route("/api/backup/progress", methods=["GET"])
+def api_backup_progress():
+    return jsonify(backup.get_progress())
+
+
+@bp.route("/api/backup/log", methods=["GET"])
+def api_backup_log():
+    return jsonify(backup.get_log())
+
+
+@bp.route("/api/backup/list", methods=["GET"])
+def api_backup_list():
+    return jsonify(backup.list_backups())
+
+
+@bp.route("/api/backup/restore", methods=["POST"])
+def api_backup_restore():
+    data = request.json
+    if not data or not data.get("backup_id"):
+        return jsonify({"error": "Keine Backup-ID angegeben"}), 400
+    backup_id = data["backup_id"]
+    stacks = data.get("stacks", None)
+    threading.Thread(target=backup.run_restore, args=(backup_id, stacks), daemon=True).start()
+    return jsonify({"status": "started", "message": "Restore im Hintergrund gestartet."})
