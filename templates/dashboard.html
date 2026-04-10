@@ -307,9 +307,9 @@
             <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
-                    <path d="M2 12h20"/>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                    <path d="M2 12h20" />
                 </svg>
             </div>
             <span class="text-[8px] font-medium tracking-wide">Live</span>
@@ -386,7 +386,8 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
                 </svg>
             </div>
             <span class="text-[8px] font-medium tracking-wide">Settings</span>
@@ -476,26 +477,44 @@
             <!-- Live Map View -->
             <section id="view-livemap" class="page-view hidden absolute inset-0 bg-[#0A090D] overflow-hidden">
                 <canvas id="livemap-canvas"></canvas>
-                <div id="livemap-tooltip" class="hidden fixed z-50 pointer-events-none px-4 py-3 rounded-2xl text-xs shadow-2xl border border-white/10" style="background:rgba(43,41,48,0.95);backdrop-filter:blur(12px)"></div>
+                <div id="livemap-tooltip"
+                    class="hidden fixed z-50 pointer-events-none px-4 py-3 rounded-2xl text-xs shadow-2xl border border-white/10"
+                    style="background:rgba(43,41,48,0.95);backdrop-filter:blur(12px)"></div>
                 <!-- Legend -->
-                <div class="absolute bottom-6 left-6 glass-card p-4 space-y-2 text-[10px] z-10 pointer-events-none" style="border-radius:16px">
+                <div class="absolute bottom-6 left-6 glass-card p-4 space-y-2 text-[10px] z-10 pointer-events-none"
+                    style="border-radius:16px">
                     <div class="text-[#D0BCFF] font-bold uppercase tracking-widest mb-1">Live Network Map</div>
-                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span><span class="text-[#938F99]">Server Node</span></div>
-                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-[#4A4458]"></span><span class="text-[#938F99]">Docker Stack</span></div>
-                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#81C784]"></span><span class="text-[#938F99]">Container (running)</span></div>
-                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#F38020]"></span><span class="text-[#938F99]">Cloudflare Domain</span></div>
-                    <div class="flex items-center gap-2"><div class="w-6 h-0.5 bg-[#D0BCFF]"></div><span class="text-[#938F99]">Verbindung</span></div>
-                    <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-[#D0BCFF] animate-ping opacity-50"></div><span class="text-[#938F99]">Netzwerk-Traffic</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span><span
+                            class="text-[#938F99]">Server Node</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-[#4A4458]"></span><span
+                            class="text-[#938F99]">Docker Stack</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#81C784]"></span><span
+                            class="text-[#938F99]">Container (running)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#F38020]"></span><span
+                            class="text-[#938F99]">Cloudflare Domain</span></div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-0.5 bg-[#D0BCFF]"></div><span class="text-[#938F99]">Verbindung</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full bg-[#D0BCFF] animate-ping opacity-50"></div><span
+                            class="text-[#938F99]">Netzwerk-Traffic</span>
+                    </div>
                 </div>
                 <!-- Stats Panel -->
-                <div class="absolute top-6 right-6 glass-card p-5 space-y-3 z-10 min-w-[220px]" style="border-radius:20px">
+                <div class="absolute top-6 right-6 glass-card p-5 space-y-3 z-10 min-w-[220px]"
+                    style="border-radius:20px">
                     <div class="text-[10px] text-[#D0BCFF] font-bold uppercase tracking-widest">Live Statistiken</div>
-                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Stacks</span><span id="lm-stat-stacks" class="text-white font-bold">-</span></div>
-                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Container</span><span id="lm-stat-containers" class="text-white font-bold">-</span></div>
-                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Domains</span><span id="lm-stat-domains" class="text-white font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Stacks</span><span
+                            id="lm-stat-stacks" class="text-white font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Container</span><span
+                            id="lm-stat-containers" class="text-white font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Domains</span><span
+                            id="lm-stat-domains" class="text-white font-bold">-</span></div>
                     <div class="border-t border-white/5 pt-2 mt-1"></div>
-                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">RX Total</span><span id="lm-stat-rx" class="text-[#81C784] font-mono font-bold">-</span></div>
-                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">TX Total</span><span id="lm-stat-tx" class="text-[#D0BCFF] font-mono font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">RX Total</span><span
+                            id="lm-stat-rx" class="text-[#81C784] font-mono font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">TX Total</span><span
+                            id="lm-stat-tx" class="text-[#D0BCFF] font-mono font-bold">-</span></div>
                 </div>
             </section>
 
@@ -602,9 +621,12 @@
                         <!-- GitHub Token -->
                         <div class="glass-card p-8 space-y-6">
                             <div class="flex items-center gap-4 mb-2">
-                                <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <path
+                                            d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
                                     </svg>
                                 </div>
                                 <div>
@@ -613,11 +635,17 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktueller Token</label>
-                                <div id="settings-github-current" class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">Laden...</div>
+                                <label
+                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktueller
+                                    Token</label>
+                                <div id="settings-github-current"
+                                    class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">
+                                    Laden...</div>
                             </div>
                             <div>
-                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neuer Token</label>
+                                <label
+                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neuer
+                                    Token</label>
                                 <input type="password" id="settings-github-token" placeholder="ghp_xxxxxxxxxxxx"
                                     class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
                             </div>
@@ -626,9 +654,11 @@
                         <!-- Cloudflare API Token -->
                         <div class="glass-card p-8 space-y-6">
                             <div class="flex items-center gap-4 mb-2">
-                                <div class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                                     </svg>
                                 </div>
                                 <div>
@@ -637,12 +667,19 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktueller Token</label>
-                                <div id="settings-cf-token-current" class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">Laden...</div>
+                                <label
+                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktueller
+                                    Token</label>
+                                <div id="settings-cf-token-current"
+                                    class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">
+                                    Laden...</div>
                             </div>
                             <div>
-                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neuer Token</label>
-                                <input type="password" id="settings-cf-token" placeholder="Neuen Cloudflare Token eingeben"
+                                <label
+                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neuer
+                                    Token</label>
+                                <input type="password" id="settings-cf-token"
+                                    placeholder="Neuen Cloudflare Token eingeben"
                                     class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
                             </div>
                         </div>
@@ -650,10 +687,12 @@
                         <!-- Cloudflare Account ID -->
                         <div class="glass-card p-8 space-y-6">
                             <div class="flex items-center gap-4 mb-2">
-                                <div class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                                     </svg>
                                 </div>
                                 <div>
@@ -662,11 +701,17 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktuelle ID</label>
-                                <div id="settings-cf-account-current" class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">Laden...</div>
+                                <label
+                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktuelle
+                                    ID</label>
+                                <div id="settings-cf-account-current"
+                                    class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">
+                                    Laden...</div>
                             </div>
                             <div>
-                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neue Account ID</label>
+                                <label
+                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neue
+                                    Account ID</label>
                                 <input type="text" id="settings-cf-account" placeholder="Neue Account ID eingeben"
                                     class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
                             </div>
@@ -675,11 +720,13 @@
                         <!-- Info Card -->
                         <div class="glass-card p-8 space-y-6">
                             <div class="flex items-center gap-4 mb-2">
-                                <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10"/>
-                                        <line x1="12" y1="16" x2="12" y2="12"/>
-                                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <line x1="12" y1="16" x2="12" y2="12" />
+                                        <line x1="12" y1="8" x2="12.01" y2="8" />
                                     </svg>
                                 </div>
                                 <h3 class="text-xl font-bold text-white">Hinweise</h3>
@@ -687,11 +734,13 @@
                             <div class="space-y-3 text-sm text-[#938F99]">
                                 <div class="flex items-start gap-3">
                                     <span class="w-2 h-2 rounded-full bg-[#D0BCFF] mt-1.5 shrink-0"></span>
-                                    <span>Nur ausgefuellte Felder werden aktualisiert. Leere Felder bleiben unveraendert.</span>
+                                    <span>Nur ausgefuellte Felder werden aktualisiert. Leere Felder bleiben
+                                        unveraendert.</span>
                                 </div>
                                 <div class="flex items-start gap-3">
                                     <span class="w-2 h-2 rounded-full bg-[#D0BCFF] mt-1.5 shrink-0"></span>
-                                    <span>Nach dem Speichern wird der Cache geleert und die Infrastruktur-Daten neu abgerufen.</span>
+                                    <span>Nach dem Speichern wird der Cache geleert und die Infrastruktur-Daten neu
+                                        abgerufen.</span>
                                 </div>
                                 <div class="flex items-start gap-3">
                                     <span class="w-2 h-2 rounded-full bg-[#D0BCFF] mt-1.5 shrink-0"></span>
@@ -704,10 +753,11 @@
                     <!-- Save Button -->
                     <button onclick="saveApiKeys()"
                         class="w-full bg-[#D0BCFF] text-[#381E72] font-bold py-4 rounded-3xl hover:bg-[#EADDFF] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg text-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                            <polyline points="17 21 17 13 7 13 7 21"/>
-                            <polyline points="7 3 7 8 15 8"/>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
                         </svg>
                         Keys speichern
                     </button>
@@ -718,7 +768,8 @@
                     <!-- Cloudflare Tunnel Management -->
                     <div>
                         <h2 class="text-3xl font-bold tracking-tight text-white mb-2">Cloudflare Tunnel Routen</h2>
-                        <p class="text-[#938F99]">Ingress-Regeln direkt verwalten — Hostname-zu-Service-Zuordnungen hinzufuegen, bearbeiten oder entfernen.</p>
+                        <p class="text-[#938F99]">Ingress-Regeln direkt verwalten — Hostname-zu-Service-Zuordnungen
+                            hinzufuegen, bearbeiten oder entfernen.</p>
                     </div>
 
                     <!-- Tunnel Status -->
@@ -729,24 +780,33 @@
                     <!-- Tunnel Selector -->
                     <div class="glass-card p-8 space-y-6">
                         <div class="flex items-center gap-4 mb-2">
-                            <div class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <path
+                                        d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
                                 </svg>
                             </div>
                             <div class="flex-1">
                                 <h3 class="text-xl font-bold text-white">Tunnel auswaehlen</h3>
-                                <p class="text-xs text-[#938F99] mt-1">Waehle einen Tunnel um dessen Routen zu verwalten</p>
+                                <p class="text-xs text-[#938F99] mt-1">Waehle einen Tunnel um dessen Routen zu verwalten
+                                </p>
                             </div>
-                            <button onclick="loadTunnelList()" class="text-[#D0BCFF] hover:text-white transition-colors p-2 rounded-xl hover:bg-white/5" title="Neu laden">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
-                                    <path d="M21 3v5h-5"/>
+                            <button onclick="loadTunnelList()"
+                                class="text-[#D0BCFF] hover:text-white transition-colors p-2 rounded-xl hover:bg-white/5"
+                                title="Neu laden">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                                    <path d="M21 3v5h-5" />
                                 </svg>
                             </button>
                         </div>
                         <div id="tunnel-list-loading" class="hidden flex items-center gap-3 text-[#938F99]">
-                            <div class="w-5 h-5 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin"></div>
+                            <div
+                                class="w-5 h-5 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin">
+                            </div>
                             <span class="text-sm">Tunnel werden geladen...</span>
                         </div>
                         <div id="tunnel-selector" class="space-y-2"></div>
@@ -757,9 +817,12 @@
                         <div class="glass-card p-8 space-y-6">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-4">
-                                    <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                                    <div
+                                        class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 20h9" />
+                                            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
                                         </svg>
                                     </div>
                                     <div>
@@ -769,8 +832,10 @@
                                 </div>
                                 <button onclick="showAddIngressModal()"
                                     class="bg-[#D0BCFF] text-[#381E72] font-bold px-6 py-3 rounded-2xl hover:bg-[#EADDFF] transition-all flex items-center gap-2 active:scale-95 text-sm">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                        <path d="M12 5v14"/><path d="M5 12h14"/>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2.5">
+                                        <path d="M12 5v14" />
+                                        <path d="M5 12h14" />
                                     </svg>
                                     Route hinzufuegen
                                 </button>
@@ -780,7 +845,8 @@
                             <div id="ingress-rules" class="space-y-3"></div>
 
                             <!-- Catch-All Info -->
-                            <div id="ingress-catchall" class="hidden bg-white/5 rounded-2xl p-4 flex items-center gap-3 border border-white/5">
+                            <div id="ingress-catchall"
+                                class="hidden bg-white/5 rounded-2xl p-4 flex items-center gap-3 border border-white/5">
                                 <span class="w-3 h-3 rounded-full bg-[#938F99]"></span>
                                 <span class="text-sm text-[#938F99] font-mono flex-1">Catch-All</span>
                                 <span class="text-xs text-[#938F99]" id="catchall-service">http_status:404</span>
@@ -789,27 +855,36 @@
                     </div>
 
                     <!-- Add/Edit Ingress Modal -->
-                    <div id="ingress-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div id="ingress-modal"
+                        class="hidden fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
                         <div class="glass-card p-8 w-full max-w-lg mx-4 space-y-6 border border-white/10 shadow-2xl">
                             <div class="flex items-center justify-between">
                                 <h3 id="ingress-modal-title" class="text-xl font-bold text-white">Route hinzufuegen</h3>
-                                <button onclick="closeIngressModal()" class="text-[#938F99] hover:text-white transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                                <button onclick="closeIngressModal()"
+                                    class="text-[#938F99] hover:text-white transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M18 6 6 18" />
+                                        <path d="m6 6 12 12" />
                                     </svg>
                                 </button>
                             </div>
                             <div class="space-y-4">
                                 <div>
-                                    <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Hostname (Domain)</label>
+                                    <label
+                                        class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Hostname
+                                        (Domain)</label>
                                     <input type="text" id="ingress-modal-hostname" placeholder="app.example.com"
                                         class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
                                 </div>
                                 <div>
-                                    <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Service (Ziel-Adresse)</label>
+                                    <label
+                                        class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Service
+                                        (Ziel-Adresse)</label>
                                     <input type="text" id="ingress-modal-service" placeholder="http://localhost:8080"
                                         class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
-                                    <p class="text-xs text-[#938F99] mt-2 italic">z.B. http://10.7.0.1:3000, http://localhost:8080, tcp://localhost:22</p>
+                                    <p class="text-xs text-[#938F99] mt-2 italic">z.B. http://10.7.0.1:3000,
+                                        http://localhost:8080, tcp://localhost:22</p>
                                 </div>
                             </div>
                             <div class="flex gap-3 pt-2">
@@ -1228,18 +1303,22 @@
                     <div class="flex items-center justify-between mb-8">
                         <div>
                             <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Backup Center</h1>
-                            <p class="text-[#938F99]">Sichere alle Docker-Stacks vollstaendig — Volumes, Configs, Compose-Dateien.</p>
+                            <p class="text-[#938F99]">Sichere alle Docker-Stacks vollstaendig — Volumes, Configs,
+                                Compose-Dateien.</p>
                         </div>
                     </div>
 
                     <!-- Progress Banner (hidden by default) -->
                     <div id="backup-progress-banner" class="hidden glass-card p-6 border-l-4 border-[#D0BCFF]">
                         <div class="flex items-center gap-4">
-                            <div class="w-6 h-6 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin"></div>
+                            <div
+                                class="w-6 h-6 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin">
+                            </div>
                             <div class="flex-1">
                                 <p class="text-white font-bold" id="backup-progress-text">Backup laeuft...</p>
                                 <div class="w-full bg-white/10 rounded-full h-2 mt-2">
-                                    <div id="backup-progress-bar" class="bg-[#D0BCFF] h-2 rounded-full transition-all" style="width: 0%"></div>
+                                    <div id="backup-progress-bar" class="bg-[#D0BCFF] h-2 rounded-full transition-all"
+                                        style="width: 0%"></div>
                                 </div>
                             </div>
                             <span id="backup-progress-count" class="text-sm text-[#938F99]">0/0</span>
@@ -1250,31 +1329,38 @@
                         <!-- Backup Dir Card -->
                         <div class="glass-card p-8 space-y-6">
                             <div class="flex items-center gap-4 mb-2">
-                                <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <path
+                                            d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                                     </svg>
                                 </div>
                                 <h3 class="text-xl font-bold text-white">Backup-Pfad</h3>
                             </div>
                             <div class="space-y-4">
                                 <div>
-                                    <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Zielverzeichnis</label>
+                                    <label
+                                        class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Zielverzeichnis</label>
                                     <input type="text" id="backup-dir" placeholder="/backup/carla"
                                         class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-lg font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
                                 </div>
-                                <p class="text-xs text-[#938F99] italic">Jedes Backup wird in einem Unterordner mit Zeitstempel gespeichert.</p>
+                                <p class="text-xs text-[#938F99] italic">Jedes Backup wird in einem Unterordner mit
+                                    Zeitstempel gespeichert.</p>
                             </div>
                         </div>
 
                         <!-- Info Card -->
                         <div class="glass-card p-8 space-y-6">
                             <div class="flex items-center gap-4 mb-2">
-                                <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10"/>
-                                        <line x1="12" y1="16" x2="12" y2="12"/>
-                                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <line x1="12" y1="16" x2="12" y2="12" />
+                                        <line x1="12" y1="8" x2="12.01" y2="8" />
                                     </svg>
                                 </div>
                                 <h3 class="text-xl font-bold text-white">Was wird gesichert?</h3>
@@ -1297,7 +1383,9 @@
                                     <span>Container-Konfigurationen (Inspect)</span>
                                 </div>
                             </div>
-                            <p class="text-xs text-[#938F99] italic mt-4">Beim Restore werden Volumes wiederhergestellt und Stacks automatisch mit <code class="text-[#D0BCFF]">docker compose up -d</code> gestartet.</p>
+                            <p class="text-xs text-[#938F99] italic mt-4">Beim Restore werden Volumes wiederhergestellt
+                                und Stacks automatisch mit <code class="text-[#D0BCFF]">docker compose up -d</code>
+                                gestartet.</p>
                         </div>
                     </div>
 
@@ -1305,19 +1393,21 @@
                     <div class="flex gap-4">
                         <button onclick="saveBackupConfig()"
                             class="flex-1 bg-[#D0BCFF] text-[#381E72] font-bold py-4 rounded-3xl hover:bg-[#EADDFF] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                <polyline points="17 21 17 13 7 13 7 21"/>
-                                <polyline points="7 3 7 8 15 8"/>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                <polyline points="17 21 17 13 7 13 7 21" />
+                                <polyline points="7 3 7 8 15 8" />
                             </svg>
                             Pfad speichern
                         </button>
                         <button onclick="runBackupNow()"
                             class="px-8 bg-green-500/20 border border-green-400/30 text-green-400 font-bold py-4 rounded-3xl hover:bg-green-500/30 transition-all flex items-center justify-center gap-3 active:scale-95">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                <polyline points="17 21 17 13 7 13 7 21"/>
-                                <polyline points="7 3 7 8 15 8"/>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                <polyline points="17 21 17 13 7 13 7 21" />
+                                <polyline points="7 3 7 8 15 8" />
                             </svg>
                             Jetzt Backup erstellen
                         </button>
@@ -1327,10 +1417,12 @@
                     <div class="glass-card p-8 space-y-6">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-4">
-                                <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10"/>
-                                        <polyline points="12 6 12 12 16 14"/>
+                                <div
+                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <polyline points="12 6 12 12 16 14" />
                                     </svg>
                                 </div>
                                 <div>
@@ -1344,55 +1436,75 @@
                         <div id="bs-settings" class="space-y-6 pt-2">
                             <!-- Uhrzeit -->
                             <div>
-                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Taegliche Uhrzeit</label>
+                                <label
+                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Taegliche
+                                    Uhrzeit</label>
                                 <input type="time" id="bs-time" value="03:00"
                                     class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-lg font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
-                                <p class="text-xs text-[#938F99] mt-2 italic">Backup laeuft einmal pro Tag zur angegebenen Zeit (Server-Zeitzone).</p>
+                                <p class="text-xs text-[#938F99] mt-2 italic">Backup laeuft einmal pro Tag zur
+                                    angegebenen Zeit (Server-Zeitzone).</p>
                             </div>
 
                             <!-- Stack Mode -->
                             <div>
-                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Welche Stacks sichern?</label>
+                                <label
+                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Welche
+                                    Stacks sichern?</label>
                                 <div class="grid grid-cols-3 gap-2">
-                                    <button onclick="setBackupScheduleMode('all')" id="bs-mode-all" class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Alle</button>
-                                    <button onclick="setBackupScheduleMode('only')" id="bs-mode-only" class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Nur diese</button>
-                                    <button onclick="setBackupScheduleMode('except')" id="bs-mode-except" class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Ausser diese</button>
+                                    <button onclick="setBackupScheduleMode('all')" id="bs-mode-all"
+                                        class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Alle</button>
+                                    <button onclick="setBackupScheduleMode('only')" id="bs-mode-only"
+                                        class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Nur
+                                        diese</button>
+                                    <button onclick="setBackupScheduleMode('except')" id="bs-mode-except"
+                                        class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Ausser
+                                        diese</button>
                                 </div>
                             </div>
 
                             <!-- Stack Selection -->
                             <div id="bs-stacks-section" class="hidden">
-                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Stacks auswaehlen</label>
-                                <div id="bs-stacks-list" class="space-y-2 max-h-60 overflow-y-auto bg-[#1C1B1F] rounded-2xl p-4 border border-white/5"></div>
+                                <label
+                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Stacks
+                                    auswaehlen</label>
+                                <div id="bs-stacks-list"
+                                    class="space-y-2 max-h-60 overflow-y-auto bg-[#1C1B1F] rounded-2xl p-4 border border-white/5">
+                                </div>
                             </div>
 
                             <!-- Save Button -->
                             <button onclick="saveBackupSchedule()"
                                 class="w-full bg-[#D0BCFF] text-[#381E72] font-bold py-4 rounded-3xl hover:bg-[#EADDFF] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                    <polyline points="17 21 17 13 7 13 7 21"/>
-                                    <polyline points="7 3 7 8 15 8"/>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                    <polyline points="17 21 17 13 7 13 7 21" />
+                                    <polyline points="7 3 7 8 15 8" />
                                 </svg>
                                 Zeitplan speichern
                             </button>
 
                             <!-- Next Run Info -->
-                            <div id="bs-next-run" class="hidden bg-white/5 rounded-2xl p-4 flex items-center gap-3 border border-white/5">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#81C784]">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <polyline points="12 6 12 12 16 14"/>
+                            <div id="bs-next-run"
+                                class="hidden bg-white/5 rounded-2xl p-4 flex items-center gap-3 border border-white/5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" class="text-[#81C784]">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <polyline points="12 6 12 12 16 14" />
                                 </svg>
-                                <span class="text-xs text-[#938F99]">Naechstes automatisches Backup: <span id="bs-next-run-text" class="text-white font-bold">-</span></span>
+                                <span class="text-xs text-[#938F99]">Naechstes automatisches Backup: <span
+                                        id="bs-next-run-text" class="text-white font-bold">-</span></span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Existing Backups (Restore) -->
                     <div class="glass-card overflow-hidden">
-                        <div class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99] flex items-center justify-between">
+                        <div
+                            class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99] flex items-center justify-between">
                             <span>Vorhandene Backups</span>
-                            <button onclick="loadBackupList()" class="text-[#D0BCFF] hover:text-white transition-all text-xs normal-case font-normal">Aktualisieren</button>
+                            <button onclick="loadBackupList()"
+                                class="text-[#D0BCFF] hover:text-white transition-all text-xs normal-case font-normal">Aktualisieren</button>
                         </div>
                         <div id="backup-list-container" class="p-6 space-y-4">
                             <p class="text-sm text-[#938F99] text-center py-4">Lade Backups...</p>
@@ -1401,7 +1513,8 @@
 
                     <!-- Backup History Log -->
                     <div class="glass-card overflow-hidden">
-                        <div class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99]">
+                        <div
+                            class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99]">
                             Backup Historie (Letzte 30)</div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-sm">
@@ -1427,12 +1540,18 @@
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Port Overview</h1>
-                            <p class="text-[#938F99]">Alle offenen Ports des Hosts mit Docker- und Cloudflare-Zuordnung.</p>
+                            <p class="text-[#938F99]">Alle offenen Ports des Hosts mit Docker- und Cloudflare-Zuordnung.
+                            </p>
                         </div>
                         <button onclick="loadPortsView()"
                             class="px-4 py-2 rounded-full bg-[#2B2930] border border-[#4A4458] text-[#D0BCFF] hover:bg-[#4A4458] transition-all text-sm flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M21 2v6h-6" />
+                                <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                                <path d="M3 22v-6h6" />
+                                <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
                             </svg>
                             Aktualisieren
                         </button>
@@ -1461,23 +1580,35 @@
                     <!-- Filters -->
                     <div class="glass-card p-4 space-y-4">
                         <div class="flex items-center gap-2 flex-wrap" id="ports-filter-bar">
-                            <button data-filter="all" class="ports-filter-btn active px-4 py-2 rounded-full text-xs font-bold transition-all">Alle</button>
-                            <button data-filter="docker" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Docker</button>
-                            <button data-filter="system" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">System</button>
-                            <button data-filter="public" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Oeffentlich</button>
-                            <button data-filter="local" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Lokal (10.x / 172.x / 192.x)</button>
-                            <button data-filter="loopback" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Loopback</button>
-                            <button data-filter="with-domain" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Mit Domain</button>
-                            <button data-filter="without-domain" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Ohne Domain</button>
+                            <button data-filter="all"
+                                class="ports-filter-btn active px-4 py-2 rounded-full text-xs font-bold transition-all">Alle</button>
+                            <button data-filter="docker"
+                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Docker</button>
+                            <button data-filter="system"
+                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">System</button>
+                            <button data-filter="public"
+                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Oeffentlich</button>
+                            <button data-filter="local"
+                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Lokal
+                                (10.x / 172.x / 192.x)</button>
+                            <button data-filter="loopback"
+                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Loopback</button>
+                            <button data-filter="with-domain"
+                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Mit
+                                Domain</button>
+                            <button data-filter="without-domain"
+                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Ohne
+                                Domain</button>
                         </div>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-4 flex items-center text-[#938F99]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <path d="m21 21-4.3-4.3" />
                                 </svg>
                             </span>
-                            <input type="text" id="ports-search"
-                                placeholder="Suche nach Port, IP, Container, Domain..."
+                            <input type="text" id="ports-search" placeholder="Suche nach Port, IP, Container, Domain..."
                                 class="w-full bg-[#1C1B1F] rounded-full py-2.5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-[#D0BCFF] text-sm border border-[#4A4458]/30">
                         </div>
                     </div>
@@ -1485,7 +1616,9 @@
                     <!-- Port List -->
                     <div id="ports-list" class="space-y-3">
                         <div class="text-center text-[#938F99] py-12">
-                            <div class="inline-block w-8 h-8 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin"></div>
+                            <div
+                                class="inline-block w-8 h-8 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin">
+                            </div>
                             <p class="mt-4 text-sm">Lade Ports...</p>
                         </div>
                     </div>
@@ -1610,18 +1743,38 @@
         let lmDragNode = null, lmOffsetX = 0, lmOffsetY = 0;
         let lmHoverNode = null;
         let lmPan = { x: 0, y: 0 }, lmZoom = 1, lmIsPanning = false, lmPanStart = {};
+        let _lmInitialized = false;
 
         function initLiveMap() {
-            if (!fullInfrastructureData) return;
+            if (!fullInfrastructureData || !fullInfrastructureData.stacks) return;
+
+            // Stop previous instance cleanly
+            stopLiveMap();
+
             lmCanvas = document.getElementById('livemap-canvas');
+            if (!lmCanvas) return;
             lmCtx = lmCanvas.getContext('2d');
-            resizeLiveMap();
-            window.addEventListener('resize', resizeLiveMap);
-            lmCanvas.addEventListener('mousedown', lmMouseDown);
-            lmCanvas.addEventListener('mousemove', lmMouseMove);
-            lmCanvas.addEventListener('mouseup', lmMouseUp);
-            lmCanvas.addEventListener('mouseleave', lmMouseUp);
-            lmCanvas.addEventListener('wheel', lmWheel, { passive: false });
+
+            // Resize canvas to fill parent
+            const parent = lmCanvas.parentElement;
+            lmCanvas.width = parent.clientWidth;
+            lmCanvas.height = parent.clientHeight || window.innerHeight;
+
+            // Reset state
+            lmNodes = []; lmEdges = []; lmParticles = [];
+            lmNetData = {};
+            lmDragNode = null; lmHoverNode = null;
+            lmPan = { x: 0, y: 0 }; lmZoom = 1;
+
+            // Attach events (named refs so they can be removed later)
+            lmCanvas.addEventListener('mousedown', _lmMouseDown);
+            lmCanvas.addEventListener('mousemove', _lmMouseMove);
+            lmCanvas.addEventListener('mouseup', _lmMouseUp);
+            lmCanvas.addEventListener('mouseleave', _lmMouseUp);
+            lmCanvas.addEventListener('wheel', _lmWheel, { passive: false });
+            window.addEventListener('resize', _lmResize);
+            _lmInitialized = true;
+
             buildLiveMapGraph();
             fetchNetworkData();
             lmInterval = setInterval(fetchNetworkData, 5000);
@@ -1631,30 +1784,43 @@
         function stopLiveMap() {
             if (lmAnimId) { cancelAnimationFrame(lmAnimId); lmAnimId = null; }
             if (lmInterval) { clearInterval(lmInterval); lmInterval = null; }
-            window.removeEventListener('resize', resizeLiveMap);
+            if (lmCanvas) {
+                lmCanvas.removeEventListener('mousedown', _lmMouseDown);
+                lmCanvas.removeEventListener('mousemove', _lmMouseMove);
+                lmCanvas.removeEventListener('mouseup', _lmMouseUp);
+                lmCanvas.removeEventListener('mouseleave', _lmMouseUp);
+                lmCanvas.removeEventListener('wheel', _lmWheel);
+            }
+            window.removeEventListener('resize', _lmResize);
+            _lmInitialized = false;
         }
 
-        function resizeLiveMap() {
+        function _lmResize() {
             if (!lmCanvas) return;
-            lmCanvas.width = lmCanvas.parentElement.clientWidth;
-            lmCanvas.height = lmCanvas.parentElement.clientHeight;
+            const parent = lmCanvas.parentElement;
+            if (!parent) return;
+            lmCanvas.width = parent.clientWidth;
+            lmCanvas.height = parent.clientHeight || window.innerHeight;
+            // Rebuild so node positions fit new size
+            if (fullInfrastructureData && fullInfrastructureData.stacks) buildLiveMapGraph();
         }
 
         function buildLiveMapGraph() {
             lmNodes = []; lmEdges = []; lmParticles = [];
-            const W = lmCanvas.width, H = lmCanvas.height;
+            const W = lmCanvas.width || 800;
+            const H = lmCanvas.height || 600;
             const cx = W / 2, cy = H / 2;
 
-            // Server Node (Zentrum)
-            lmNodes.push({ id: 'server', label: window.location.hostname, x: cx, y: cy, r: 32, type: 'server', color: '#D0BCFF' });
+            lmNodes.push({ id: 'server', label: window.location.hostname || 'Server', x: cx, y: cy, r: 32, type: 'server', color: '#D0BCFF' });
 
-            const stacks = Object.entries(fullInfrastructureData.stacks);
-            const stackCount = stacks.length;
+            const stacksObj = fullInfrastructureData.stacks || {};
+            const stacks = Object.entries(stacksObj);
+            const stackCount = stacks.length || 1;
             let allDomains = new Set();
             let totalContainers = 0;
 
             stacks.forEach(([stackName, containers], si) => {
-                // Stacks im Kreis um den Server
+                if (!Array.isArray(containers)) return;
                 const stackAngle = (si / stackCount) * Math.PI * 2 - Math.PI / 2;
                 const stackDist = Math.min(W, H) * 0.22;
                 const sx = cx + Math.cos(stackAngle) * stackDist;
@@ -1663,10 +1829,10 @@
                 lmNodes.push({ id: `s-${stackName}`, label: stackName, x: sx, y: sy, r: 22, type: 'stack', color: '#4A4458', stackName });
                 lmEdges.push({ from: 'server', to: `s-${stackName}`, color: '#4A4458' });
 
-                // Container um den Stack
                 const contCount = containers.length;
                 totalContainers += contCount;
                 containers.forEach((cont, ci) => {
+                    if (!cont || !cont.name) return;
                     const cAngle = stackAngle + ((ci - (contCount - 1) / 2) * 0.35);
                     const cDist = stackDist + 90 + ci * 15;
                     const cxx = cx + Math.cos(cAngle) * cDist;
@@ -1677,13 +1843,13 @@
                         id: `c-${cont.name}`, label: cont.name,
                         x: cxx, y: cyy, r: 14, type: 'container',
                         color: isRunning ? '#81C784' : '#F2B8B5',
-                        state: cont.state, stack: stackName, image: cont.image,
+                        state: cont.state || 'unknown', stack: stackName, image: cont.image || '',
                     });
                     lmEdges.push({ from: `s-${stackName}`, to: `c-${cont.name}`, color: '#36343B' });
 
-                    // Cloudflare Domains
-                    if (cont.cloudflares) {
+                    if (Array.isArray(cont.cloudflares)) {
                         cont.cloudflares.forEach(cf => {
+                            if (!cf || !cf.public_domain) return;
                             const domId = `d-${cf.public_domain}`;
                             if (!lmNodes.find(n => n.id === domId)) {
                                 allDomains.add(cf.public_domain);
@@ -1694,7 +1860,7 @@
                                     x: cx + Math.cos(dAngle) * dDist,
                                     y: cy + Math.sin(dAngle) * dDist,
                                     r: 10, type: 'domain', color: '#F38020',
-                                    tunnel: cf.tunnel_name,
+                                    tunnel: cf.tunnel_name || '',
                                 });
                             }
                             if (!lmEdges.find(e => e.from === `c-${cont.name}` && e.to === domId)) {
@@ -1705,30 +1871,34 @@
                 });
             });
 
-            document.getElementById('lm-stat-stacks').textContent = stackCount;
-            document.getElementById('lm-stat-containers').textContent = totalContainers;
-            document.getElementById('lm-stat-domains').textContent = allDomains.size;
+            try {
+                document.getElementById('lm-stat-stacks').textContent = stackCount;
+                document.getElementById('lm-stat-containers').textContent = totalContainers;
+                document.getElementById('lm-stat-domains').textContent = allDomains.size;
+            } catch (_) { }
         }
 
         function fetchNetworkData() {
             fetch('/api/metrics/network')
-                .then(r => r.json())
+                .then(r => r.ok ? r.json() : [])
                 .then(data => {
+                    if (!Array.isArray(data)) return;
                     let totalRx = 0, totalTx = 0;
-                    lmNetData = {};
+                    const newNet = {};
                     data.forEach(c => {
-                        lmNetData[c.name] = c;
-                        totalRx += c.net_rx || 0;
-                        totalTx += c.net_tx || 0;
+                        if (!c || !c.name) return;
+                        newNet[c.name] = c;
+                        totalRx += Number(c.net_rx) || 0;
+                        totalTx += Number(c.net_tx) || 0;
 
-                        // Spawn Partikel basierend auf Aktivitaet
-                        if (c.activity > 0) {
+                        const activity = Number(c.activity) || 0;
+                        if (activity > 0 && lmParticles.length < 200) {
                             const node = lmNodes.find(n => n.id === `c-${c.name}`);
                             if (node) {
-                                // Partikel von Domain zu Container (eingehend)
-                                const domEdges = lmEdges.filter(e => e.to === `d-` || (e.from === node.id && e.color === '#F38020'));
-                                const connDomains = lmEdges.filter(e => e.from === node.id).map(e => e.to).filter(id => id.startsWith('d-'));
-                                const intensity = Math.min(Math.ceil(c.activity / 0.5), 4);
+                                const connDomains = lmEdges
+                                    .filter(e => e.from === node.id && e.to.startsWith('d-'))
+                                    .map(e => e.to);
+                                const intensity = Math.min(Math.ceil(activity / 0.5), 3);
                                 for (let i = 0; i < intensity; i++) {
                                     if (connDomains.length > 0) {
                                         const domId = connDomains[Math.floor(Math.random() * connDomains.length)];
@@ -1737,7 +1907,6 @@
                                             lmParticles.push({ fromX: domNode.x, fromY: domNode.y, toX: node.x, toY: node.y, t: Math.random() * 0.3, speed: 0.008 + Math.random() * 0.008, color: '#F38020' });
                                         }
                                     }
-                                    // Partikel von Container zum Stack
                                     const stackEdge = lmEdges.find(e => e.to === node.id && e.from.startsWith('s-'));
                                     if (stackEdge) {
                                         const stackNode = lmNodes.find(n => n.id === stackEdge.from);
@@ -1749,179 +1918,194 @@
                             }
                         }
                     });
-                    document.getElementById('lm-stat-rx').textContent = formatBytes(totalRx * 1024 * 1024);
-                    document.getElementById('lm-stat-tx').textContent = formatBytes(totalTx * 1024 * 1024);
+                    lmNetData = newNet;
+                    try {
+                        document.getElementById('lm-stat-rx').textContent = lmFormatBytes(totalRx * 1024 * 1024);
+                        document.getElementById('lm-stat-tx').textContent = lmFormatBytes(totalTx * 1024 * 1024);
+                    } catch (_) { }
                 })
-                .catch(() => {});
+                .catch(() => { });
         }
 
-        function formatBytes(b) {
+        function lmFormatBytes(b) {
+            b = Number(b) || 0;
             if (b === 0) return '0 B';
             const k = 1024, s = ['B', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(b) / Math.log(k));
+            const i = Math.floor(Math.log(Math.max(b, 1)) / Math.log(k));
             return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + s[i];
         }
 
         function lmAnimate() {
-            if (!lmCtx || !lmCanvas) return;
-            const W = lmCanvas.width, H = lmCanvas.height;
-            lmCtx.clearRect(0, 0, W, H);
+            // Guard: if stopLiveMap was called, do NOT reschedule
+            if (!_lmInitialized) return;
 
-            lmCtx.save();
-            lmCtx.translate(lmPan.x, lmPan.y);
-            lmCtx.scale(lmZoom, lmZoom);
+            try {
+                if (!lmCtx || !lmCanvas) { lmAnimId = requestAnimationFrame(lmAnimate); return; }
+                const W = lmCanvas.width, H = lmCanvas.height;
+                if (W === 0 || H === 0) { lmAnimId = requestAnimationFrame(lmAnimate); return; }
 
-            // Subtiles Hintergrundgitter
-            lmCtx.strokeStyle = 'rgba(74,68,88,0.08)';
-            lmCtx.lineWidth = 0.5;
-            const gridSize = 60;
-            for (let x = 0; x < W / lmZoom; x += gridSize) {
-                lmCtx.beginPath(); lmCtx.moveTo(x, 0); lmCtx.lineTo(x, H / lmZoom); lmCtx.stroke();
-            }
-            for (let y = 0; y < H / lmZoom; y += gridSize) {
-                lmCtx.beginPath(); lmCtx.moveTo(0, y); lmCtx.lineTo(W / lmZoom, y); lmCtx.stroke();
-            }
+                lmCtx.clearRect(0, 0, W, H);
+                lmCtx.save();
+                lmCtx.translate(lmPan.x, lmPan.y);
+                lmCtx.scale(lmZoom, lmZoom);
 
-            // Kanten zeichnen
-            lmEdges.forEach(e => {
-                const from = lmNodes.find(n => n.id === e.from);
-                const to = lmNodes.find(n => n.id === e.to);
-                if (!from || !to) return;
-
-                lmCtx.beginPath();
-                lmCtx.strokeStyle = e.color + '60';
-                lmCtx.lineWidth = 1.5;
-                if (e.dashed) lmCtx.setLineDash([6, 4]); else lmCtx.setLineDash([]);
-                lmCtx.moveTo(from.x, from.y);
-                lmCtx.lineTo(to.x, to.y);
-                lmCtx.stroke();
-                lmCtx.setLineDash([]);
-            });
-
-            // Partikel (Traffic)
-            lmParticles = lmParticles.filter(p => p.t <= 1);
-            lmParticles.forEach(p => {
-                p.t += p.speed;
-                const x = p.fromX + (p.toX - p.fromX) * p.t;
-                const y = p.fromY + (p.toY - p.fromY) * p.t;
-                const alpha = p.t < 0.1 ? p.t / 0.1 : p.t > 0.8 ? (1 - p.t) / 0.2 : 1;
-
-                lmCtx.beginPath();
-                const grad = lmCtx.createRadialGradient(x, y, 0, x, y, 6);
-                grad.addColorStop(0, p.color + Math.round(alpha * 255).toString(16).padStart(2, '0'));
-                grad.addColorStop(1, p.color + '00');
-                lmCtx.fillStyle = grad;
-                lmCtx.arc(x, y, 6, 0, Math.PI * 2);
-                lmCtx.fill();
-
-                // Glowing trail
-                lmCtx.beginPath();
-                lmCtx.fillStyle = p.color + Math.round(alpha * 180).toString(16).padStart(2, '0');
-                lmCtx.arc(x, y, 2.5, 0, Math.PI * 2);
-                lmCtx.fill();
-            });
-
-            // Knoten zeichnen
-            lmNodes.forEach(node => {
-                const nd = lmNetData[node.label] || {};
-                const hasTraffic = nd.activity > 0;
-
-                // Glow fuer aktive Container
-                if (node.type === 'container' && hasTraffic) {
-                    const glow = lmCtx.createRadialGradient(node.x, node.y, node.r, node.x, node.y, node.r * 3);
-                    glow.addColorStop(0, node.color + '30');
-                    glow.addColorStop(1, node.color + '00');
-                    lmCtx.fillStyle = glow;
-                    lmCtx.beginPath();
-                    lmCtx.arc(node.x, node.y, node.r * 3, 0, Math.PI * 2);
-                    lmCtx.fill();
+                // Background grid
+                lmCtx.strokeStyle = 'rgba(74,68,88,0.08)';
+                lmCtx.lineWidth = 0.5;
+                const gridSize = 60;
+                const gW = W / lmZoom, gH = H / lmZoom;
+                for (let gx = 0; gx < gW; gx += gridSize) {
+                    lmCtx.beginPath(); lmCtx.moveTo(gx, 0); lmCtx.lineTo(gx, gH); lmCtx.stroke();
+                }
+                for (let gy = 0; gy < gH; gy += gridSize) {
+                    lmCtx.beginPath(); lmCtx.moveTo(0, gy); lmCtx.lineTo(gW, gy); lmCtx.stroke();
                 }
 
-                // Ring fuer Server
-                if (node.type === 'server') {
+                // Edges
+                lmEdges.forEach(e => {
+                    const from = lmNodes.find(n => n.id === e.from);
+                    const to = lmNodes.find(n => n.id === e.to);
+                    if (!from || !to) return;
                     lmCtx.beginPath();
-                    lmCtx.arc(node.x, node.y, node.r + 4, 0, Math.PI * 2);
-                    lmCtx.strokeStyle = '#D0BCFF40';
-                    lmCtx.lineWidth = 2;
+                    lmCtx.strokeStyle = (e.color || '#4A4458') + '60';
+                    lmCtx.lineWidth = 1.5;
+                    if (e.dashed) lmCtx.setLineDash([6, 4]); else lmCtx.setLineDash([]);
+                    lmCtx.moveTo(from.x, from.y);
+                    lmCtx.lineTo(to.x, to.y);
                     lmCtx.stroke();
+                    lmCtx.setLineDash([]);
+                });
 
-                    // Pulsierender Ring
-                    const pulse = (Math.sin(Date.now() / 1000) + 1) / 2;
+                // Particles (cap array size)
+                lmParticles = lmParticles.filter(p => p.t <= 1);
+                if (lmParticles.length > 300) lmParticles = lmParticles.slice(-200);
+                lmParticles.forEach(p => {
+                    p.t += p.speed;
+                    const px = p.fromX + (p.toX - p.fromX) * p.t;
+                    const py = p.fromY + (p.toY - p.fromY) * p.t;
+                    const alpha = p.t < 0.1 ? p.t / 0.1 : p.t > 0.8 ? (1 - p.t) / 0.2 : 1;
+                    const alphaHex = Math.round(alpha * 255).toString(16).padStart(2, '0');
+
                     lmCtx.beginPath();
-                    lmCtx.arc(node.x, node.y, node.r + 8 + pulse * 6, 0, Math.PI * 2);
-                    lmCtx.strokeStyle = `rgba(208,188,255,${0.1 + pulse * 0.1})`;
-                    lmCtx.lineWidth = 1;
-                    lmCtx.stroke();
-                }
-
-                // Hauptknoten
-                lmCtx.beginPath();
-                if (node.type === 'stack') {
-                    // Abgerundetes Rechteck fuer Stacks
-                    const sz = node.r;
-                    roundRect(lmCtx, node.x - sz, node.y - sz * 0.7, sz * 2, sz * 1.4, 8);
-                    lmCtx.fillStyle = node.color;
+                    const grad = lmCtx.createRadialGradient(px, py, 0, px, py, 6);
+                    grad.addColorStop(0, (p.color || '#D0BCFF') + alphaHex);
+                    grad.addColorStop(1, (p.color || '#D0BCFF') + '00');
+                    lmCtx.fillStyle = grad;
+                    lmCtx.arc(px, py, 6, 0, Math.PI * 2);
                     lmCtx.fill();
-                } else {
-                    lmCtx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
-                    lmCtx.fillStyle = node.color;
+                    lmCtx.beginPath();
+                    lmCtx.fillStyle = (p.color || '#D0BCFF') + Math.round(alpha * 180).toString(16).padStart(2, '0');
+                    lmCtx.arc(px, py, 2.5, 0, Math.PI * 2);
                     lmCtx.fill();
-                }
+                });
 
-                // Label
-                lmCtx.fillStyle = '#E6E1E5';
-                lmCtx.textAlign = 'center';
-                if (node.type === 'server') {
-                    lmCtx.font = 'bold 11px Inter';
-                    lmCtx.fillText(node.label, node.x, node.y + node.r + 18);
-                } else if (node.type === 'stack') {
-                    lmCtx.font = 'bold 10px Inter';
-                    lmCtx.fillStyle = '#E6E1E5';
-                    lmCtx.fillText(node.label, node.x, node.y + 4);
-                } else if (node.type === 'domain') {
-                    lmCtx.font = '9px Inter';
-                    lmCtx.fillStyle = '#F38020';
-                    lmCtx.fillText(node.label, node.x, node.y + node.r + 14);
-                } else {
-                    lmCtx.font = '9px Inter';
-                    lmCtx.fillText(node.label.length > 18 ? node.label.slice(0, 16) + '..' : node.label, node.x, node.y + node.r + 14);
-                }
+                // Nodes
+                const now = Date.now();
+                lmNodes.forEach(node => {
+                    const nd = lmNetData[node.label] || {};
+                    const hasTraffic = Number(nd.activity) > 0;
 
-                // Traffic-Badge
-                if (node.type === 'container' && hasTraffic) {
-                    lmCtx.font = 'bold 8px Inter';
-                    lmCtx.fillStyle = '#D0BCFF';
-                    lmCtx.fillText(`${nd.rx_rate?.toFixed(1) || 0} MB/s`, node.x, node.y - node.r - 6);
-                }
-            });
+                    // Glow for active containers
+                    if (node.type === 'container' && hasTraffic) {
+                        const glow = lmCtx.createRadialGradient(node.x, node.y, node.r, node.x, node.y, node.r * 3);
+                        glow.addColorStop(0, (node.color || '#81C784') + '30');
+                        glow.addColorStop(1, (node.color || '#81C784') + '00');
+                        lmCtx.fillStyle = glow;
+                        lmCtx.beginPath();
+                        lmCtx.arc(node.x, node.y, node.r * 3, 0, Math.PI * 2);
+                        lmCtx.fill();
+                    }
 
-            lmCtx.restore();
+                    // Pulse ring for server
+                    if (node.type === 'server') {
+                        lmCtx.beginPath();
+                        lmCtx.arc(node.x, node.y, node.r + 4, 0, Math.PI * 2);
+                        lmCtx.strokeStyle = '#D0BCFF40';
+                        lmCtx.lineWidth = 2;
+                        lmCtx.stroke();
+                        const pulse = (Math.sin(now / 1000) + 1) / 2;
+                        lmCtx.beginPath();
+                        lmCtx.arc(node.x, node.y, node.r + 8 + pulse * 6, 0, Math.PI * 2);
+                        lmCtx.strokeStyle = `rgba(208,188,255,${(0.1 + pulse * 0.1).toFixed(2)})`;
+                        lmCtx.lineWidth = 1;
+                        lmCtx.stroke();
+                    }
 
-            // Tooltip
-            if (lmHoverNode) {
+                    // Main node shape
+                    lmCtx.beginPath();
+                    if (node.type === 'stack') {
+                        const sz = node.r;
+                        lmRoundRect(lmCtx, node.x - sz, node.y - sz * 0.7, sz * 2, sz * 1.4, 8);
+                    } else {
+                        lmCtx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+                    }
+                    lmCtx.fillStyle = node.color || '#4A4458';
+                    lmCtx.fill();
+
+                    // Label
+                    lmCtx.textAlign = 'center';
+                    lmCtx.textBaseline = 'top';
+                    if (node.type === 'server') {
+                        lmCtx.font = 'bold 11px Inter, sans-serif';
+                        lmCtx.fillStyle = '#E6E1E5';
+                        lmCtx.fillText(String(node.label), node.x, node.y + node.r + 6);
+                    } else if (node.type === 'stack') {
+                        lmCtx.font = 'bold 10px Inter, sans-serif';
+                        lmCtx.fillStyle = '#E6E1E5';
+                        lmCtx.textBaseline = 'middle';
+                        lmCtx.fillText(String(node.label), node.x, node.y);
+                    } else if (node.type === 'domain') {
+                        lmCtx.font = '9px Inter, sans-serif';
+                        lmCtx.fillStyle = '#F38020';
+                        lmCtx.fillText(String(node.label), node.x, node.y + node.r + 4);
+                    } else {
+                        lmCtx.font = '9px Inter, sans-serif';
+                        lmCtx.fillStyle = '#E6E1E5';
+                        const lbl = String(node.label || '');
+                        lmCtx.fillText(lbl.length > 18 ? lbl.slice(0, 16) + '..' : lbl, node.x, node.y + node.r + 4);
+                    }
+
+                    // Traffic badge
+                    if (node.type === 'container' && hasTraffic && nd.rx_rate != null) {
+                        lmCtx.font = 'bold 8px Inter, sans-serif';
+                        lmCtx.fillStyle = '#D0BCFF';
+                        lmCtx.textBaseline = 'bottom';
+                        lmCtx.fillText(`${Number(nd.rx_rate).toFixed(1)} MB/s`, node.x, node.y - node.r - 2);
+                    }
+                });
+
+                lmCtx.restore();
+
+                // Tooltip (DOM, outside canvas transform)
                 const tip = document.getElementById('livemap-tooltip');
-                const nd = lmNetData[lmHoverNode.label] || {};
-                let html = `<div class="font-bold text-white mb-1">${lmHoverNode.label}</div>`;
-                html += `<div class="text-[#938F99]">Typ: <span class="text-[#D0BCFF]">${lmHoverNode.type}</span></div>`;
-                if (lmHoverNode.type === 'container') {
-                    html += `<div class="text-[#938F99]">Status: <span class="${lmHoverNode.state === 'running' ? 'text-[#81C784]' : 'text-[#F2B8B5]'}">${lmHoverNode.state}</span></div>`;
-                    html += `<div class="text-[#938F99]">Stack: <span class="text-white">${lmHoverNode.stack}</span></div>`;
-                    if (nd.cpu !== undefined) html += `<div class="text-[#938F99]">CPU: <span class="text-white">${nd.cpu?.toFixed(1)}%</span></div>`;
-                    if (nd.ram !== undefined) html += `<div class="text-[#938F99]">RAM: <span class="text-white">${nd.ram?.toFixed(0)} MB</span></div>`;
-                    if (nd.net_rx !== undefined) html += `<div class="text-[#938F99]">RX: <span class="text-[#81C784]">${formatBytes((nd.net_rx || 0) * 1024 * 1024)}</span> TX: <span class="text-[#D0BCFF]">${formatBytes((nd.net_tx || 0) * 1024 * 1024)}</span></div>`;
+                if (tip) {
+                    if (lmHoverNode) {
+                        const nd = lmNetData[lmHoverNode.label] || {};
+                        let html = `<div class="font-bold text-white mb-1">${lmHoverNode.label}</div>`;
+                        html += `<div class="text-[#938F99]">Typ: <span class="text-[#D0BCFF]">${lmHoverNode.type}</span></div>`;
+                        if (lmHoverNode.type === 'container') {
+                            const stateColor = lmHoverNode.state === 'running' ? 'text-[#81C784]' : 'text-[#F2B8B5]';
+                            html += `<div class="text-[#938F99]">Status: <span class="${stateColor}">${lmHoverNode.state}</span></div>`;
+                            html += `<div class="text-[#938F99]">Stack: <span class="text-white">${lmHoverNode.stack}</span></div>`;
+                            if (nd.cpu != null) html += `<div class="text-[#938F99]">CPU: <span class="text-white">${Number(nd.cpu).toFixed(1)}%</span></div>`;
+                            if (nd.ram != null) html += `<div class="text-[#938F99]">RAM: <span class="text-white">${Number(nd.ram).toFixed(0)} MB</span></div>`;
+                        }
+                        if (lmHoverNode.type === 'domain') html += `<div class="text-[#938F99]">Tunnel: <span class="text-[#F38020]">${lmHoverNode.tunnel || '-'}</span></div>`;
+                        if (lmHoverNode.image) html += `<div class="text-[#938F99]">Image: <span class="text-white">${lmHoverNode.image}</span></div>`;
+                        tip.innerHTML = html;
+                        tip.classList.remove('hidden');
+                    } else {
+                        tip.classList.add('hidden');
+                    }
                 }
-                if (lmHoverNode.type === 'domain') html += `<div class="text-[#938F99]">Tunnel: <span class="text-[#F38020]">${lmHoverNode.tunnel || '-'}</span></div>`;
-                if (lmHoverNode.image) html += `<div class="text-[#938F99] truncate max-w-[220px]">Image: <span class="text-white">${lmHoverNode.image}</span></div>`;
-                tip.innerHTML = html;
-                tip.classList.remove('hidden');
-            } else {
-                document.getElementById('livemap-tooltip').classList.add('hidden');
+            } catch (err) {
+                console.warn('[LiveMap] Frame error (non-fatal):', err);
             }
 
             lmAnimId = requestAnimationFrame(lmAnimate);
         }
 
-        function roundRect(ctx, x, y, w, h, r) {
+        function lmRoundRect(ctx, x, y, w, h, r) {
             ctx.beginPath();
             ctx.moveTo(x + r, y);
             ctx.lineTo(x + w - r, y);
@@ -1935,27 +2119,27 @@
             ctx.closePath();
         }
 
-        function lmScreenToWorld(sx, sy) {
+        function _lmScreenToWorld(sx, sy) {
             return { x: (sx - lmPan.x) / lmZoom, y: (sy - lmPan.y) / lmZoom };
         }
 
-        function lmFindNode(sx, sy) {
-            const { x, y } = lmScreenToWorld(sx, sy);
+        function _lmFindNode(sx, sy) {
+            const { x, y } = _lmScreenToWorld(sx, sy);
             for (let i = lmNodes.length - 1; i >= 0; i--) {
                 const n = lmNodes[i];
                 const dx = x - n.x, dy = y - n.y;
-                if (dx * dx + dy * dy <= (n.r + 4) * (n.r + 4)) return n;
+                if (dx * dx + dy * dy <= (n.r + 8) * (n.r + 8)) return n;
             }
             return null;
         }
 
-        function lmMouseDown(e) {
+        function _lmMouseDown(e) {
             const rect = lmCanvas.getBoundingClientRect();
             const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-            const node = lmFindNode(mx, my);
+            const node = _lmFindNode(mx, my);
             if (node) {
                 lmDragNode = node;
-                const wp = lmScreenToWorld(mx, my);
+                const wp = _lmScreenToWorld(mx, my);
                 lmOffsetX = node.x - wp.x;
                 lmOffsetY = node.y - wp.y;
             } else {
@@ -1964,45 +2148,32 @@
             }
         }
 
-        function lmMouseMove(e) {
+        function _lmMouseMove(e) {
             const rect = lmCanvas.getBoundingClientRect();
             const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-
             if (lmDragNode) {
-                const wp = lmScreenToWorld(mx, my);
+                const wp = _lmScreenToWorld(mx, my);
                 lmDragNode.x = wp.x + lmOffsetX;
                 lmDragNode.y = wp.y + lmOffsetY;
-                // Update Partikel-Endpunkte
-                lmParticles.forEach(p => {
-                    if (Math.abs(p.toX - lmDragNode.x) < 2) p.toX = lmDragNode.x;
-                    if (Math.abs(p.toY - lmDragNode.y) < 2) p.toY = lmDragNode.y;
-                });
             } else if (lmIsPanning) {
                 lmPan.x = e.clientX - lmPanStart.x;
                 lmPan.y = e.clientY - lmPanStart.y;
             } else {
-                lmHoverNode = lmFindNode(mx, my);
+                lmHoverNode = _lmFindNode(mx, my);
                 lmCanvas.style.cursor = lmHoverNode ? 'pointer' : 'grab';
-                // Tooltip position
                 const tip = document.getElementById('livemap-tooltip');
-                tip.style.left = (e.clientX + 16) + 'px';
-                tip.style.top = (e.clientY + 16) + 'px';
+                if (tip) { tip.style.left = (e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 16) + 'px'; }
             }
         }
 
-        function lmMouseUp() {
-            lmDragNode = null;
-            lmIsPanning = false;
-        }
+        function _lmMouseUp() { lmDragNode = null; lmIsPanning = false; }
 
-        function lmWheel(e) {
+        function _lmWheel(e) {
             e.preventDefault();
             const rect = lmCanvas.getBoundingClientRect();
             const mx = e.clientX - rect.left, my = e.clientY - rect.top;
             const delta = e.deltaY > 0 ? 0.9 : 1.1;
             const newZoom = Math.max(0.3, Math.min(3, lmZoom * delta));
-
-            // Zoom zum Mauszeiger hin
             lmPan.x = mx - (mx - lmPan.x) * (newZoom / lmZoom);
             lmPan.y = my - (my - lmPan.y) * (newZoom / lmZoom);
             lmZoom = newZoom;
@@ -2051,16 +2222,16 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             })
-            .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
-            .then(({ ok, data }) => {
-                if (ok) {
-                    showSettingsStatus('Keys erfolgreich aktualisiert! Daten werden neu geladen...', false);
-                    loadSettingsView();
-                } else {
-                    showSettingsStatus(data.error || 'Fehler beim Speichern.', true);
-                }
-            })
-            .catch(() => showSettingsStatus('Netzwerkfehler beim Speichern.', true));
+                .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+                .then(({ ok, data }) => {
+                    if (ok) {
+                        showSettingsStatus('Keys erfolgreich aktualisiert! Daten werden neu geladen...', false);
+                        loadSettingsView();
+                    } else {
+                        showSettingsStatus(data.error || 'Fehler beim Speichern.', true);
+                    }
+                })
+                .catch(() => showSettingsStatus('Netzwerkfehler beim Speichern.', true));
         }
 
         function showSettingsStatus(msg, isError) {
@@ -2253,23 +2424,23 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ hostname, service })
             })
-            .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
-            .then(({ ok, data }) => {
-                btn.disabled = false;
-                btn.textContent = 'Speichern';
-                if (ok) {
-                    closeIngressModal();
-                    showTunnelStatus(data.message || 'Gespeichert!', false);
-                    loadIngressRules();
-                } else {
-                    showTunnelStatus(data.error || 'Fehler beim Speichern.', true);
-                }
-            })
-            .catch(() => {
-                btn.disabled = false;
-                btn.textContent = 'Speichern';
-                showTunnelStatus('Netzwerkfehler.', true);
-            });
+                .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+                .then(({ ok, data }) => {
+                    btn.disabled = false;
+                    btn.textContent = 'Speichern';
+                    if (ok) {
+                        closeIngressModal();
+                        showTunnelStatus(data.message || 'Gespeichert!', false);
+                        loadIngressRules();
+                    } else {
+                        showTunnelStatus(data.error || 'Fehler beim Speichern.', true);
+                    }
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    btn.textContent = 'Speichern';
+                    showTunnelStatus('Netzwerkfehler.', true);
+                });
         }
 
         function deleteIngressRule(index, hostname) {
@@ -3358,7 +3529,7 @@
                         loadBackupLogs();
                     }
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         async function loadBackupList() {
@@ -3440,7 +3611,7 @@
                         </tr>
                     `;
                 }).join('');
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // -----------------------------------------------------------
@@ -3489,7 +3660,7 @@
                     const res = await fetch('/api/ports');
                     portsData = await res.json();
                     renderPortsView();
-                } catch (e) {}
+                } catch (e) { }
             }, 15000);
         }
 
@@ -3624,11 +3795,11 @@
                                     <span class="px-2 py-0.5 rounded-full ${sc.bg} ${sc.border} border ${sc.text} text-[10px] font-bold uppercase">${sc.label}</span>
                                     <span class="text-xs text-white font-mono truncate">${escapeHtml(displayIp)}</span>
                                     ${p.is_docker
-                                        ? '<span class="px-2 py-0.5 rounded-full bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] text-[10px] font-bold uppercase">Docker</span>'
-                                        : '<span class="px-2 py-0.5 rounded-full bg-[#938F99]/10 border border-[#938F99]/30 text-[#938F99] text-[10px] font-bold uppercase">System</span>'}
+                    ? '<span class="px-2 py-0.5 rounded-full bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] text-[10px] font-bold uppercase">Docker</span>'
+                    : '<span class="px-2 py-0.5 rounded-full bg-[#938F99]/10 border border-[#938F99]/30 text-[#938F99] text-[10px] font-bold uppercase">System</span>'}
                                     ${hasDomain
-                                        ? '<span class="px-2 py-0.5 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[#F59E0B] text-[10px] font-bold uppercase">Domain</span>'
-                                        : ''}
+                    ? '<span class="px-2 py-0.5 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[#F59E0B] text-[10px] font-bold uppercase">Domain</span>'
+                    : ''}
                                 </div>
                                 ${serviceName}
                                 ${domainBadges}
