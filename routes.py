@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup, ports
+from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup, ports, discovery
 import config
 
 bp = Blueprint("main", __name__)
@@ -129,6 +129,13 @@ def _fetch_and_cache_task():
         
         # In den JSON-Cache!
         cache.save(CACHE_KEY, full_data)
+
+        # Baseline zurücksetzen – Discovery soll nach diesem Fetch
+        # einen frischen Vergleichspunkt haben
+        try:
+            discovery.force_reset_baseline()
+        except Exception:
+            pass
         
         print("✅ [CARLA] Hintergrund-Abfrage abgeschlossen! Daten im SQL-Cache abgelegt.\n")
     except Exception as e:
@@ -184,6 +191,17 @@ def get_full_infrastructure():
     data["_from_cache"] = True
     data["_is_updating"] = is_fetching
     return jsonify(data)
+
+@bp.route("/api/discovery/status", methods=["GET"])
+def api_discovery_status():
+    """Gibt den Status des Auto-Discovery-Daemons zurück."""
+    return jsonify({
+        "running":          discovery._running,
+        "last_fingerprint": (discovery._last_fingerprint or "")[:12] + "…"
+                            if discovery._last_fingerprint else None,
+        "check_interval_s": discovery.CHECK_INTERVAL,
+        "is_fetching":      is_fetching,
+    })
 
 @bp.route("/api/metrics/server", methods=["GET"])
 def api_metrics_server():

@@ -8,7 +8,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from flask import Flask
 from routes import bp, start_background_fetch
-from services import cache, metrics_worker, setup, backup
+from services import cache, metrics_worker, setup, backup, discovery
 import config
 
 app = Flask(__name__)
@@ -24,6 +24,12 @@ if setup.is_setup_done():
     from services import updater
     updater.start_daemon()
     backup.start_scheduler()
+
+    # Auto-Discovery: erkennt neue Container/Ports/Hosts ohne Neustart
+    discovery.set_change_callback(start_background_fetch)
+    discovery.start_daemon()
+    print("[CARLA] Auto-Discovery aktiv – neue Container/Ports werden automatisch erkannt.")
+
     if not cache.has_entry("full_infrastructure"):
         print("[CARLA] Kein Cache vorhanden. Starte ersten Download parallel im Hintergrund...")
         start_background_fetch()
