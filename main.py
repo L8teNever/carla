@@ -8,7 +8,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from flask import Flask
 from routes import bp, start_background_fetch
-from services import cache, metrics_worker, setup
+from services import cache, metrics_worker, setup, backup
 import config
 
 app = Flask(__name__)
@@ -23,6 +23,7 @@ if setup.is_setup_done():
     metrics_worker.start_daemon()
     from services import updater
     updater.start_daemon()
+    backup.start_scheduler()
     if not cache.has_entry("full_infrastructure"):
         print("[CARLA] Kein Cache vorhanden. Starte ersten Download parallel im Hintergrund...")
         start_background_fetch()

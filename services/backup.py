@@ -6,6 +6,7 @@
 
 import os
 import json
+import time
 import threading
 from datetime import datetime
 from . import system_executor
@@ -25,13 +26,26 @@ _backup_progress = {"running": False, "current_stack": "", "done": 0, "total": 0
 # ---------------------------------------------------------------
 
 def load_config() -> dict:
+    defaults = {
+        "backup_dir": DEFAULT_BACKUP_DIR,
+        "last_run": None,
+        "schedule_enabled": False,
+        "schedule_time": "03:00",
+        "schedule_mode": "all",
+        "schedule_stacks": [],
+    }
     if not os.path.exists(CONFIG_FILE):
-        return {"backup_dir": DEFAULT_BACKUP_DIR, "last_run": None}
+        return defaults
     try:
         with open(CONFIG_FILE, "r") as f:
-            return json.load(f)
+            cfg = json.load(f)
+            # Fehlende Defaults einfuegen
+            for k, v in defaults.items():
+                if k not in cfg:
+                    cfg[k] = v
+            return cfg
     except Exception:
-        return {"backup_dir": DEFAULT_BACKUP_DIR, "last_run": None}
+        return defaults
 
 
 def save_config(cfg: dict) -> None:
@@ -424,3 +438,63 @@ def run_restore(backup_id: str, stacks: list = None) -> list:
         _backup_progress["running"] = False
 
     return results
+
+
+# ---------------------------------------------------------------
+# Scheduler Daemon (Automatische Backups)
+# ---------------------------------------------------------------
+
+_scheduler_started = False
+
+
+def _backup_scheduler_loop():
+    """Prueft jede Minute ob ein geplantes Backup ansteht."""
+    last_triggered_date = None
+
+    while True:
+        try:
+            cfg = load_config()
+            if cfg.get("schedule_enabled"):
+                now = datetime.now()
+                target_time = cfg.get("schedule_time", "03:00")
+                parts = target_time.split(":")
+                target_hour = int(parts[0])
+                target_minute = int(parts[1]) if len(parts) > 1 else 0
+
+                if now.hour == target_hour and now.minute == target_minute:
+                    today = now.strftime("%Y-%m-%d")
+                    if last_triggered_date != today:
+                        last_triggered_date = today
+                        # Welche Stacks sollen gesichert werden?
+                        mode = cfg.get("schedule_mode", "all")
+                        selected = cfg.get("schedule_stacks", [])
+                        all_stacks = _get_all_stacks()
+                        all_names = [s["name"] for s in all_stacks]
+
+                        if mode == "all":
+                            stacks_filter = None
+                        elif mode == "only":
+                            stacks_filter = [s for s in selected if s in all_names]
+                        elif mode == "except":
+                            stacks_filter = [s for s in all_names if s not in selected]
+                        else:
+                            stacks_filter = None
+
+                        print(f"\n[BACKUP-SCHEDULER] Geplantes Backup gestartet um {now.strftime('%H:%M')}")
+                        threading.Thread(target=run_backup, args=(stacks_filter,), daemon=True).start()
+        except Exception as e:
+            print(f"[BACKUP-SCHEDULER] Scheduler Error: {e}")
+
+        time.sleep(30)
+
+
+def start_scheduler():
+    """Startet den Backup-Scheduler-Daemon."""
+    global _scheduler_started
+    if _scheduler_started:
+        return
+    _scheduler_started = True
+    thread = threading.Thread(target=_backup_scheduler_loop, daemon=True)
+    thread.start()
+    print("[BACKUP-SCHEDULER] Scheduler-Daemon gestartet")
+    return thread

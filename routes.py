@@ -289,6 +289,7 @@ def api_setup_save():
     system_executor.close_ssh()
     metrics_worker.start_daemon()
     updater.start_daemon()
+    backup.start_scheduler()
     start_background_fetch()
 
     return jsonify({"status": "ok"})
@@ -561,9 +562,24 @@ def api_backup_config_save():
     if not data:
         return jsonify({"error": "Keine Daten"}), 400
     cfg = backup.load_config()
-    cfg["backup_dir"] = data.get("backup_dir", cfg.get("backup_dir", "/backup/carla"))
+    if "backup_dir" in data:
+        cfg["backup_dir"] = data["backup_dir"]
+    if "schedule_enabled" in data:
+        cfg["schedule_enabled"] = bool(data["schedule_enabled"])
+    if "schedule_time" in data:
+        cfg["schedule_time"] = data["schedule_time"]
+    if "schedule_mode" in data:
+        cfg["schedule_mode"] = data["schedule_mode"]
+    if "schedule_stacks" in data:
+        cfg["schedule_stacks"] = data["schedule_stacks"] or []
     backup.save_config(cfg)
     return jsonify({"status": "ok"})
+
+
+@bp.route("/api/backup/stacks", methods=["GET"])
+def api_backup_stacks():
+    """Listet alle verfuegbaren Stacks fuer die Schedule-Auswahl."""
+    return jsonify(updater.get_available_stacks())
 
 
 @bp.route("/api/backup/run", methods=["POST"])

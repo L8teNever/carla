@@ -72,6 +72,18 @@
             background: #0A090D;
         }
 
+        .bs-mode-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: #938F99;
+        }
+
+        .bs-mode-btn.active {
+            background: rgba(208, 188, 255, 0.15);
+            border-color: #D0BCFF;
+            color: #D0BCFF;
+        }
+
         .graph-sidebar {
             position: absolute;
             right: 24px;
@@ -1267,6 +1279,71 @@
                             </svg>
                             Jetzt Backup erstellen
                         </button>
+                    </div>
+
+                    <!-- Backup Scheduler Card -->
+                    <div class="glass-card p-8 space-y-6">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12 6 12 12 16 14"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold text-white">Automatisches Backup</h3>
+                                    <p class="text-xs text-[#938F99] mt-1">Taegliche Backups zu einer festen Uhrzeit</p>
+                                </div>
+                            </div>
+                            <div id="bs-toggle" class="toggle-switch" onclick="toggleBackupSchedule()"></div>
+                        </div>
+
+                        <div id="bs-settings" class="space-y-6 pt-2">
+                            <!-- Uhrzeit -->
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Taegliche Uhrzeit</label>
+                                <input type="time" id="bs-time" value="03:00"
+                                    class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-lg font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                                <p class="text-xs text-[#938F99] mt-2 italic">Backup laeuft einmal pro Tag zur angegebenen Zeit (Server-Zeitzone).</p>
+                            </div>
+
+                            <!-- Stack Mode -->
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Welche Stacks sichern?</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button onclick="setBackupScheduleMode('all')" id="bs-mode-all" class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Alle</button>
+                                    <button onclick="setBackupScheduleMode('only')" id="bs-mode-only" class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Nur diese</button>
+                                    <button onclick="setBackupScheduleMode('except')" id="bs-mode-except" class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Ausser diese</button>
+                                </div>
+                            </div>
+
+                            <!-- Stack Selection -->
+                            <div id="bs-stacks-section" class="hidden">
+                                <label class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Stacks auswaehlen</label>
+                                <div id="bs-stacks-list" class="space-y-2 max-h-60 overflow-y-auto bg-[#1C1B1F] rounded-2xl p-4 border border-white/5"></div>
+                            </div>
+
+                            <!-- Save Button -->
+                            <button onclick="saveBackupSchedule()"
+                                class="w-full bg-[#D0BCFF] text-[#381E72] font-bold py-4 rounded-3xl hover:bg-[#EADDFF] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                    <polyline points="17 21 17 13 7 13 7 21"/>
+                                    <polyline points="7 3 7 8 15 8"/>
+                                </svg>
+                                Zeitplan speichern
+                            </button>
+
+                            <!-- Next Run Info -->
+                            <div id="bs-next-run" class="hidden bg-white/5 rounded-2xl p-4 flex items-center gap-3 border border-white/5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#81C784]">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                                <span class="text-xs text-[#938F99]">Naechstes automatisches Backup: <span id="bs-next-run-text" class="text-white font-bold">-</span></span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Existing Backups (Restore) -->
@@ -2986,15 +3063,118 @@
         // -----------------------------------------------------------
         let backupPollInterval = null;
 
+        // Backup-Scheduler State
+        let bsConfig = { schedule_enabled: false, schedule_time: "03:00", schedule_mode: "all", schedule_stacks: [] };
+        let bsAvailableStacks = [];
+
         async function loadBackupView() {
             try {
                 const res = await fetch('/api/backup/config');
                 const cfg = await res.json();
                 document.getElementById('backup-dir').value = cfg.backup_dir || '/backup/carla';
+
+                // Scheduler-Config laden
+                bsConfig.schedule_enabled = !!cfg.schedule_enabled;
+                bsConfig.schedule_time = cfg.schedule_time || "03:00";
+                bsConfig.schedule_mode = cfg.schedule_mode || "all";
+                bsConfig.schedule_stacks = cfg.schedule_stacks || [];
+
+                document.getElementById('bs-time').value = bsConfig.schedule_time;
+                document.getElementById('bs-toggle').classList.toggle('on', bsConfig.schedule_enabled);
+                setBackupScheduleMode(bsConfig.schedule_mode, true);
+                updateBackupNextRun();
+
+                // Verfuegbare Stacks fuer Auswahl laden
+                const stacksRes = await fetch('/api/backup/stacks');
+                bsAvailableStacks = await stacksRes.json();
+                renderBackupStackList();
             } catch (e) { console.error("Backup Config Error:", e); }
             loadBackupList();
             loadBackupLogs();
             checkBackupProgress();
+        }
+
+        function toggleBackupSchedule() {
+            bsConfig.schedule_enabled = !bsConfig.schedule_enabled;
+            document.getElementById('bs-toggle').classList.toggle('on', bsConfig.schedule_enabled);
+            updateBackupNextRun();
+        }
+
+        function setBackupScheduleMode(mode, skipStateUpdate) {
+            if (!skipStateUpdate) bsConfig.schedule_mode = mode;
+            ['all', 'only', 'except'].forEach(m => {
+                document.getElementById('bs-mode-' + m).classList.toggle('active', m === (skipStateUpdate ? mode : bsConfig.schedule_mode));
+            });
+            const needsList = (skipStateUpdate ? mode : bsConfig.schedule_mode) !== 'all';
+            document.getElementById('bs-stacks-section').classList.toggle('hidden', !needsList);
+        }
+
+        function renderBackupStackList() {
+            const container = document.getElementById('bs-stacks-list');
+            if (!bsAvailableStacks || bsAvailableStacks.length === 0) {
+                container.innerHTML = '<p class="text-xs text-[#938F99] text-center py-2">Keine Stacks gefunden.</p>';
+                return;
+            }
+            container.innerHTML = bsAvailableStacks.map(s => {
+                const checked = bsConfig.schedule_stacks.includes(s);
+                return `
+                    <label class="flex items-center gap-3 cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-all">
+                        <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleBackupStack('${s.replace(/'/g, "\\'")}')" class="w-4 h-4 accent-[#D0BCFF]">
+                        <span class="text-sm text-white">${s}</span>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function toggleBackupStack(stack) {
+            const idx = bsConfig.schedule_stacks.indexOf(stack);
+            if (idx >= 0) bsConfig.schedule_stacks.splice(idx, 1);
+            else bsConfig.schedule_stacks.push(stack);
+        }
+
+        function updateBackupNextRun() {
+            const info = document.getElementById('bs-next-run');
+            if (!bsConfig.schedule_enabled) { info.classList.add('hidden'); return; }
+            const time = document.getElementById('bs-time').value || "03:00";
+            const [h, m] = time.split(':').map(Number);
+            const now = new Date();
+            const next = new Date();
+            next.setHours(h, m, 0, 0);
+            if (next <= now) next.setDate(next.getDate() + 1);
+            const diff = next - now;
+            const hrs = Math.floor(diff / 3600000);
+            const mins = Math.floor((diff % 3600000) / 60000);
+            document.getElementById('bs-next-run-text').textContent =
+                `${next.toLocaleDateString('de-DE')} ${time} (in ${hrs}h ${mins}min)`;
+            info.classList.remove('hidden');
+        }
+
+        async function saveBackupSchedule() {
+            bsConfig.schedule_time = document.getElementById('bs-time').value || "03:00";
+            const btn = document.querySelector('[onclick="saveBackupSchedule()"]');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<div class="w-5 h-5 border-2 border-[#381E72]/20 border-t-[#381E72] rounded-full animate-spin"></div> Speichere...';
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/backup/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        schedule_enabled: bsConfig.schedule_enabled,
+                        schedule_time: bsConfig.schedule_time,
+                        schedule_mode: bsConfig.schedule_mode,
+                        schedule_stacks: bsConfig.schedule_stacks,
+                    })
+                });
+                if (res.ok) {
+                    btn.innerHTML = '&#10003; Gespeichert';
+                    updateBackupNextRun();
+                    setTimeout(() => { btn.innerHTML = originalHTML; btn.disabled = false; }, 2000);
+                } else {
+                    btn.innerHTML = 'Fehler';
+                    setTimeout(() => { btn.innerHTML = originalHTML; btn.disabled = false; }, 2000);
+                }
+            } catch (e) { btn.innerHTML = originalHTML; btn.disabled = false; }
         }
 
         async function saveBackupConfig() {
