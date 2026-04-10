@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup
+from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup, ports
 import config
 
 bp = Blueprint("main", __name__)
@@ -155,6 +155,7 @@ def start_background_fetch():
 @bp.route("/backup")
 @bp.route("/settings")
 @bp.route("/livemap")
+@bp.route("/ports")
 def index(stack_name=None, name=None):
     return render_template("dashboard.html")
 
@@ -614,3 +615,17 @@ def api_backup_restore():
     stacks = data.get("stacks", None)
     threading.Thread(target=backup.run_restore, args=(backup_id, stacks), daemon=True).start()
     return jsonify({"status": "started", "message": "Restore im Hintergrund gestartet."})
+
+
+# ---------------------------------------------------------------
+# Ports Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/ports", methods=["GET"])
+def api_ports():
+    """Gibt alle offenen Ports mit Docker/Cloudflare-Anreicherung zurueck."""
+    host_ports = ports.get_host_ports()
+    data, _ = cache.load(CACHE_KEY)
+    docker_stacks = (data or {}).get("stacks", {}) if data else {}
+    enriched = ports.enrich_with_docker(host_ports, docker_stacks)
+    return jsonify(enriched)

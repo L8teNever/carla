@@ -84,6 +84,32 @@
             color: #D0BCFF;
         }
 
+        .ports-filter-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #938F99;
+        }
+
+        .ports-filter-btn:hover {
+            background: rgba(208, 188, 255, 0.08);
+            color: #D0BCFF;
+        }
+
+        .ports-filter-btn.active {
+            background: rgba(208, 188, 255, 0.15);
+            border-color: #D0BCFF;
+            color: #D0BCFF;
+        }
+
+        .port-row {
+            transition: all 0.2s ease;
+        }
+
+        .port-row:hover {
+            transform: translateX(4px);
+            background: rgba(208, 188, 255, 0.05);
+        }
+
         .graph-sidebar {
             position: absolute;
             right: 24px;
@@ -336,6 +362,22 @@
                 </svg>
             </div>
             <span class="text-[8px] font-medium tracking-wide">Backup</span>
+        </button>
+
+        <button onclick="navigateTo('ports')" id="nav-ports"
+            class="nav-rail-item flex flex-col items-center group w-full">
+            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <line x1="6" y1="11" x2="6" y2="11" />
+                    <line x1="10" y1="11" x2="10" y2="11" />
+                    <line x1="14" y1="11" x2="14" y2="11" />
+                    <line x1="18" y1="11" x2="18" y2="11" />
+                </svg>
+            </div>
+            <span class="text-[8px] font-medium tracking-wide">Ports</span>
         </button>
 
         <button onclick="navigateTo('settings')" id="nav-settings"
@@ -1378,6 +1420,77 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Ports View -->
+            <section id="view-ports" class="page-view flex-1 hidden overflow-y-auto">
+                <div class="max-w-6xl mx-auto space-y-8 pb-12">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Port Overview</h1>
+                            <p class="text-[#938F99]">Alle offenen Ports des Hosts mit Docker- und Cloudflare-Zuordnung.</p>
+                        </div>
+                        <button onclick="loadPortsView()"
+                            class="px-4 py-2 rounded-full bg-[#2B2930] border border-[#4A4458] text-[#D0BCFF] hover:bg-[#4A4458] transition-all text-sm flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                            </svg>
+                            Aktualisieren
+                        </button>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="ports-stats-grid">
+                        <div class="glass-card p-4">
+                            <div class="text-xs text-[#938F99] uppercase tracking-wide">Gesamt</div>
+                            <div class="text-3xl font-bold text-white mt-1" id="ports-stat-total">0</div>
+                        </div>
+                        <div class="glass-card p-4 border-l-4 border-[#4ADE80]">
+                            <div class="text-xs text-[#938F99] uppercase tracking-wide">Docker</div>
+                            <div class="text-3xl font-bold text-[#4ADE80] mt-1" id="ports-stat-docker">0</div>
+                        </div>
+                        <div class="glass-card p-4 border-l-4 border-[#F59E0B]">
+                            <div class="text-xs text-[#938F99] uppercase tracking-wide">Mit Domain</div>
+                            <div class="text-3xl font-bold text-[#F59E0B] mt-1" id="ports-stat-domain">0</div>
+                        </div>
+                        <div class="glass-card p-4 border-l-4 border-[#60A5FA]">
+                            <div class="text-xs text-[#938F99] uppercase tracking-wide">Oeffentlich</div>
+                            <div class="text-3xl font-bold text-[#60A5FA] mt-1" id="ports-stat-public">0</div>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="glass-card p-4 space-y-4">
+                        <div class="flex items-center gap-2 flex-wrap" id="ports-filter-bar">
+                            <button data-filter="all" class="ports-filter-btn active px-4 py-2 rounded-full text-xs font-bold transition-all">Alle</button>
+                            <button data-filter="docker" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Docker</button>
+                            <button data-filter="system" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">System</button>
+                            <button data-filter="public" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Oeffentlich</button>
+                            <button data-filter="local" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Lokal (10.x / 172.x / 192.x)</button>
+                            <button data-filter="loopback" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Loopback</button>
+                            <button data-filter="with-domain" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Mit Domain</button>
+                            <button data-filter="without-domain" class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Ohne Domain</button>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-4 flex items-center text-[#938F99]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                                </svg>
+                            </span>
+                            <input type="text" id="ports-search"
+                                placeholder="Suche nach Port, IP, Container, Domain..."
+                                class="w-full bg-[#1C1B1F] rounded-full py-2.5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-[#D0BCFF] text-sm border border-[#4A4458]/30">
+                        </div>
+                    </div>
+
+                    <!-- Port List -->
+                    <div id="ports-list" class="space-y-3">
+                        <div class="text-center text-[#938F99] py-12">
+                            <div class="inline-block w-8 h-8 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin"></div>
+                            <p class="mt-4 text-sm">Lade Ports...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -1441,6 +1554,8 @@
                 navigateTo('backup');
             } else if (path === '/settings') {
                 navigateTo('settings');
+            } else if (path === '/ports') {
+                navigateTo('ports');
             } else {
                 navigateTo('dashboard');
             }
@@ -1479,6 +1594,8 @@
             if (pageId === 'updates') loadUpdaterConfig();
             if (pageId === 'backup') loadBackupView();
             if (pageId === 'settings') loadSettingsView();
+            if (pageId === 'ports') loadPortsView();
+            if (pageId !== 'ports') stopPortsPolling();
             if (pageId === 'performance') { startMetricsPolling(); } else { stopMetricsPolling(); }
             if (pageId !== 'stack-performance') { stopStackPerfPolling(); }
             if (pageId !== 'container-terminal') { stopTerminalPolling(); }
@@ -3324,6 +3441,220 @@
                     `;
                 }).join('');
             } catch (e) {}
+        }
+
+        // -----------------------------------------------------------
+        // PORTS VIEW
+        // -----------------------------------------------------------
+        let portsData = [];
+        let portsFilter = 'all';
+        let portsSearch = '';
+        let portsPollInterval = null;
+
+        async function loadPortsView() {
+            try {
+                const res = await fetch('/api/ports');
+                portsData = await res.json();
+                renderPortsView();
+            } catch (e) {
+                console.error('Ports load error:', e);
+                document.getElementById('ports-list').innerHTML =
+                    '<p class="text-center text-red-400 py-8">Fehler beim Laden der Ports.</p>';
+            }
+
+            // Filter-Buttons binden (nur einmal)
+            if (!window._portsBound) {
+                document.querySelectorAll('.ports-filter-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.ports-filter-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        portsFilter = btn.dataset.filter;
+                        renderPortsView();
+                    });
+                });
+                const searchInput = document.getElementById('ports-search');
+                if (searchInput) {
+                    searchInput.addEventListener('input', (e) => {
+                        portsSearch = e.target.value.toLowerCase().trim();
+                        renderPortsView();
+                    });
+                }
+                window._portsBound = true;
+            }
+
+            // Auto-Refresh alle 15s
+            stopPortsPolling();
+            portsPollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch('/api/ports');
+                    portsData = await res.json();
+                    renderPortsView();
+                } catch (e) {}
+            }, 15000);
+        }
+
+        function stopPortsPolling() {
+            if (portsPollInterval) {
+                clearInterval(portsPollInterval);
+                portsPollInterval = null;
+            }
+        }
+
+        function portsMatchesFilter(p) {
+            // Filter-Kategorien
+            switch (portsFilter) {
+                case 'docker': if (!p.is_docker) return false; break;
+                case 'system': if (p.is_docker) return false; break;
+                case 'public': if (p.scope !== 'public') return false; break;
+                case 'local': if (p.scope !== 'private') return false; break;
+                case 'loopback': if (p.scope !== 'loopback') return false; break;
+                case 'with-domain': if (!p.cloudflares || p.cloudflares.length === 0) return false; break;
+                case 'without-domain': if (p.cloudflares && p.cloudflares.length > 0) return false; break;
+            }
+            // Suche
+            if (portsSearch) {
+                const hay = [
+                    String(p.port), p.ip, p.protocol, p.process || '',
+                    p.container || '', p.stack || '', p.image || '',
+                    ...(p.cloudflares || []).map(c => c.public_domain || '')
+                ].join(' ').toLowerCase();
+                if (!hay.includes(portsSearch)) return false;
+            }
+            return true;
+        }
+
+        function renderPortsView() {
+            // Stats
+            document.getElementById('ports-stat-total').innerText = portsData.length;
+            document.getElementById('ports-stat-docker').innerText = portsData.filter(p => p.is_docker).length;
+            document.getElementById('ports-stat-domain').innerText = portsData.filter(p => p.cloudflares && p.cloudflares.length > 0).length;
+            document.getElementById('ports-stat-public').innerText = portsData.filter(p => p.scope === 'public').length;
+
+            const list = document.getElementById('ports-list');
+            const filtered = portsData.filter(portsMatchesFilter);
+
+            if (filtered.length === 0) {
+                list.innerHTML = `
+                    <div class="glass-card p-12 text-center">
+                        <div class="text-5xl mb-3 opacity-40">&#128269;</div>
+                        <p class="text-[#938F99]">Keine Ports gefunden.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = filtered.map(p => renderPortCard(p)).join('');
+        }
+
+        function renderPortCard(p) {
+            // Scope-Badge
+            const scopeColors = {
+                'public': { bg: 'bg-[#60A5FA]/10', border: 'border-[#60A5FA]/30', text: 'text-[#60A5FA]', label: 'Oeffentlich' },
+                'private': { bg: 'bg-[#F59E0B]/10', border: 'border-[#F59E0B]/30', text: 'text-[#F59E0B]', label: 'Lokal' },
+                'loopback': { bg: 'bg-[#9CA3AF]/10', border: 'border-[#9CA3AF]/30', text: 'text-[#9CA3AF]', label: 'Loopback' }
+            };
+            const sc = scopeColors[p.scope] || scopeColors.loopback;
+
+            const hasDomain = p.cloudflares && p.cloudflares.length > 0;
+            const borderColor = p.is_docker
+                ? (hasDomain ? 'border-l-[#F59E0B]' : 'border-l-[#4ADE80]')
+                : 'border-l-[#938F99]';
+
+            // Display-IP
+            const displayIp = (p.ip === '0.0.0.0' || p.ip === '::' || p.ip === '*') ? 'ALL' : p.ip;
+
+            // Service-Name
+            let serviceName = '';
+            if (p.is_docker) {
+                serviceName = `<div class="flex items-center gap-2 mt-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#4ADE80]">
+                        <path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+                    </svg>
+                    <span class="text-xs text-white font-mono">${escapeHtml(p.container)}</span>
+                    <span class="text-[10px] text-[#938F99]">/ ${escapeHtml(p.stack)}</span>
+                </div>`;
+            } else if (p.process) {
+                serviceName = `<div class="flex items-center gap-2 mt-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#938F99]">
+                        <path d="M9 2h6l3 7H6l3-7z"/><rect x="4" y="9" width="16" height="12" rx="2"/>
+                    </svg>
+                    <span class="text-xs text-[#938F99] font-mono">${escapeHtml(p.process)}</span>
+                </div>`;
+            }
+
+            // Domain-Badges
+            let domainBadges = '';
+            if (hasDomain) {
+                domainBadges = `<div class="flex flex-wrap gap-1 mt-2">` +
+                    p.cloudflares.map(cf => `
+                        <a href="https://${escapeHtml(cf.public_domain)}" target="_blank" rel="noopener"
+                           onclick="event.stopPropagation()"
+                           class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[#F59E0B] text-[10px] font-mono hover:bg-[#F59E0B]/20 transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                            </svg>
+                            ${escapeHtml(cf.public_domain)}
+                        </a>
+                    `).join('') + `</div>`;
+            }
+
+            // Click-Ziel: Container -> Stack-Seite, sonst local_url oeffnen
+            let clickAction = '';
+            if (p.is_docker && p.stack) {
+                clickAction = `onclick="showStackDetail('${escapeHtml(p.stack)}')"`;
+            } else if (p.local_url) {
+                clickAction = `onclick="window.open('${p.local_url}', '_blank')"`;
+            }
+
+            const cursorStyle = clickAction ? 'cursor-pointer' : '';
+
+            return `
+                <div class="port-row glass-card p-4 border-l-4 ${borderColor} ${cursorStyle}" ${clickAction}>
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                        <div class="flex items-center gap-4 flex-1 min-w-0">
+                            <!-- Port-Nummer gross -->
+                            <div class="flex items-baseline gap-2 min-w-[140px]">
+                                <span class="text-3xl font-bold text-[#D0BCFF] font-mono">${p.port}</span>
+                                <span class="text-xs text-[#938F99] uppercase font-bold">${escapeHtml(p.protocol)}</span>
+                            </div>
+
+                            <!-- Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="px-2 py-0.5 rounded-full ${sc.bg} ${sc.border} border ${sc.text} text-[10px] font-bold uppercase">${sc.label}</span>
+                                    <span class="text-xs text-white font-mono truncate">${escapeHtml(displayIp)}</span>
+                                    ${p.is_docker
+                                        ? '<span class="px-2 py-0.5 rounded-full bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] text-[10px] font-bold uppercase">Docker</span>'
+                                        : '<span class="px-2 py-0.5 rounded-full bg-[#938F99]/10 border border-[#938F99]/30 text-[#938F99] text-[10px] font-bold uppercase">System</span>'}
+                                    ${hasDomain
+                                        ? '<span class="px-2 py-0.5 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[#F59E0B] text-[10px] font-bold uppercase">Domain</span>'
+                                        : ''}
+                                </div>
+                                ${serviceName}
+                                ${domainBadges}
+                            </div>
+                        </div>
+
+                        <!-- Aktions-Pfeil -->
+                        ${clickAction ? `
+                        <div class="text-[#D0BCFF] opacity-60">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                            </svg>
+                        </div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         window.onload = initLoad;
