@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>CARLA | Infrastructure Monitoring</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
@@ -176,6 +176,16 @@
             position: relative;
         }
 
+        .search-field > svg {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+            z-index: 1;
+        }
+
         .search-field input {
             width: 100%;
             background: var(--surface-2);
@@ -192,15 +202,6 @@
         .search-field input:focus {
             border-color: var(--primary);
             background: var(--surface-1);
-        }
-
-        .search-field .search-icon {
-            position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-            pointer-events: none;
         }
 
         /* ============================================================
@@ -1075,10 +1076,347 @@
         .text-primary { color: var(--primary); }
         .truncate     { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+        /* ============================================================
+           RESPONSIVE – TABLET (< 900px)
+           ============================================================ */
         @media (max-width: 900px) {
             .grid-2, .grid-3 { grid-template-columns: 1fr; }
             .page-inner { padding: 20px; }
+            .page-inner.wide { max-width: 100%; }
             .page-header .title { font-size: 22px; }
+            .page-header { flex-direction: column; gap: 12px; align-items: flex-start; }
+            .page-header .actions { width: 100%; flex-wrap: wrap; }
+            .stat-grid { grid-template-columns: repeat(2, 1fr); }
+            .card.spacious { padding: 20px; }
+        }
+
+        /* ============================================================
+           RESPONSIVE – MOBILE (< 640px)
+           ============================================================ */
+        @media (max-width: 640px) {
+            /* --- BODY: nav unten, content oben --- */
+            body {
+                flex-direction: column !important;
+            }
+
+            /* --- NAV RAIL → BOTTOM BAR --- */
+            .nav-rail {
+                width: 100% !important;
+                height: 64px;
+                flex-direction: row !important;
+                padding: 0 4px;
+                gap: 0;
+                order: 2;
+                border-right: none;
+                border-top: 1px solid var(--border);
+                overflow-x: auto;
+                overflow-y: hidden;
+                justify-content: space-around;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            .nav-rail::-webkit-scrollbar { display: none; }
+            .nav-rail { padding-bottom: env(safe-area-inset-bottom, 0); }
+
+            .nav-logo { display: none; }
+            .nav-sep { display: none; }
+
+            .nav-item {
+                width: auto;
+                min-width: 52px;
+                padding: 6px 8px;
+                border-radius: 12px;
+                flex-shrink: 0;
+            }
+            .nav-item svg { width: 18px; height: 18px; }
+            .nav-item-label { font-size: 8px; }
+
+            /* --- MAIN AREA --- */
+            main {
+                order: 1;
+            }
+
+            /* --- TOPBAR --- */
+            .topbar {
+                height: 52px;
+                padding: 0 12px;
+                gap: 8px;
+            }
+
+            .search-field {
+                max-width: none;
+            }
+            .search-field input {
+                padding: 8px 12px 8px 36px;
+                font-size: 12px;
+            }
+            .search-field > svg { width: 14px; height: 14px; left: 12px; }
+
+            .header-ident {
+                gap: 8px;
+                padding-left: 8px;
+            }
+            .header-ident .text-right { display: none !important; }
+            .icon-btn { width: 36px; height: 36px; }
+            .icon-btn svg { width: 16px; height: 16px; }
+            .avatar { width: 32px; height: 32px; }
+
+            /* --- PAGE CONTAINER --- */
+            .page-container {
+                padding: 0;
+            }
+
+            .page-inner {
+                padding: 16px;
+                max-width: 100%;
+            }
+
+            /* --- PAGE HEADER --- */
+            .page-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+                margin-bottom: 20px;
+            }
+            .page-header .title {
+                font-size: 20px;
+            }
+            .page-header .subtitle {
+                font-size: 12px;
+            }
+            .page-header .actions {
+                width: 100%;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                gap: 6px;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* --- SECTION TITLE --- */
+            .section-title { font-size: 17px; }
+            .section-sub { font-size: 11px; }
+
+            /* --- STAT GRID --- */
+            .stat-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            .stat-tile { padding: 14px; }
+            .stat-tile .value { font-size: 20px; }
+            .stat-tile .label { font-size: 9px; }
+
+            /* --- CARDS --- */
+            .card {
+                padding: 16px;
+                border-radius: var(--r-lg);
+            }
+            .card.compact { padding: 12px; }
+            .card.spacious { padding: 16px; }
+
+            .card-header {
+                gap: 10px;
+                margin-bottom: 14px;
+            }
+            .card-icon {
+                width: 36px;
+                height: 36px;
+                border-radius: 10px;
+            }
+            .card-icon svg { width: 18px; height: 18px; }
+            .card-title { font-size: 15px; }
+            .card-sub { font-size: 11px; }
+
+            /* --- BUTTONS --- */
+            .btn { padding: 10px 16px; font-size: 12px; }
+            .btn-lg { padding: 12px 20px; font-size: 13px; }
+            .btn-sm { padding: 7px 12px; font-size: 11px; }
+
+            /* --- INPUTS --- */
+            .input, .select {
+                padding: 10px 14px;
+                font-size: 13px;
+                border-radius: var(--r-lg);
+            }
+            .input.lg { padding: 12px 16px; }
+
+            .field-label { font-size: 9px; margin-bottom: 5px; }
+            .field-hint { font-size: 11px; }
+            .value-display { padding: 8px 12px; font-size: 12px; }
+
+            /* --- CHIPS / FILTERS --- */
+            .chip, .filter-chip, .ports-filter-btn {
+                padding: 6px 12px;
+                font-size: 11px;
+            }
+
+            /* --- TABLES --- */
+            .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .data-table { min-width: 480px; }
+            .data-table th, .data-table td { padding: 10px 12px; font-size: 12px; }
+            .table-head { padding: 12px 16px; font-size: 9px; }
+
+            /* --- BADGES --- */
+            .badge { font-size: 10px; padding: 2px 8px; }
+
+            /* --- TOGGLE --- */
+            .toggle-switch { width: 36px; height: 20px; }
+            .toggle-switch::after { width: 14px; height: 14px; }
+            .toggle-switch.on::after { transform: translateX(16px); }
+
+            /* --- MODAL (FULL-WIDTH ON MOBILE) --- */
+            .modal-backdrop {
+                align-items: flex-end;
+            }
+            .modal {
+                max-width: 100%;
+                margin: 0;
+                border-radius: var(--r-xl) var(--r-xl) 0 0;
+                padding: 20px;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+
+            /* --- GRIDS → SINGLE COLUMN --- */
+            .grid-cols-2,
+            .md\:grid-cols-2,
+            .lg\:grid-cols-2,
+            .grid-cols-3,
+            .lg\:grid-cols-3,
+            .md\:grid-cols-4,
+            .lg\:grid-cols-4 {
+                grid-template-columns: 1fr !important;
+            }
+
+            /* --- DASHBOARD STACKS --- */
+            #stacks-grid {
+                grid-template-columns: 1fr !important;
+                gap: 10px !important;
+            }
+
+            /* --- TIMELINE: STACKED --- */
+            #view-timeline {
+                flex-direction: column !important;
+            }
+            #view-timeline > aside {
+                width: 100% !important;
+                height: 200px;
+                border-right: none !important;
+                border-bottom: 1px solid var(--border);
+            }
+            #view-timeline > div:last-child {
+                padding: 16px !important;
+            }
+
+            /* --- PERFORMANCE CHARTS --- */
+            #view-performance .grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+            }
+
+            /* --- LIVEMAP panels --- */
+            #livemap-legend {
+                left: 8px !important;
+                bottom: 8px !important;
+                max-width: 150px;
+                padding: 8px !important;
+                font-size: 8px !important;
+            }
+            #livemap-stats {
+                top: 8px !important;
+                right: 8px !important;
+                min-width: 140px !important;
+                padding: 10px !important;
+            }
+            #livemap-stats .text-xs { font-size: 10px; }
+
+            /* --- CARLA SIDEBAR --- */
+            .graph-sidebar {
+                width: 280px;
+            }
+            .filter-toggle-btn {
+                bottom: 16px !important;
+                right: 16px !important;
+                width: 44px;
+                height: 44px;
+            }
+
+            /* --- TERMINAL --- */
+            #view-container-terminal .page-header .actions {
+                flex-wrap: wrap;
+            }
+
+            /* --- PORTS FILTER --- */
+            #ports-filter-bar {
+                overflow-x: auto;
+                flex-wrap: nowrap !important;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                padding-bottom: 4px;
+            }
+            #ports-filter-bar::-webkit-scrollbar { display: none; }
+            #ports-filter-bar .chip,
+            #ports-filter-bar .ports-filter-btn {
+                flex-shrink: 0;
+                white-space: nowrap;
+            }
+
+            /* --- BACKUP PROGRESS --- */
+            #backup-progress-banner { padding: 14px !important; }
+
+            /* --- EMPTY STATE --- */
+            .empty-state { padding: 32px 16px; }
+            .empty-icon { width: 56px; height: 56px; }
+
+            /* --- LIST ROW --- */
+            .list-row { padding: 10px 14px; font-size: 12px; border-radius: var(--r-md); }
+
+            /* --- STACK DETAIL CONTAINERS --- */
+            #stack-detail-content .glass-card {
+                padding: 14px !important;
+            }
+            #stack-detail-content .grid-cols-1 {
+                grid-template-columns: 1fr !important;
+            }
+            /* Stack controls bar */
+            #stack-detail-content [id^="stack-controls-"] {
+                flex-wrap: wrap;
+                gap: 6px !important;
+                padding: 6px !important;
+            }
+            #stack-detail-content [id^="stack-controls-"] button {
+                font-size: 10px !important;
+                padding: 8px 10px !important;
+            }
+            /* Stack header */
+            #stack-detail-content > div:first-child {
+                flex-direction: column !important;
+                gap: 12px !important;
+            }
+            /* Container action buttons */
+            #stack-detail-content .w-10.h-10 {
+                width: 36px !important;
+                height: 36px !important;
+            }
+
+            /* --- UPDATER / BACKUP mode buttons --- */
+            .bs-mode-btn { padding: 8px 12px; font-size: 12px; }
+
+            /* --- SCROLLBAR --- */
+            ::-webkit-scrollbar { width: 3px; height: 3px; }
+        }
+
+        /* ============================================================
+           RESPONSIVE – VERY SMALL (< 380px)
+           ============================================================ */
+        @media (max-width: 380px) {
+            .nav-item {
+                min-width: 44px;
+                padding: 6px 4px;
+            }
+            .nav-item-label { display: none; }
+            .stat-grid { grid-template-columns: 1fr; }
+            .page-inner { padding: 12px; }
+            .page-header .title { font-size: 18px; }
         }
     </style>
 </head>
@@ -1281,7 +1619,7 @@
                     class="hidden fixed z-50 pointer-events-none px-4 py-3 rounded-2xl text-xs shadow-2xl border border-white/10"
                     style="background:rgba(43,41,48,0.95);backdrop-filter:blur(12px)"></div>
                 <!-- Legend -->
-                <div class="absolute bottom-6 left-6 glass-card p-4 space-y-2 text-[10px] z-10 pointer-events-none"
+                <div id="livemap-legend" class="absolute bottom-6 left-6 glass-card p-4 space-y-2 text-[10px] z-10 pointer-events-none"
                     style="border-radius:16px">
                     <div class="text-[#D0BCFF] font-bold uppercase tracking-widest mb-1">Live Network Map</div>
                     <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span><span
@@ -1301,7 +1639,7 @@
                     </div>
                 </div>
                 <!-- Stats Panel -->
-                <div class="absolute top-6 right-6 glass-card p-5 space-y-3 z-10 min-w-[220px]"
+                <div id="livemap-stats" class="absolute top-6 right-6 glass-card p-5 space-y-3 z-10 min-w-[220px]"
                     style="border-radius:20px">
                     <div class="text-[10px] text-[#D0BCFF] font-bold uppercase tracking-widest">Live Statistiken</div>
                     <div class="flex justify-between text-xs"><span class="text-[#938F99]">Stacks</span><span
