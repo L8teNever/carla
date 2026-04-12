@@ -13,55 +13,861 @@
         rel="stylesheet">
     <style>
         :root {
-            --m3-surface: #1C1B1F;
-            --m3-surface-container: #2B2930;
-            --m3-surface-container-high: #36343B;
-            --m3-primary: #D0BCFF;
-            --m3-on-primary: #381E72;
-            --m3-secondary: #CCC2DC;
-            --m3-outline: #938F99;
-            --m3-error: #F2B8B5;
-            --m3-tertiary: #EFB8C8;
+            /* Surfaces */
+            --surface: #141317;
+            --surface-1: #1C1B1F;
+            --surface-2: #25232A;
+            --surface-3: #302E36;
+            --surface-hi: #4A4458;
+
+            /* Text */
+            --text: #E6E1E5;
+            --text-muted: #938F99;
+            --text-dim: #625B6C;
+
+            /* Accent */
+            --primary: #D0BCFF;
+            --primary-hover: #EADDFF;
+            --on-primary: #381E72;
+
+            /* Status */
+            --success: #81C784;
+            --warning: #FFB74D;
+            --danger: #F2B8B5;
+            --info: #60A5FA;
+            --amber: #F59E0B;
+            --lime: #4ADE80;
+            --cf: #F38020;
+            --docker: #2496ED;
+
+            /* Borders */
+            --border: rgba(255, 255, 255, 0.07);
+            --border-strong: rgba(255, 255, 255, 0.14);
+
+            /* Radii */
+            --r-sm: 10px;
+            --r-md: 14px;
+            --r-lg: 18px;
+            --r-xl: 22px;
+            --r-2xl: 28px;
+            --r-full: 999px;
+
+            /* Shadows */
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+            /* Legacy aliases (kept for untouched markup) */
+            --m3-surface: var(--surface);
+            --m3-surface-container: var(--surface-2);
+            --m3-surface-container-high: var(--surface-3);
+            --m3-primary: var(--primary);
+            --m3-on-primary: var(--on-primary);
+            --m3-outline: var(--text-muted);
+            --m3-error: var(--danger);
         }
+
+        * { box-sizing: border-box; }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--m3-surface);
-            color: #E6E1E5;
+            background: var(--surface);
+            color: var(--text);
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ============================================================
+           NAV RAIL
+           ============================================================ */
+        .nav-rail {
+            width: 76px;
+            background: var(--surface-1);
+            border-right: 1px solid var(--border);
+            padding: 18px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 0;
+            z-index: 50;
+        }
+
+        .nav-logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--primary);
+            color: var(--on-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow-md);
+            flex-shrink: 0;
+        }
+
+        .nav-sep {
+            width: 28px;
+            height: 1px;
+            background: var(--border);
+            margin: 10px 0;
+            flex-shrink: 0;
+        }
+
+        .nav-item {
+            width: 60px;
+            padding: 8px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            border-radius: 14px;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            background: transparent;
+            border: none;
+            outline: none;
+        }
+
+        .nav-item svg { width: 20px; height: 20px; }
+
+        .nav-item:hover {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+
+        .nav-item.active {
+            background: var(--surface-3);
+            color: var(--primary);
+        }
+
+        .nav-item-label {
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        /* Legacy nav class – still used by some JS selectors */
+        .nav-rail-item { transition: all 0.2s; }
+        .nav-rail-item.active { color: var(--primary); }
+        .nav-rail-item.active .icon-bg { background: var(--surface-3); }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+        .topbar {
+            height: 60px;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(20, 19, 23, 0.85);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+            z-index: 40;
+            flex-shrink: 0;
+        }
+
+        .search-field {
+            flex: 1;
+            max-width: 640px;
+            position: relative;
+        }
+
+        .search-field input {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1px solid transparent;
+            border-radius: var(--r-full);
+            padding: 10px 16px 10px 44px;
+            color: var(--text);
+            font-size: 13px;
+            outline: none;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .search-field input:focus {
+            border-color: var(--primary);
+            background: var(--surface-1);
+        }
+
+        .search-field .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        /* ============================================================
+           ICON BUTTON / BADGE
+           ============================================================ */
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--r-full);
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .icon-btn:hover {
+            background: var(--surface-3);
+            border-color: var(--border-strong);
+        }
+
+        .icon-btn.sm { width: 32px; height: 32px; }
+
+        .header-ident {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-left: 12px;
+            border-left: 1px solid var(--border);
+        }
+
+        .header-ident .ident-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .header-ident .ident-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--surface-3);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        /* ============================================================
+           PAGE LAYOUT
+           ============================================================ */
+        .page-container {
+            flex: 1;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .page-view {
+            animation: fadeIn 0.25s ease-out;
+        }
+
+        .page-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .page-inner.narrow { max-width: 960px; }
+        .page-inner.wide { max-width: 1600px; }
+
+        /* Page header */
+        .page-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+        }
+
+        .page-header .title-wrap { flex: 1; min-width: 0; }
+
+        .page-header .title {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text);
+            margin: 0 0 4px;
+            line-height: 1.2;
+        }
+
+        .page-header .subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .page-header .actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text);
+            margin: 0 0 4px;
+        }
+
+        .section-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0 0 16px;
+        }
+
+        /* ============================================================
+           CARD
+           ============================================================ */
+        .card {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-xl);
+            padding: 24px;
+            transition: all 0.25s;
+        }
+
+        .card.compact { padding: 16px; }
+        .card.spacious { padding: 32px; }
+        .card.flush { padding: 0; overflow: hidden; }
+        .card.interactive { cursor: pointer; }
+
+        .card.interactive:hover {
+            background: var(--surface-3);
+            border-color: var(--border-strong);
+            transform: translateY(-2px);
+        }
+
+        .card.accent-primary { border-left: 3px solid var(--primary); }
+        .card.accent-success { border-left: 3px solid var(--success); }
+        .card.accent-warning { border-left: 3px solid var(--warning); }
+        .card.accent-danger { border-left: 3px solid var(--danger); }
+        .card.accent-cf { border-left: 3px solid var(--cf); }
+        .card.accent-info { border-left: 3px solid var(--info); }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .card-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--r-md);
+            background: rgba(208, 188, 255, 0.1);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .card-icon.cf { background: rgba(243, 128, 32, 0.1); color: var(--cf); }
+        .card-icon.success { background: rgba(129, 199, 132, 0.1); color: var(--success); }
+        .card-icon.info { background: rgba(96, 165, 250, 0.1); color: var(--info); }
+
+        .card-title-wrap { flex: 1; min-width: 0; }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0;
+        }
+
+        .card-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin: 2px 0 0;
+        }
+
+        /* Legacy glass-card alias – same look as .card */
+        .glass-card {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-xl);
+            transition: all 0.25s;
+        }
+
+        /* ============================================================
+           STAT TILE
+           ============================================================ */
+        .stat-grid {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+
+        .stat-tile {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-xl);
+            padding: 18px 22px;
+            position: relative;
             overflow: hidden;
         }
 
-        .nav-rail-item {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        .stat-tile::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: var(--primary);
         }
 
-        .nav-rail-item.active {
-            background-color: var(--m3-surface-container);
-            color: var(--m3-primary);
+        .stat-tile.success::before { background: var(--success); }
+        .stat-tile.warning::before { background: var(--warning); }
+        .stat-tile.info::before    { background: var(--info); }
+        .stat-tile.cf::before      { background: var(--cf); }
+        .stat-tile.amber::before   { background: var(--amber); }
+        .stat-tile.lime::before    { background: var(--lime); }
+
+        .stat-tile .label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin: 0 0 8px;
         }
 
-        .nav-rail-item.active .icon-bg {
-            background-color: #4A4458;
+        .stat-tile .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0;
+            line-height: 1.1;
         }
 
-        .glass-card {
-            background: rgba(43, 41, 48, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 28px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        .stat-tile .value.primary { color: var(--primary); }
+        .stat-tile .value.success { color: var(--success); }
+        .stat-tile .value.warning { color: var(--warning); }
+        .stat-tile .value.info    { color: var(--info); }
+        .stat-tile .value.amber   { color: var(--amber); }
+        .stat-tile .value.lime    { color: var(--lime); }
+
+        .stat-tile .tile-icon {
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary);
+            opacity: 0.2;
         }
 
-        .stack-card:hover {
-            background: var(--m3-surface-container-high);
-            transform: scale(1.01);
+        /* ============================================================
+           BUTTON
+           ============================================================ */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: var(--r-full);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            border: 1px solid transparent;
             cursor: pointer;
-            border-color: var(--m3-primary);
+            transition: all 0.2s;
+            white-space: nowrap;
+            text-decoration: none;
+            font-family: inherit;
+            outline: none;
         }
 
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-primary { background: var(--primary); color: var(--on-primary); }
+        .btn-primary:hover { background: var(--primary-hover); }
+
+        .btn-secondary {
+            background: var(--surface-2);
+            color: var(--text);
+            border-color: var(--border);
+        }
+        .btn-secondary:hover { background: var(--surface-3); border-color: var(--border-strong); }
+
+        .btn-ghost { background: transparent; color: var(--text-muted); }
+        .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+
+        .btn-success {
+            background: rgba(129, 199, 132, 0.12);
+            color: var(--success);
+            border-color: rgba(129, 199, 132, 0.3);
+        }
+        .btn-success:hover { background: rgba(129, 199, 132, 0.2); }
+
+        .btn-danger {
+            background: rgba(242, 184, 181, 0.12);
+            color: var(--danger);
+            border-color: rgba(242, 184, 181, 0.3);
+        }
+        .btn-danger:hover { background: rgba(242, 184, 181, 0.2); }
+
+        .btn-lg { padding: 14px 28px; font-size: 14px; }
+        .btn-sm { padding: 6px 12px; font-size: 11px; }
+        .btn-block { width: 100%; }
+        .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+        /* ============================================================
+           INPUT
+           ============================================================ */
+        .input, .select {
+            width: 100%;
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            padding: 12px 16px;
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .input:focus, .select:focus { border-color: var(--primary); }
+        .input.mono { font-family: 'Roboto Mono', 'Courier New', monospace; color: var(--primary); }
+        .input.lg { padding: 14px 18px; font-size: 16px; }
+
+        .field-label {
+            display: block;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .field-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-style: italic;
+            margin-top: 6px;
+        }
+
+        .value-display {
+            font-size: 13px;
+            font-family: 'Roboto Mono', monospace;
+            color: var(--text-muted);
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            padding: 12px 14px;
+        }
+
+        /* ============================================================
+           CHIP (filter pill)
+           ============================================================ */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: var(--r-full);
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .chip:hover {
+            border-color: var(--border-strong);
+            color: var(--text);
+        }
+
+        .chip.active {
+            background: rgba(208, 188, 255, 0.12);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Legacy filter-chip alias */
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 7px 14px;
+            border-radius: var(--r-full);
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-chip:hover { color: var(--text); border-color: var(--border-strong); }
+        .filter-chip.active {
+            background: rgba(208, 188, 255, 0.12);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* ============================================================
+           BADGE
+           ============================================================ */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: var(--r-full);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: 1px solid transparent;
+        }
+
+        .badge.success { background: rgba(129, 199, 132, 0.12); color: var(--success); border-color: rgba(129, 199, 132, 0.3); }
+        .badge.danger  { background: rgba(242, 184, 181, 0.12); color: var(--danger);  border-color: rgba(242, 184, 181, 0.3); }
+        .badge.warning { background: rgba(245, 158, 11, 0.12);  color: var(--amber);   border-color: rgba(245, 158, 11, 0.3); }
+        .badge.info    { background: rgba(96, 165, 250, 0.12);  color: var(--info);    border-color: rgba(96, 165, 250, 0.3); }
+        .badge.docker  { background: rgba(74, 222, 128, 0.12);  color: var(--lime);    border-color: rgba(74, 222, 128, 0.3); }
+        .badge.system  { background: rgba(147, 143, 153, 0.12); color: var(--text-muted); border-color: rgba(147, 143, 153, 0.3); }
+        .badge.primary { background: rgba(208, 188, 255, 0.12); color: var(--primary); border-color: rgba(208, 188, 255, 0.3); }
+        .badge.cf      { background: rgba(243, 128, 32, 0.12);  color: var(--cf);      border-color: rgba(243, 128, 32, 0.3); }
+
+        /* ============================================================
+           STATUS DOT
+           ============================================================ */
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+
+        .dot.ok      { background: var(--success); box-shadow: 0 0 8px rgba(129, 199, 132, 0.6); }
+        .dot.warn    { background: var(--warning); box-shadow: 0 0 8px rgba(255, 183, 77, 0.6); }
+        .dot.err     { background: var(--danger);  box-shadow: 0 0 8px rgba(242, 184, 181, 0.6); }
+        .dot.muted   { background: var(--text-muted); }
+        .dot.primary { background: var(--primary); box-shadow: 0 0 8px rgba(208, 188, 255, 0.6); }
+        .dot.cf      { background: var(--cf); }
+        .dot.lg      { width: 10px; height: 10px; }
+
+        /* ============================================================
+           TABLE
+           ============================================================ */
+        .table-wrap {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-xl);
+            overflow: hidden;
+        }
+
+        .table-head {
+            padding: 16px 22px;
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .data-table thead { background: var(--surface-1); }
+
+        .data-table th {
+            padding: 12px 20px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+
+        .data-table td {
+            padding: 14px 20px;
+            border-top: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .data-table tbody tr { transition: background 0.15s; }
+        .data-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+
+        /* ============================================================
+           EMPTY STATE
+           ============================================================ */
+        .empty-state {
+            padding: 64px 32px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .empty-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: var(--surface-1);
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0 0 6px;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+            margin: 0 auto;
+            max-width: 420px;
+        }
+
+        /* ============================================================
+           STATUS BANNER
+           ============================================================ */
+        .status-banner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            border-radius: var(--r-lg);
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .status-banner.success {
+            border-left: 3px solid var(--success);
+            color: var(--success);
+        }
+
+        .status-banner.error {
+            border-left: 3px solid var(--danger);
+            color: var(--danger);
+        }
+
+        /* ============================================================
+           TOGGLE SWITCH
+           ============================================================ */
+        .toggle-switch {
+            width: 40px;
+            height: 22px;
+            background: var(--surface-hi);
+            border-radius: var(--r-full);
+            position: relative;
+            cursor: pointer;
+            transition: background 0.25s;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+            transition: transform 0.25s;
+        }
+
+        .toggle-switch.on { background: var(--primary); }
+        .toggle-switch.on::after { transform: translateX(18px); }
+
+        /* ============================================================
+           LIST ROW (unified row item – used in port list, tunnel list, backup list)
+           ============================================================ */
+        .list-row {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.2s;
+        }
+
+        .list-row:hover {
+            background: var(--surface-3);
+            border-color: var(--border-strong);
+        }
+
+        .list-row.interactive { cursor: pointer; }
+        .list-row.interactive:hover { transform: translateX(3px); }
+
+        .list-row.accent-primary { border-left: 3px solid var(--primary); }
+        .list-row.accent-success { border-left: 3px solid var(--lime); }
+        .list-row.accent-warning { border-left: 3px solid var(--amber); }
+        .list-row.accent-muted   { border-left: 3px solid var(--text-muted); }
+
+        /* ============================================================
+           MODAL
+           ============================================================ */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+
+        .modal {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-2xl);
+            padding: 32px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* ============================================================
+           CANVAS VIEWS
+           ============================================================ */
         #carla-canvas {
             width: 100%;
-            height: calc(100vh - 80px);
+            height: calc(100vh - 60px);
             background: #0F0E11;
         }
 
@@ -72,181 +878,91 @@
             background: #0A090D;
         }
 
-        .bs-mode-btn {
-            background: rgba(255, 255, 255, 0.03);
-            border-color: rgba(255, 255, 255, 0.1);
-            color: #938F99;
+        .floating-panel {
+            position: absolute;
+            background: rgba(28, 27, 31, 0.92);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: 16px;
+            z-index: 10;
         }
 
-        .bs-mode-btn.active {
-            background: rgba(208, 188, 255, 0.15);
-            border-color: #D0BCFF;
-            color: #D0BCFF;
-        }
-
-        .ports-filter-btn {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #938F99;
-        }
-
-        .ports-filter-btn:hover {
-            background: rgba(208, 188, 255, 0.08);
-            color: #D0BCFF;
-        }
-
-        .ports-filter-btn.active {
-            background: rgba(208, 188, 255, 0.15);
-            border-color: #D0BCFF;
-            color: #D0BCFF;
-        }
-
-        .port-row {
-            transition: all 0.2s ease;
-        }
-
-        .port-row:hover {
-            transform: translateX(4px);
-            background: rgba(208, 188, 255, 0.05);
-        }
-
+        /* ============================================================
+           GRAPH SIDEBAR (Carla)
+           ============================================================ */
         .graph-sidebar {
             position: absolute;
-            right: 24px;
-            top: 24px;
-            bottom: 24px;
+            right: 20px;
+            top: 20px;
+            bottom: 20px;
             width: 320px;
             transform: translateX(calc(100% + 40px));
             z-index: 100;
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .graph-sidebar.open {
-            transform: translateX(0);
-        }
+        .graph-sidebar.open { transform: translateX(0); }
 
         .filter-toggle-btn {
             position: absolute;
-            right: 24px;
-            top: 24px;
+            right: 20px;
+            top: 20px;
             z-index: 101;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: var(--on-primary);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-lg);
+            transition: transform 0.2s;
         }
 
+        .filter-toggle-btn:hover { transform: scale(1.08); }
+
+        /* ============================================================
+           ROUTING NODE (Stack Detail routing viz)
+           ============================================================ */
         .routing-node {
             position: relative;
-            padding-left: 1.5rem;
+            padding-left: 22px;
         }
 
         .routing-node::before {
             content: '';
             position: absolute;
-            left: 0;
-            top: 0.5rem;
-            bottom: -1.5rem;
-            width: 2px;
-            background: repeating-linear-gradient(to bottom, #4A4458 0, #4A4458 4px, transparent 4px, transparent 8px);
+            left: 4px;
+            top: 8px;
+            bottom: -20px;
+            width: 1px;
+            background: repeating-linear-gradient(to bottom, var(--surface-hi) 0, var(--surface-hi) 3px, transparent 3px, transparent 6px);
         }
 
-        .routing-node:last-child::before {
-            display: none;
-        }
+        .routing-node:last-child::before { display: none; }
 
         .routing-dot {
             position: absolute;
-            left: -4px;
-            top: 0.5rem;
-            width: 10px;
-            height: 10px;
+            left: 0;
+            top: 8px;
+            width: 9px;
+            height: 9px;
             border-radius: 50%;
-            background: var(--m3-primary);
-            border: 2px solid var(--m3-surface);
+            background: var(--primary);
+            border: 2px solid var(--surface);
         }
 
-        .toggle-switch {
-            width: 36px;
-            height: 18px;
-            background: #4A4458;
-            border-radius: 20px;
-            position: relative;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .toggle-switch::after {
-            content: '';
-            position: absolute;
-            width: 14px;
-            height: 14px;
-            background: white;
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: transform 0.2s;
-        }
-
-        .toggle-switch.on {
-            background: var(--m3-primary);
-        }
-
-        .toggle-switch.on::after {
-            transform: translateX(18px);
-        }
-
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #4A4458;
-            border-radius: 10px;
-        }
-
-        canvas {
-            max-width: 100% !important;
-            max-height: 100% !important;
-        }
-
-        .fade-enter-active {
-            animation: fadeIn 0.4s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .filter-chip {
-            padding: 6px 16px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 500;
-            border: 1px solid var(--m3-outline);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .filter-chip.active {
-            background-color: var(--m3-secondary);
-            color: var(--m3-on-primary);
-            border-color: var(--m3-secondary);
-        }
-
+        /* ============================================================
+           LOADER
+           ============================================================ */
         .loader-overlay {
             position: fixed;
             inset: 0;
-            background: var(--m3-surface);
+            background: var(--surface);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -254,169 +970,249 @@
             z-index: 1000;
             transition: opacity 0.5s ease-out;
         }
+
+        .spinner {
+            width: 56px;
+            height: 56px;
+            border: 4px solid rgba(208, 188, 255, 0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+
+        .spinner.sm { width: 20px; height: 20px; border-width: 2px; }
+        .spinner.xs { width: 14px; height: 14px; border-width: 2px; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-enter-active { animation: fadeIn 0.35s ease-out; }
+
+        /* ============================================================
+           STACK CARD (dashboard grid)
+           ============================================================ */
+        .stack-card {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-xl);
+            padding: 20px 24px;
+            cursor: pointer;
+            transition: all 0.25s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .stack-card:hover {
+            background: var(--surface-3);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        /* ============================================================
+           SCROLLBAR
+           ============================================================ */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: var(--surface-hi);
+            border-radius: var(--r-full);
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+        canvas {
+            max-width: 100% !important;
+            max-height: 100% !important;
+        }
+
+        /* ============================================================
+           LEGACY ALIASES – keep dynamic-rendered markup working
+           ============================================================ */
+        .bs-mode-btn {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: var(--r-full);
+            transition: all 0.2s;
+        }
+        .bs-mode-btn:hover { color: var(--text); border-color: var(--border-strong); }
+        .bs-mode-btn.active {
+            background: rgba(208, 188, 255, 0.12);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .ports-filter-btn {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            transition: all 0.2s;
+        }
+        .ports-filter-btn:hover { color: var(--text); border-color: var(--border-strong); }
+        .ports-filter-btn.active {
+            background: rgba(208, 188, 255, 0.12);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .port-row { transition: all 0.2s; }
+        .port-row:hover { transform: translateX(3px); background: var(--surface-3) !important; }
+
+        /* ============================================================
+           UTILITIES
+           ============================================================ */
+        .flex-between { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .flex-center  { display: flex; align-items: center; gap: 12px; }
+        .grid-2       { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .grid-3       { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .mono         { font-family: 'Roboto Mono', monospace; }
+        .text-dim     { color: var(--text-muted); }
+        .text-primary { color: var(--primary); }
+        .truncate     { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        @media (max-width: 900px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .page-inner { padding: 20px; }
+            .page-header .title { font-size: 22px; }
+        }
     </style>
 </head>
 
 <body class="flex h-screen w-screen overflow-hidden">
 
     <div id="app-loader" class="loader-overlay">
-        <div class="w-16 h-16 border-4 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin mb-4"></div>
-        <h2 class="text-xl font-bold text-[#D0BCFF]">CARLA wird geladen...</h2>
-        <p id="loader-msg" class="text-xs text-[#938F99] mt-2">SSH & Cloudflare Synchronisation</p>
+        <div class="spinner" style="width:48px;height:48px;border-width:4px;margin-bottom:16px"></div>
+        <h2 style="font-size:18px;font-weight:700;color:var(--primary)">CARLA wird geladen...</h2>
+        <p id="loader-msg" style="font-size:12px;color:var(--text-muted);margin-top:8px">SSH & Cloudflare Synchronisation</p>
     </div>
 
     <!-- Navigation Rail -->
-    <nav class="w-16 flex flex-col items-center py-6 space-y-6 bg-[#1C1B1F] border-r border-[#4A4458]/30 z-50">
-        <div class="mb-2">
-            <div class="w-10 h-10 rounded-xl bg-[#D0BCFF] flex items-center justify-center text-[#381E72] shadow-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                    <path d="M2 17l10 5 10-5" />
-                    <path d="M2 12l10 5 10-5" />
-                </svg>
-            </div>
+    <nav class="nav-rail">
+        <div class="nav-logo" title="CARLA">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+            </svg>
         </div>
 
-        <button onclick="navigateTo('dashboard')" id="nav-dashboard"
-            class="nav-rail-item active flex flex-col items-center group w-full">
-            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="7" height="7" />
-                    <rect x="14" y="3" width="7" height="7" />
-                    <rect x="14" y="14" width="7" height="7" />
-                    <rect x="3" y="14" width="7" height="7" />
-                </svg>
-            </div>
-            <span class="text-[8px] font-medium tracking-wide">Home</span>
+        <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="nav-item nav-rail-item active" title="Home">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+            </svg>
+            <span class="nav-item-label">Home</span>
         </button>
 
-        <button id="nav-timeline" onclick="navigateTo('timeline')"
-            class="nav-rail-item flex flex-col items-center group w-full">
-            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2">
-                    <path d="M12 20v-6M6 20V10M18 20V4" />
-                </svg>
-            </div>
-            <span class="text-[8px] font-medium tracking-wide">Timeline</span>
-        </button>
-        <button onclick="navigateTo('livemap')" id="nav-livemap"
-            class="nav-rail-item flex flex-col items-center group w-full">
-            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                    <path d="M2 12h20" />
-                </svg>
-            </div>
-            <span class="text-[8px] font-medium tracking-wide">Live</span>
+        <div class="nav-sep"></div>
+
+        <button id="nav-timeline" onclick="navigateTo('timeline')" class="nav-item nav-rail-item" title="Timeline">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20v-6M6 20V10M18 20V4" />
+            </svg>
+            <span class="nav-item-label">Timeline</span>
         </button>
 
-        <button onclick="navigateTo('carla')" id="nav-carla"
-            class="nav-rail-item flex flex-col items-center group w-full">
-            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    <circle cx="12" cy="12" r="3" />
-                </svg>
-            </div>
-            <span class="text-[8px] font-medium tracking-wide">Flow</span>
+        <button onclick="navigateTo('livemap')" id="nav-livemap" class="nav-item nav-rail-item" title="Live Map">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                <path d="M2 12h20" />
+            </svg>
+            <span class="nav-item-label">Live</span>
         </button>
 
-        <button onclick="navigateTo('performance')" id="nav-performance"
-            class="nav-rail-item flex flex-col items-center group w-full">
-            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                </svg>
-            </div>
-            <span class="text-[8px] font-medium tracking-wide">Stats</span>
+        <button onclick="navigateTo('carla')" id="nav-carla" class="nav-item nav-rail-item" title="Flow Graph">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <circle cx="12" cy="12" r="3" />
+            </svg>
+            <span class="nav-item-label">Flow</span>
         </button>
 
-        <button onclick="navigateTo('updates')" id="nav-updates"
-            class="nav-rail-item flex flex-col items-center group w-full">
-            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-            </div>
-            <span class="text-[8px] font-medium tracking-wide">Updates</span>
+        <button onclick="navigateTo('performance')" id="nav-performance" class="nav-item nav-rail-item" title="Performance">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+            <span class="nav-item-label">Stats</span>
         </button>
 
-        <button onclick="navigateTo('backup')" id="nav-backup"
-            class="nav-rail-item flex flex-col items-center group w-full">
-            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                    <polyline points="17 21 17 13 7 13 7 21" />
-                    <polyline points="7 3 7 8 15 8" />
-                </svg>
-            </div>
-            <span class="text-[8px] font-medium tracking-wide">Backup</span>
+        <div class="nav-sep"></div>
+
+        <button onclick="navigateTo('ports')" id="nav-ports" class="nav-item nav-rail-item" title="Ports">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="6" y1="11" x2="6" y2="11" />
+                <line x1="10" y1="11" x2="10" y2="11" />
+                <line x1="14" y1="11" x2="14" y2="11" />
+                <line x1="18" y1="11" x2="18" y2="11" />
+            </svg>
+            <span class="nav-item-label">Ports</span>
         </button>
 
-        <button onclick="navigateTo('ports')" id="nav-ports"
-            class="nav-rail-item flex flex-col items-center group w-full">
-            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    <line x1="6" y1="11" x2="6" y2="11" />
-                    <line x1="10" y1="11" x2="10" y2="11" />
-                    <line x1="14" y1="11" x2="14" y2="11" />
-                    <line x1="18" y1="11" x2="18" y2="11" />
-                </svg>
-            </div>
-            <span class="text-[8px] font-medium tracking-wide">Ports</span>
+        <button onclick="navigateTo('updates')" id="nav-updates" class="nav-item nav-rail-item" title="Updates">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span class="nav-item-label">Updates</span>
         </button>
 
-        <button onclick="navigateTo('settings')" id="nav-settings"
-            class="nav-rail-item flex flex-col items-center group w-full">
-            <div class="icon-bg p-2 rounded-full mb-1 group-hover:bg-[#4A4458]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="3" />
-                    <path
-                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-            </div>
-            <span class="text-[8px] font-medium tracking-wide">Settings</span>
+        <button onclick="navigateTo('backup')" id="nav-backup" class="nav-item nav-rail-item" title="Backup">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span class="nav-item-label">Backup</span>
+        </button>
+
+        <div class="nav-sep"></div>
+
+        <button onclick="navigateTo('settings')" id="nav-settings" class="nav-item nav-rail-item" title="Settings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <span class="nav-item-label">Settings</span>
         </button>
     </nav>
 
     <!-- Main Content -->
     <main class="flex-1 flex flex-col overflow-hidden relative">
-        <header
-            class="h-14 flex items-center justify-between px-6 bg-[#1C1B1F]/80 backdrop-blur-md z-40 border-b border-[#4A4458]/20">
-            <div class="flex-1 max-w-2xl">
-                <div class="relative group">
-                    <span class="absolute inset-y-0 left-4 flex items-center text-[#938F99]">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8" />
-                            <path d="m21 21-4.3-4.3" />
-                        </svg>
-                    </span>
-                    <input type="text" id="global-search" onkeyup="filterStacks()"
-                        placeholder="Suche in Stacks, Containern oder Domains..."
-                        class="w-full bg-[#2B2930] rounded-full py-3 pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#D0BCFF] transition-all text-sm border border-transparent">
-                </div>
+        <header class="topbar">
+            <div class="search-field">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.3-4.3" />
+                </svg>
+                <input type="text" id="global-search" onkeyup="filterStacks()"
+                    placeholder="Suche in Stacks, Containern oder Domains...">
             </div>
-            <div class="flex items-center space-x-6 ml-8">
-                <button onclick="forceRefresh()"
-                    class="w-10 h-10 rounded-full bg-[#2B2930] border border-[#4A4458] flex items-center justify-center text-[#D0BCFF] hover:bg-[#4A4458] transition-all"
-                    id="refresh-btn">
-                    <svg id="refresh-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+            <div class="header-ident">
+                <button onclick="forceRefresh()" class="icon-btn" id="refresh-btn" title="Aktualisieren">
+                    <svg id="refresh-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                         stroke-linejoin="round">
                         <path d="M21 2v6h-6" />
@@ -426,52 +1222,56 @@
                     </svg>
                 </button>
                 <div class="text-right hidden sm:block">
-                    <div class="text-xs text-[#938F99]">Admin: l8tenever@gmail.com</div>
-                    <div id="header-ip" class="text-sm font-semibold text-[#D0BCFF]">CARLA Node</div>
+                    <div class="text-xs text-dim">Admin: l8tenever@gmail.com</div>
+                    <div id="header-ip" class="text-sm font-semibold text-primary">CARLA Node</div>
                 </div>
-                <div
-                    class="w-10 h-10 rounded-full bg-[#4A4458] border border-[#938F99] flex items-center justify-center overflow-hidden">
+                <div class="avatar">
                     <img src="https://api.dicebear.com/7.x/identicon/svg?seed=l8tenever" alt="User">
                 </div>
             </div>
         </header>
 
-        <div id="page-container" class="flex-1 overflow-y-auto p-8 relative">
+        <div id="page-container" class="page-container">
 
             <!-- Dashboard View -->
-            <section id="view-dashboard" class="page-view space-y-8">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="glass-card p-6 flex items-center space-x-6 border-l-4 border-[#D0BCFF]">
-                        <div
-                            class="w-16 h-16 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                                <line x1="8" y1="21" x2="16" y2="21" />
-                                <line x1="12" y1="17" x2="12" y2="21" />
-                            </svg>
-                        </div>
+            <section id="view-dashboard" class="page-view">
+                <div class="page-inner">
+                    <div class="page-header">
                         <div>
-                            <p class="text-xs text-[#938F99] uppercase tracking-widest font-bold">Host OS</p>
-                            <h2 id="os-text" class="text-2xl font-light">Lädt...</h2>
+                            <div class="title">Dashboard</div>
+                            <div class="subtitle">Alle Docker-Stacks und Container im Überblick</div>
                         </div>
                     </div>
-                    <div class="glass-card p-6 flex items-center space-x-6">
-                        <div
-                            class="w-16 h-16 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M5 12h14" />
-                                <path d="M12 5v14" />
-                            </svg>
+
+                    <div class="stat-grid">
+                        <div class="stat-tile">
+                            <div class="tile-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                                    <line x1="8" y1="21" x2="16" y2="21" />
+                                    <line x1="12" y1="17" x2="12" y2="21" />
+                                </svg>
+                            </div>
+                            <div class="label">Host OS</div>
+                            <div class="value" id="os-text">Lädt...</div>
                         </div>
-                        <div>
-                            <p class="text-xs text-[#938F99] uppercase tracking-widest font-bold">Node IP</p>
-                            <h2 id="ip-text" class="text-2xl font-mono text-[#D0BCFF]">--.--.--.--</h2>
+                        <div class="stat-tile info">
+                            <div class="tile-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14" />
+                                    <path d="M12 5v14" />
+                                </svg>
+                            </div>
+                            <div class="label">Node IP</div>
+                            <div class="value mono" id="ip-text">--.--.--.--</div>
                         </div>
                     </div>
+
+                    <div class="section-title">Stacks</div>
+                    <div id="stacks-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
                 </div>
-                <div id="stacks-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-8"></div>
             </section>
 
             <!-- Live Map View -->
@@ -605,155 +1405,124 @@
             </section>
 
             <!-- Settings View -->
-            <section id="view-settings" class="page-view flex-1 hidden overflow-y-auto">
-                <div class="max-w-4xl mx-auto space-y-8 pb-12 p-10">
-                    <div>
-                        <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Einstellungen</h1>
-                        <p class="text-[#938F99]">API-Keys und Zugangsdaten verwalten und aktualisieren.</p>
+            <section id="view-settings" class="page-view hidden">
+                <div class="page-inner narrow">
+                    <div class="page-header">
+                        <div>
+                            <div class="title">Einstellungen</div>
+                            <div class="subtitle">API-Keys, Zugangsdaten und Cloudflare Tunnel verwalten</div>
+                        </div>
                     </div>
 
                     <!-- Status Banner -->
-                    <div id="settings-status" class="hidden glass-card p-4 border-l-4 transition-all">
-                        <p id="settings-status-text" class="text-sm font-medium"></p>
+                    <div id="settings-status" class="status-banner hidden" style="margin-bottom:20px">
+                        <p id="settings-status-text"></p>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="section-title">API Keys</div>
+                    <div class="section-sub">Nur ausgefüllte Felder werden aktualisiert. Alle Keys werden verschlüsselt (AES-256) gespeichert.</div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5" style="margin-bottom:24px">
                         <!-- GitHub Token -->
-                        <div class="glass-card p-8 space-y-6">
-                            <div class="flex items-center gap-4 mb-2">
-                                <div
-                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2">
                                         <path
                                             d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
                                     </svg>
                                 </div>
-                                <div>
-                                    <h3 class="text-xl font-bold text-white">GitHub Token</h3>
-                                    <p class="text-xs text-[#938F99] mt-1">Fuer Docker-Image und Compose-Zugriff</p>
+                                <div class="card-title-wrap">
+                                    <div class="card-title">GitHub Token</div>
+                                    <div class="card-sub">Docker-Image und Compose-Zugriff</div>
                                 </div>
                             </div>
-                            <div>
-                                <label
-                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktueller
-                                    Token</label>
-                                <div id="settings-github-current"
-                                    class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">
-                                    Laden...</div>
+                            <div style="margin-bottom:14px">
+                                <div class="field-label">Aktueller Token</div>
+                                <div id="settings-github-current" class="value-display">Laden...</div>
                             </div>
                             <div>
-                                <label
-                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neuer
-                                    Token</label>
-                                <input type="password" id="settings-github-token" placeholder="ghp_xxxxxxxxxxxx"
-                                    class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                                <div class="field-label">Neuer Token</div>
+                                <input type="password" id="settings-github-token" class="input mono" placeholder="ghp_xxxxxxxxxxxx">
                             </div>
                         </div>
 
                         <!-- Cloudflare API Token -->
-                        <div class="glass-card p-8 space-y-6">
-                            <div class="flex items-center gap-4 mb-2">
-                                <div
-                                    class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon cf">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                                     </svg>
                                 </div>
-                                <div>
-                                    <h3 class="text-xl font-bold text-white">Cloudflare API Token</h3>
-                                    <p class="text-xs text-[#938F99] mt-1">Fuer Tunnel- und Access-Verwaltung</p>
+                                <div class="card-title-wrap">
+                                    <div class="card-title">Cloudflare API Token</div>
+                                    <div class="card-sub">Tunnel- und Access-Verwaltung</div>
                                 </div>
                             </div>
-                            <div>
-                                <label
-                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktueller
-                                    Token</label>
-                                <div id="settings-cf-token-current"
-                                    class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">
-                                    Laden...</div>
+                            <div style="margin-bottom:14px">
+                                <div class="field-label">Aktueller Token</div>
+                                <div id="settings-cf-token-current" class="value-display">Laden...</div>
                             </div>
                             <div>
-                                <label
-                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neuer
-                                    Token</label>
-                                <input type="password" id="settings-cf-token"
-                                    placeholder="Neuen Cloudflare Token eingeben"
-                                    class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                                <div class="field-label">Neuer Token</div>
+                                <input type="password" id="settings-cf-token" class="input mono" placeholder="Neuen Cloudflare Token eingeben">
                             </div>
                         </div>
 
                         <!-- Cloudflare Account ID -->
-                        <div class="glass-card p-8 space-y-6">
-                            <div class="flex items-center gap-4 mb-2">
-                                <div
-                                    class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon cf">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2">
                                         <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                                         <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                                     </svg>
                                 </div>
-                                <div>
-                                    <h3 class="text-xl font-bold text-white">Cloudflare Account ID</h3>
-                                    <p class="text-xs text-[#938F99] mt-1">Cloudflare Konto-Identifikation</p>
+                                <div class="card-title-wrap">
+                                    <div class="card-title">Cloudflare Account ID</div>
+                                    <div class="card-sub">Konto-Identifikation</div>
                                 </div>
                             </div>
-                            <div>
-                                <label
-                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Aktuelle
-                                    ID</label>
-                                <div id="settings-cf-account-current"
-                                    class="text-sm font-mono text-[#938F99] bg-[#1C1B1F] rounded-xl px-4 py-3 border border-white/5">
-                                    Laden...</div>
+                            <div style="margin-bottom:14px">
+                                <div class="field-label">Aktuelle ID</div>
+                                <div id="settings-cf-account-current" class="value-display">Laden...</div>
                             </div>
                             <div>
-                                <label
-                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Neue
-                                    Account ID</label>
-                                <input type="text" id="settings-cf-account" placeholder="Neue Account ID eingeben"
-                                    class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                                <div class="field-label">Neue Account ID</div>
+                                <input type="text" id="settings-cf-account" class="input mono" placeholder="Neue Account ID eingeben">
                             </div>
                         </div>
 
                         <!-- Info Card -->
-                        <div class="glass-card p-8 space-y-6">
-                            <div class="flex items-center gap-4 mb-2">
-                                <div
-                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon info">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2">
                                         <circle cx="12" cy="12" r="10" />
                                         <line x1="12" y1="16" x2="12" y2="12" />
                                         <line x1="12" y1="8" x2="12.01" y2="8" />
                                     </svg>
                                 </div>
-                                <h3 class="text-xl font-bold text-white">Hinweise</h3>
+                                <div class="card-title-wrap">
+                                    <div class="card-title">Hinweise</div>
+                                    <div class="card-sub">Was beim Speichern passiert</div>
+                                </div>
                             </div>
-                            <div class="space-y-3 text-sm text-[#938F99]">
-                                <div class="flex items-start gap-3">
-                                    <span class="w-2 h-2 rounded-full bg-[#D0BCFF] mt-1.5 shrink-0"></span>
-                                    <span>Nur ausgefuellte Felder werden aktualisiert. Leere Felder bleiben
-                                        unveraendert.</span>
-                                </div>
-                                <div class="flex items-start gap-3">
-                                    <span class="w-2 h-2 rounded-full bg-[#D0BCFF] mt-1.5 shrink-0"></span>
-                                    <span>Nach dem Speichern wird der Cache geleert und die Infrastruktur-Daten neu
-                                        abgerufen.</span>
-                                </div>
-                                <div class="flex items-start gap-3">
-                                    <span class="w-2 h-2 rounded-full bg-[#D0BCFF] mt-1.5 shrink-0"></span>
-                                    <span>Alle Keys werden verschluesselt gespeichert (AES-256).</span>
-                                </div>
+                            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--text-muted)">
+                                <div style="display:flex;gap:10px;align-items:flex-start"><span class="dot primary" style="margin-top:6px"></span><span>Nur ausgefüllte Felder werden aktualisiert.</span></div>
+                                <div style="display:flex;gap:10px;align-items:flex-start"><span class="dot primary" style="margin-top:6px"></span><span>Nach dem Speichern wird der Cache geleert und neu aufgebaut.</span></div>
+                                <div style="display:flex;gap:10px;align-items:flex-start"><span class="dot primary" style="margin-top:6px"></span><span>Alle Keys werden verschlüsselt (AES-256) gespeichert.</span></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Save Button -->
-                    <button onclick="saveApiKeys()"
-                        class="w-full bg-[#D0BCFF] text-[#381E72] font-bold py-4 rounded-3xl hover:bg-[#EADDFF] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg text-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                    <button onclick="saveApiKeys()" class="btn btn-primary btn-block btn-lg" style="margin-bottom:40px">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2">
                             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
                             <polyline points="17 21 17 13 7 13 7 21" />
@@ -762,140 +1531,105 @@
                         Keys speichern
                     </button>
 
-                    <!-- Divider -->
-                    <div class="border-t border-white/10 pt-8 mt-4"></div>
-
-                    <!-- Cloudflare Tunnel Management -->
-                    <div>
-                        <h2 class="text-3xl font-bold tracking-tight text-white mb-2">Cloudflare Tunnel Routen</h2>
-                        <p class="text-[#938F99]">Ingress-Regeln direkt verwalten — Hostname-zu-Service-Zuordnungen
-                            hinzufuegen, bearbeiten oder entfernen.</p>
-                    </div>
+                    <div class="section-title">Cloudflare Tunnel Routen</div>
+                    <div class="section-sub">Ingress-Regeln verwalten — Hostname-zu-Service-Zuordnungen hinzufügen, bearbeiten oder entfernen.</div>
 
                     <!-- Tunnel Status -->
-                    <div id="tunnel-status" class="hidden glass-card p-4 border-l-4 transition-all">
-                        <p id="tunnel-status-text" class="text-sm font-medium"></p>
+                    <div id="tunnel-status" class="status-banner hidden" style="margin-bottom:16px">
+                        <p id="tunnel-status-text"></p>
                     </div>
 
                     <!-- Tunnel Selector -->
-                    <div class="glass-card p-8 space-y-6">
-                        <div class="flex items-center gap-4 mb-2">
-                            <div
-                                class="w-12 h-12 rounded-2xl bg-[#F38020]/10 flex items-center justify-center text-[#F38020]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                    <div class="card" style="margin-bottom:16px">
+                        <div class="card-header">
+                            <div class="card-icon cf">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2">
                                     <path
                                         d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
                                 </svg>
                             </div>
-                            <div class="flex-1">
-                                <h3 class="text-xl font-bold text-white">Tunnel auswaehlen</h3>
-                                <p class="text-xs text-[#938F99] mt-1">Waehle einen Tunnel um dessen Routen zu verwalten
-                                </p>
+                            <div class="card-title-wrap">
+                                <div class="card-title">Tunnel auswählen</div>
+                                <div class="card-sub">Wähle einen Tunnel um dessen Routen zu verwalten</div>
                             </div>
-                            <button onclick="loadTunnelList()"
-                                class="text-[#D0BCFF] hover:text-white transition-colors p-2 rounded-xl hover:bg-white/5"
-                                title="Neu laden">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                            <button onclick="loadTunnelList()" class="icon-btn" title="Neu laden">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
                                     <path d="M21 3v5h-5" />
                                 </svg>
                             </button>
                         </div>
-                        <div id="tunnel-list-loading" class="hidden flex items-center gap-3 text-[#938F99]">
-                            <div
-                                class="w-5 h-5 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin">
-                            </div>
+                        <div id="tunnel-list-loading" class="hidden" style="display:none;align-items:center;gap:10px;color:var(--text-muted)">
+                            <div class="spinner sm"></div>
                             <span class="text-sm">Tunnel werden geladen...</span>
                         </div>
-                        <div id="tunnel-selector" class="space-y-2"></div>
+                        <div id="tunnel-selector" style="display:flex;flex-direction:column;gap:8px"></div>
                     </div>
 
-                    <!-- Ingress Rules Table -->
-                    <div id="ingress-section" class="hidden space-y-6">
-                        <div class="glass-card p-8 space-y-6">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-4">
-                                    <div
-                                        class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M12 20h9" />
-                                            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="text-xl font-bold text-white">Ingress-Regeln</h3>
-                                        <p id="ingress-tunnel-name" class="text-xs text-[#938F99] mt-1">-</p>
-                                    </div>
+                    <!-- Ingress Rules -->
+                    <div id="ingress-section" class="hidden">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 20h9" />
+                                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                    </svg>
                                 </div>
-                                <button onclick="showAddIngressModal()"
-                                    class="bg-[#D0BCFF] text-[#381E72] font-bold px-6 py-3 rounded-2xl hover:bg-[#EADDFF] transition-all flex items-center gap-2 active:scale-95 text-sm">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                <div class="card-title-wrap">
+                                    <div class="card-title">Ingress-Regeln</div>
+                                    <div class="card-sub" id="ingress-tunnel-name">-</div>
+                                </div>
+                                <button onclick="showAddIngressModal()" class="btn btn-primary btn-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2.5">
                                         <path d="M12 5v14" />
                                         <path d="M5 12h14" />
                                     </svg>
-                                    Route hinzufuegen
+                                    Route
                                 </button>
                             </div>
 
-                            <!-- Rules List -->
-                            <div id="ingress-rules" class="space-y-3"></div>
+                            <div id="ingress-rules" style="display:flex;flex-direction:column;gap:10px"></div>
 
-                            <!-- Catch-All Info -->
-                            <div id="ingress-catchall"
-                                class="hidden bg-white/5 rounded-2xl p-4 flex items-center gap-3 border border-white/5">
-                                <span class="w-3 h-3 rounded-full bg-[#938F99]"></span>
-                                <span class="text-sm text-[#938F99] font-mono flex-1">Catch-All</span>
-                                <span class="text-xs text-[#938F99]" id="catchall-service">http_status:404</span>
+                            <div id="ingress-catchall" class="hidden list-row accent-muted" style="margin-top:12px">
+                                <span class="dot muted"></span>
+                                <span class="mono flex-1">Catch-All</span>
+                                <span class="text-xs text-dim" id="catchall-service">http_status:404</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Add/Edit Ingress Modal -->
-                    <div id="ingress-modal"
-                        class="hidden fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                        <div class="glass-card p-8 w-full max-w-lg mx-4 space-y-6 border border-white/10 shadow-2xl">
-                            <div class="flex items-center justify-between">
-                                <h3 id="ingress-modal-title" class="text-xl font-bold text-white">Route hinzufuegen</h3>
-                                <button onclick="closeIngressModal()"
-                                    class="text-[#938F99] hover:text-white transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                    <div id="ingress-modal" class="modal-backdrop hidden">
+                        <div class="modal">
+                            <div class="flex-between" style="margin-bottom:20px">
+                                <h3 id="ingress-modal-title" class="card-title">Route hinzufügen</h3>
+                                <button onclick="closeIngressModal()" class="icon-btn">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M18 6 6 18" />
                                         <path d="m6 6 12 12" />
                                     </svg>
                                 </button>
                             </div>
-                            <div class="space-y-4">
+                            <div style="display:flex;flex-direction:column;gap:16px">
                                 <div>
-                                    <label
-                                        class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Hostname
-                                        (Domain)</label>
-                                    <input type="text" id="ingress-modal-hostname" placeholder="app.example.com"
-                                        class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                                    <div class="field-label">Hostname (Domain)</div>
+                                    <input type="text" id="ingress-modal-hostname" class="input mono" placeholder="app.example.com">
                                 </div>
                                 <div>
-                                    <label
-                                        class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Service
-                                        (Ziel-Adresse)</label>
-                                    <input type="text" id="ingress-modal-service" placeholder="http://localhost:8080"
-                                        class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-sm font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
-                                    <p class="text-xs text-[#938F99] mt-2 italic">z.B. http://10.7.0.1:3000,
-                                        http://localhost:8080, tcp://localhost:22</p>
+                                    <div class="field-label">Service (Ziel-Adresse)</div>
+                                    <input type="text" id="ingress-modal-service" class="input mono" placeholder="http://localhost:8080">
+                                    <div class="field-hint">z.B. http://10.7.0.1:3000, http://localhost:8080, tcp://localhost:22</div>
                                 </div>
                             </div>
-                            <div class="flex gap-3 pt-2">
-                                <button onclick="closeIngressModal()"
-                                    class="flex-1 border border-white/10 text-white font-bold py-3 rounded-2xl hover:bg-white/5 transition-all text-sm">
-                                    Abbrechen
-                                </button>
-                                <button id="ingress-modal-save" onclick="saveIngressRule()"
-                                    class="flex-1 bg-[#D0BCFF] text-[#381E72] font-bold py-3 rounded-2xl hover:bg-[#EADDFF] transition-all text-sm">
-                                    Speichern
-                                </button>
+                            <div class="flex" style="display:flex;gap:10px;margin-top:20px">
+                                <button onclick="closeIngressModal()" class="btn btn-secondary" style="flex:1">Abbrechen</button>
+                                <button id="ingress-modal-save" onclick="saveIngressRule()" class="btn btn-primary" style="flex:1">Speichern</button>
                             </div>
                         </div>
                     </div>
@@ -903,126 +1637,122 @@
             </section>
 
             <!-- Performance View -->
-            <section id="view-performance" class="page-view flex-1 hidden overflow-y-auto space-y-10 p-10">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Systems-Performance</h1>
-                        <p class="text-[#938F99]">Echtzeit-Telemetrie und historische Analyse der Server-Ressourcen.</p>
+            <section id="view-performance" class="page-view hidden">
+                <div class="page-inner wide">
+                    <div class="page-header">
+                        <div>
+                            <div class="title">Systems-Performance</div>
+                            <div class="subtitle">Echtzeit-Telemetrie und historische Analyse der Server-Ressourcen</div>
+                        </div>
+                        <div class="actions" id="global-time-filters">
+                            <button onclick="updateTimeFilter('1m', this)" class="chip">1 Min</button>
+                            <button onclick="updateTimeFilter('1h', this)" class="chip active">1 Std</button>
+                            <button onclick="updateTimeFilter('1d', this)" class="chip">1 Tag</button>
+                            <button onclick="updateTimeFilter('1w', this)" class="chip">1 Woche</button>
+                            <button onclick="updateTimeFilter('1M', this)" class="chip">1 Monat</button>
+                        </div>
                     </div>
-                    <div class="flex space-x-2" id="global-time-filters">
-                        <button onclick="updateTimeFilter('1m', this)" class="filter-chip">1 Min</button>
-                        <button onclick="updateTimeFilter('1h', this)" class="filter-chip active">1 Std</button>
-                        <button onclick="updateTimeFilter('1d', this)" class="filter-chip">1 Tag</button>
-                        <button onclick="updateTimeFilter('1w', this)" class="filter-chip">1 Woche</button>
-                        <button onclick="updateTimeFilter('1M', this)" class="filter-chip">1 Monat</button>
-                    </div>
-                </div>
 
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="glass-card p-6 border-l-4 border-[#D0BCFF]">
-                        <p class="text-xs text-[#938F99] uppercase font-bold tracking-wider mb-2">CPU Last</p>
-                        <p id="kpi-cpu" class="text-4xl font-bold text-white">--%</p>
+                    <div class="stat-grid" style="margin-bottom:32px">
+                        <div class="stat-tile">
+                            <div class="label">CPU Last</div>
+                            <div class="value" id="kpi-cpu">--%</div>
+                        </div>
+                        <div class="stat-tile success">
+                            <div class="label">RAM Nutzung</div>
+                            <div class="value" id="kpi-ram">-- GB</div>
+                        </div>
+                        <div class="stat-tile warning">
+                            <div class="label">Storage (Used)</div>
+                            <div class="value" id="kpi-disk">-- GB</div>
+                        </div>
+                        <div class="stat-tile lime">
+                            <div class="label">CPU Temp</div>
+                            <div class="value" id="kpi-temp">--°C</div>
+                        </div>
                     </div>
-                    <div class="glass-card p-6 border-l-4 border-[#81C784]">
-                        <p class="text-xs text-[#938F99] uppercase font-bold tracking-wider mb-2">RAM Nutzung</p>
-                        <p id="kpi-ram" class="text-4xl font-bold text-white">-- GB</p>
-                    </div>
-                    <div class="glass-card p-6 border-l-4 border-[#FFB74D]">
-                        <p class="text-xs text-[#938F99] uppercase font-bold tracking-wider mb-2">Storage (Used)</p>
-                        <p id="kpi-disk" class="text-4xl font-bold text-white">-- GB</p>
-                    </div>
-                    <div class="glass-card p-6 border-l-4 border-green-400">
-                        <p class="text-xs text-[#938F99] uppercase font-bold tracking-wider mb-2">CPU Temp</p>
-                        <p id="kpi-temp" class="text-4xl font-bold text-white">--°C</p>
-                    </div>
-                </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                    <div class="glass-card p-10 h-[450px]">
-                        <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
-                            <span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span> CPU-Last (%)
-                        </h3>
-                        <div class="h-[320px] relative"><canvas id="chart-cpu"></canvas></div>
-                    </div>
-                    <div class="glass-card p-10 h-[450px]">
-                        <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
-                            <span class="w-3 h-3 rounded-full bg-[#81C784]"></span> RAM-Verlauf (MB)
-                        </h3>
-                        <div class="h-[320px] relative"><canvas id="chart-ram"></canvas></div>
-                    </div>
-                    <div class="glass-card p-10 h-[450px]">
-                        <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
-                            <span class="w-3 h-3 rounded-full bg-[#FFB74D]"></span> Storage (Used MB)
-                        </h3>
-                        <div class="h-[320px] relative"><canvas id="chart-disk-his"></canvas></div>
-                    </div>
-                    <div class="glass-card p-10 h-[450px]">
-                        <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
-                            <span class="w-3 h-3 rounded-full bg-green-400"></span> Temperatur (°C)
-                        </h3>
-                        <div class="h-[320px] relative"><canvas id="chart-temp-his"></canvas></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="card spacious" style="height:420px">
+                            <h3 style="font-size:16px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px">
+                                <span class="dot primary"></span> CPU-Last (%)
+                            </h3>
+                            <div style="height:300px;position:relative"><canvas id="chart-cpu"></canvas></div>
+                        </div>
+                        <div class="card spacious" style="height:420px">
+                            <h3 style="font-size:16px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px">
+                                <span class="dot ok"></span> RAM-Verlauf (MB)
+                            </h3>
+                            <div style="height:300px;position:relative"><canvas id="chart-ram"></canvas></div>
+                        </div>
+                        <div class="card spacious" style="height:420px">
+                            <h3 style="font-size:16px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px">
+                                <span class="dot warn"></span> Storage (Used MB)
+                            </h3>
+                            <div style="height:300px;position:relative"><canvas id="chart-disk-his"></canvas></div>
+                        </div>
+                        <div class="card spacious" style="height:420px">
+                            <h3 style="font-size:16px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px">
+                                <span class="dot ok"></span> Temperatur (°C)
+                            </h3>
+                            <div style="height:300px;position:relative"><canvas id="chart-temp-his"></canvas></div>
+                        </div>
                     </div>
                 </div>
             </section>
 
             <!-- Stack Performance History View -->
-            <section id="view-stack-performance" class="page-view flex-1 hidden overflow-y-auto">
-                <div class="max-w-6xl mx-auto space-y-10">
-                    <div class="flex items-center justify-between mb-8">
+            <section id="view-stack-performance" class="page-view hidden">
+                <div class="page-inner">
+                    <div class="page-header">
                         <div>
-                            <button onclick="window.history.back()"
-                                class="flex items-center gap-2 text-[#938F99] hover:text-white mb-6">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                            <button onclick="window.history.back()" class="btn btn-ghost btn-sm" style="margin-bottom:12px">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="m15 18-6-6 6-6" />
                                 </svg>
-                                <span>Zurück zum Stack</span>
+                                Zurück
                             </button>
-                            <h1 id="stack-perf-title" class="text-4xl font-bold tracking-tight text-white">
-                                Stack-Historie</h1>
+                            <div class="title" id="stack-perf-title">Stack-Historie</div>
                         </div>
-                        <div class="flex space-x-2" id="stack-time-filters">
-                            <button onclick="updateStackTimeFilter('1h', this)" class="filter-chip active">1
-                                Std</button>
-                            <button onclick="updateStackTimeFilter('1w', this)" class="filter-chip">1 Woche</button>
+                        <div class="actions" id="stack-time-filters">
+                            <button onclick="updateStackTimeFilter('1h', this)" class="chip active">1 Std</button>
+                            <button onclick="updateStackTimeFilter('1w', this)" class="chip">1 Woche</button>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-12">
-                        <div class="glass-card p-10">
-                            <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
-                                <span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span>
-                                CPU-Last (%)
+                    <div style="display:flex;flex-direction:column;gap:24px">
+                        <div class="card spacious">
+                            <h3 style="font-size:16px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px">
+                                <span class="dot primary"></span> CPU-Last (%)
                             </h3>
-                            <div class="h-[300px] relative"><canvas id="chart-stack-cpu"></canvas></div>
+                            <div style="height:300px;position:relative"><canvas id="chart-stack-cpu"></canvas></div>
                         </div>
-                        <div class="glass-card p-10">
-                            <h3 class="text-xl font-bold mb-8 flex items-center gap-3">
-                                <span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span>
-                                RAM-Nutzung (MB)
+                        <div class="card spacious">
+                            <h3 style="font-size:16px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px">
+                                <span class="dot primary"></span> RAM-Nutzung (MB)
                             </h3>
-                            <div class="h-[300px] relative"><canvas id="chart-stack-ram"></canvas></div>
+                            <div style="height:300px;position:relative"><canvas id="chart-stack-ram"></canvas></div>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- Timeline History View -->
-            <section id="view-timeline" class="page-view flex-1 hidden h-full flex overflow-hidden">
+            <section id="view-timeline" class="page-view hidden" style="display:none;height:100%;overflow:hidden">
                 <!-- Sidebar: Checkpoints -->
-                <aside class="w-72 bg-[#1C1B1F]/50 border-r border-white/5 flex flex-col overflow-hidden">
-                    <div class="p-6 border-b border-white/5 bg-[#2B2930]/30">
-                        <div class="flex items-center justify-between">
-                            <h2 class="text-xl font-bold flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                    fill="none" stroke="#D0BCFF" stroke-width="2">
+                <aside style="width:280px;background:var(--surface-1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+                    <div style="padding:20px;border-bottom:1px solid var(--border);background:var(--surface-2)">
+                        <div class="flex-between">
+                            <h2 style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                    fill="none" stroke="var(--primary)" stroke-width="2">
                                     <circle cx="12" cy="12" r="10" />
                                     <polyline points="12 6 12 12 16 14" />
                                 </svg>
                                 Checkpoints
                             </h2>
-                            <button onclick="showTimeline()"
-                                class="text-[#938F99] hover:text-[#D0BCFF] transition-colors p-1">
+                            <button onclick="showTimeline()" class="icon-btn" title="Aktualisieren">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M21 2v6h-6" />
@@ -1032,60 +1762,50 @@
                                 </svg>
                             </button>
                         </div>
-                        <p class="text-[10px] text-[#938F99] mt-1 uppercase tracking-widest font-bold">Historical
-                            Snapshots</p>
+                        <p style="font-size:10px;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.1em;font-weight:600">Historical Snapshots</p>
                     </div>
-                    <div id="timeline-list" class="flex-1 overflow-y-auto p-4 space-y-2">
-                        <!-- Timestamps go here -->
-                        <div class="text-center py-10 text-[#938F99] text-xs">Lade Historie...</div>
+                    <div id="timeline-list" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px">
+                        <div class="empty-state" style="padding:40px 0"><span class="text-dim" style="font-size:12px">Lade Historie...</span></div>
                     </div>
                 </aside>
 
                 <!-- Main Snapshot Area -->
-                <div class="flex-1 overflow-y-auto p-10 bg-[#1C1B1F]/20">
-                    <div id="snapshot-empty" class="h-full flex flex-col items-center justify-center text-center">
-                        <div
-                            class="w-20 h-20 rounded-full bg-[#2B2930] flex items-center justify-center text-[#938F99] mb-4">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"
+                <div style="flex:1;overflow-y:auto;padding:32px;background:var(--surface)">
+                    <div id="snapshot-empty" class="empty-state" style="height:100%">
+                        <div class="empty-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="11" cy="11" r="8" />
                                 <path d="m21 21-4.3-4.3" />
                             </svg>
                         </div>
-                        <h3 class="text-2xl font-bold text-white mb-2">Kein Snapshot gewählt</h3>
-                        <p class="text-[#938F99] max-w-sm">Wähle links einen Zeitpunkt aus der Historie, um den Zustand
-                            deines CARLA-Servers zu diesem Moment zu rekonstruieren.</p>
+                        <h3 style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px">Kein Snapshot gewählt</h3>
+                        <p style="color:var(--text-muted);max-width:360px;font-size:13px">Wähle links einen Zeitpunkt aus der Historie, um den Zustand deines CARLA-Servers zu rekonstruieren.</p>
                     </div>
 
-                    <div id="snapshot-details" class="hidden space-y-10">
-                        <div class="flex items-center justify-between">
-                            <h2 id="snapshot-title" class="text-3xl font-bold text-white tracking-tight">Snapshot: --:--
-                            </h2>
-                            <div class="text-sm font-mono text-[#D0BCFF] bg-[#D0BCFF]/5 border border-[#D0BCFF]/20 px-4 py-2 rounded-xl"
-                                id="snapshot-ts-raw">TS: 0</div>
+                    <div id="snapshot-details" class="hidden" style="display:none;flex-direction:column;gap:28px">
+                        <div class="flex-between">
+                            <h2 id="snapshot-title" style="font-size:24px;font-weight:700;color:var(--text)">Snapshot: --:--</h2>
+                            <span class="badge primary mono" id="snapshot-ts-raw">TS: 0</span>
                         </div>
 
-                        <div id="snapshot-content-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <!-- Global Stats -->
+                        <div id="snapshot-content-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                         </div>
 
-                        <div class="glass-card overflow-hidden">
-                            <div
-                                class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99]">
-                                Container Status (Snapshot)</div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left text-sm">
-                                    <thead class="bg-[#1C1B1F] text-[#938F99] uppercase text-[10px] tracking-widest">
+                        <div class="card flush">
+                            <div class="table-head">Container Status (Snapshot)</div>
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <th class="px-6 py-4">Container</th>
-                                            <th class="px-6 py-4">Stack</th>
-                                            <th class="px-6 py-4">CPU</th>
-                                            <th class="px-6 py-4">RAM</th>
-                                            <th class="px-6 py-4">Uptime</th>
+                                            <th>Container</th>
+                                            <th>Stack</th>
+                                            <th>CPU</th>
+                                            <th>RAM</th>
+                                            <th>Uptime</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="snapshot-table-body" class="divide-y divide-white/5">
-                                        <!-- Rows -->
+                                    <tbody id="snapshot-table-body">
                                     </tbody>
                                 </table>
                             </div>
@@ -1095,59 +1815,48 @@
             </section>
 
             <!-- Container Terminal & Logs View -->
-            <section id="view-container-terminal" class="page-view flex-1 hidden overflow-y-auto">
-                <div class="max-w-6xl mx-auto space-y-6">
-                    <div class="flex items-center justify-between mb-2">
+            <section id="view-container-terminal" class="page-view hidden">
+                <div class="page-inner">
+                    <div class="page-header">
                         <div>
-                            <button onclick="window.history.back()"
-                                class="flex items-center gap-2 text-[#938F99] hover:text-white mb-4">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                            <button onclick="window.history.back()" class="btn btn-ghost btn-sm" style="margin-bottom:12px">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="m15 18-6-6 6-6" />
                                 </svg>
-                                <span>Zurück zum Stack</span>
+                                Zurück
                             </button>
-                            <h1 id="terminal-title" class="text-3xl font-bold text-white">Container Terminal</h1>
-                            <p id="terminal-subtitle" class="text-sm text-[#938F99] font-mono mt-1">Status: Verbunden
-                                via SSH</p>
+                            <div class="title" id="terminal-title">Container Terminal</div>
+                            <div class="subtitle mono" id="terminal-subtitle">Status: Verbunden via SSH</div>
                         </div>
-                        <div class="flex gap-3">
-                            <button onclick="copyTerminalContent()"
-                                class="bg-[#2B2930] hover:bg-[#36343B] px-4 py-2 rounded-xl text-sm border border-white/5 transition-all text-[#938F99]">Kopieren</button>
-                            <button onclick="copyLogsSinceStart()"
-                                class="bg-[#2B2930] hover:bg-[#36343B] px-4 py-2 rounded-xl text-sm border border-white/5 transition-all text-[#D0BCFF]">Session
-                                kopieren</button>
-                            <button onclick="document.getElementById('terminal-output').innerText = '';"
-                                class="bg-[#2B2930] hover:bg-[#36343B] px-4 py-2 rounded-xl text-sm border border-white/5 transition-all text-[#938F99]">Konsole
-                                leeren</button>
-                            <button onclick="refreshLogs()"
-                                class="bg-[#D0BCFF] hover:bg-[#EADDFF] px-4 py-2 rounded-xl text-sm border border-white/5 transition-all text-[#381E72] font-bold">Logs
-                                Refresh</button>
+                        <div class="actions">
+                            <button onclick="copyTerminalContent()" class="btn btn-secondary btn-sm">Kopieren</button>
+                            <button onclick="copyLogsSinceStart()" class="btn btn-secondary btn-sm">Session kopieren</button>
+                            <button onclick="document.getElementById('terminal-output').innerText = '';" class="btn btn-secondary btn-sm">Leeren</button>
+                            <button onclick="refreshLogs()" class="btn btn-primary btn-sm">Logs Refresh</button>
                         </div>
                     </div>
 
-                    <div class="bg-[#0D0D0D] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
-                        style="height: 70vh;">
-                        <div class="bg-[#1C1B1F] px-4 py-2 flex items-center justify-between border-b border-white/5">
-                            <div class="flex gap-1.5">
-                                <div class="w-3 h-3 rounded-full bg-[#FF5F56]"></div>
-                                <div class="w-3 h-3 rounded-full bg-[#FFBD2E]"></div>
-                                <div class="w-3 h-3 rounded-full bg-[#27C93F]"></div>
+                    <div style="background:#0D0D0D;border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;display:flex;flex-direction:column;height:70vh">
+                        <div style="background:var(--surface-1);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+                            <div style="display:flex;gap:6px">
+                                <div style="width:12px;height:12px;border-radius:50%;background:#FF5F56"></div>
+                                <div style="width:12px;height:12px;border-radius:50%;background:#FFBD2E"></div>
+                                <div style="width:12px;height:12px;border-radius:50%;background:#27C93F"></div>
                             </div>
-                            <span class="text-[10px] text-[#938F99] font-mono">tty0 – docker exec</span>
+                            <span style="font-size:10px;color:var(--text-muted);font-family:monospace">tty0 – docker exec</span>
                         </div>
                         <div id="terminal-output"
-                            class="flex-1 overflow-y-auto p-6 font-mono text-sm text-[#81C784] leading-relaxed whitespace-pre-wrap"
-                            style="scroll-behavior: smooth;">
+                            style="flex:1;overflow-y:auto;padding:24px;font-family:monospace;font-size:13px;color:#81C784;line-height:1.7;white-space:pre-wrap;scroll-behavior:smooth">
                             Initialisiere Session...
                         </div>
-                        <div class="p-4 bg-[#1C1B1F] border-t border-white/5 flex items-center gap-4">
-                            <span class="text-[#D0BCFF] font-bold font-mono">#</span>
+                        <div style="padding:12px 16px;background:var(--surface-1);border-top:1px solid var(--border);display:flex;align-items:center;gap:12px">
+                            <span style="color:var(--primary);font-weight:700;font-family:monospace">#</span>
                             <input type="text" id="terminal-input" placeholder="Befehl eingeben..."
-                                class="bg-transparent border-none outline-none flex-1 text-white font-mono text-sm"
+                                style="background:transparent;border:none;outline:none;flex:1;color:var(--text);font-family:monospace;font-size:13px"
                                 onkeydown="if(event.key==='Enter') sendExecCommand()">
-                            <svg onclick="sendExecCommand()" class="text-[#938F99] hover:text-[#D0BCFF] cursor-pointer"
-                                width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            <svg onclick="sendExecCommand()" style="color:var(--text-muted);cursor:pointer"
+                                width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2">
                                 <path d="m5 12 7-7 7 7" />
                                 <path d="M12 19V5" />
@@ -1158,103 +1867,88 @@
             </section>
 
             <!-- Stack Details View -->
-            <section id="view-stack-details" class="page-view flex-1 hidden overflow-y-auto">
-                <div id="stack-detail-content" class="max-w-6xl mx-auto space-y-8 pb-12">
-                    <button onclick="navigateTo('dashboard')"
-                        class="inline-flex items-center px-6 py-3 bg-[#2B2930] rounded-full text-[#D0BCFF] hover:bg-[#36343B] transition-all">
-                        <svg class="mr-2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
+            <section id="view-stack-details" class="page-view hidden">
+                <div id="stack-detail-content" class="page-inner">
+                    <button onclick="navigateTo('dashboard')" class="btn btn-ghost btn-sm" style="margin-bottom:16px">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="m15 18-6-6 6-6" />
-                        </svg> Zurück
+                        </svg>
+                        Zurück
                     </button>
                 </div>
             </section>
 
             <!-- Updates & Maintenance View -->
-            <section id="view-updates" class="page-view flex-1 hidden overflow-y-auto">
-                <div class="max-w-4xl mx-auto space-y-8 pb-12">
-                    <div class="flex items-center justify-between mb-8">
+            <section id="view-updates" class="page-view hidden">
+                <div class="page-inner narrow">
+                    <div class="page-header">
                         <div>
-                            <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Nexus-Update Center</h1>
-                            <p class="text-[#938F99]">Automatisiere Docker-Updates und halte deine Stacks aktuell.</p>
+                            <div class="title">Nexus-Update Center</div>
+                            <div class="subtitle">Automatisiere Docker-Updates und halte deine Stacks aktuell</div>
                         </div>
-                        <div
-                            class="bg-[#D0BCFF]/10 px-4 py-2 rounded-2xl border border-[#D0BCFF]/20 flex items-center gap-3">
-                            <span class="text-xs font-bold text-[#D0BCFF] uppercase tracking-widest">Auto-Update</span>
-                            <div id="updater-master-toggle" class="toggle-switch" onclick="toggleUpdaterEnabled()">
+                        <div class="actions">
+                            <div style="display:flex;align-items:center;gap:10px;background:rgba(208,188,255,0.08);padding:8px 16px;border-radius:var(--r-lg);border:1px solid rgba(208,188,255,0.15)">
+                                <span style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:0.08em">Auto-Update</span>
+                                <div id="updater-master-toggle" class="toggle-switch" onclick="toggleUpdaterEnabled()"></div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5" style="margin-bottom:20px">
                         <!-- Timing Card -->
-                        <div class="glass-card p-8 space-y-6">
-                            <div class="flex items-center gap-4 mb-2">
-                                <div
-                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2">
                                         <circle cx="12" cy="12" r="10" />
                                         <polyline points="12 6 12 12 16 14" />
                                     </svg>
                                 </div>
-                                <h3 class="text-xl font-bold text-white">Zeitplan</h3>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label
-                                        class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Uhrzeit
-                                        für tägliches Update</label>
-                                    <input type="time" id="updater-time"
-                                        class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-2xl font-light text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                                <div class="card-title-wrap">
+                                    <div class="card-title">Zeitplan</div>
+                                    <div class="card-sub">Tägliches Update-Fenster</div>
                                 </div>
-                                <p class="text-xs text-[#938F99] italic">Updates werden nacheinander (sequenziell)
-                                    ausgeführt, nur wenn neue Image-Versionen verfügbar sind.</p>
                             </div>
+                            <div class="field-label">Uhrzeit für tägliches Update</div>
+                            <input type="time" id="updater-time" class="input lg" style="font-size:20px;color:var(--primary)">
+                            <div class="field-hint">Updates laufen sequenziell, nur bei neuen Image-Versionen.</div>
                         </div>
 
                         <!-- Mode Card -->
-                        <div class="glass-card p-8 space-y-6">
-                            <div class="flex items-center gap-4 mb-2">
-                                <div
-                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M12 2L2 7l10 5 10-5-10-5z" />
                                         <path d="M2 17l10 5 10-5" />
                                         <path d="M2 12l10 5 10-5" />
                                     </svg>
                                 </div>
-                                <h3 class="text-xl font-bold text-white">Stack Auswahl</h3>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label
-                                        class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Modus</label>
-                                    <select id="updater-mode" onchange="renderStackSelector()"
-                                        class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:border-[#D0BCFF] outline-none transition-all">
-                                        <option value="all">Alle Stacks aktualisieren</option>
-                                        <option value="only">Nur bestimmte Stacks</option>
-                                        <option value="except">Alle außer bestimmten Stacks</option>
-                                    </select>
+                                <div class="card-title-wrap">
+                                    <div class="card-title">Stack Auswahl</div>
+                                    <div class="card-sub">Welche Stacks aktualisiert werden</div>
                                 </div>
-                                <div id="stack-selector-container" class="hidden">
-                                    <label
-                                        class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Ziel-Stacks
-                                        wählen</label>
-                                    <div id="stack-checkboxes"
-                                        class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-black/20 rounded-xl">
-                                        <!-- JS filled -->
-                                    </div>
+                            </div>
+                            <div class="field-label">Modus</div>
+                            <select id="updater-mode" onchange="renderStackSelector()" class="select">
+                                <option value="all">Alle Stacks aktualisieren</option>
+                                <option value="only">Nur bestimmte Stacks</option>
+                                <option value="except">Alle außer bestimmten Stacks</option>
+                            </select>
+                            <div id="stack-selector-container" class="hidden" style="margin-top:14px">
+                                <div class="field-label">Ziel-Stacks wählen</div>
+                                <div id="stack-checkboxes"
+                                    style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:192px;overflow-y:auto;padding:8px;background:rgba(0,0,0,0.2);border-radius:var(--r-md)">
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex gap-4">
-                        <button onclick="saveUpdaterConfig()"
-                            class="flex-1 bg-[#D0BCFF] text-[#381E72] font-bold py-4 rounded-3xl hover:bg-[#EADDFF] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                    <div style="display:flex;gap:12px;margin-bottom:32px">
+                        <button onclick="saveUpdaterConfig()" class="btn btn-primary btn-lg" style="flex:1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
                                 <polyline points="17 21 17 13 7 13 7 21" />
@@ -1262,9 +1956,8 @@
                             </svg>
                             Konfiguration speichern
                         </button>
-                        <button onclick="runUpdaterNow()"
-                            class="px-8 bg-[#2B2930] border border-white/10 text-white font-bold py-4 rounded-3xl hover:bg-[#36343B] transition-all flex items-center justify-center gap-3 active:scale-95">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                        <button onclick="runUpdaterNow()" class="btn btn-secondary btn-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="m12 19 7-7-7-7" />
                                 <path d="M19 12H5" />
@@ -1273,23 +1966,19 @@
                         </button>
                     </div>
 
-                    <!-- History Log -->
-                    <div class="glass-card overflow-hidden">
-                        <div
-                            class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99]">
-                            Update Historie (Letzte 50)</div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-sm">
-                                <thead class="bg-[#1C1B1F] text-[#938F99] uppercase text-[10px] tracking-widest">
+                    <div class="card flush">
+                        <div class="table-head">Update Historie (Letzte 50)</div>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <th class="px-6 py-4">Zeitpunkt</th>
-                                        <th class="px-6 py-4">Status</th>
-                                        <th class="px-6 py-4">Stacks</th>
-                                        <th class="px-6 py-4">Details</th>
+                                        <th>Zeitpunkt</th>
+                                        <th>Status</th>
+                                        <th>Stacks</th>
+                                        <th>Details</th>
                                     </tr>
                                 </thead>
-                                <tbody id="updater-log-body" class="divide-y divide-white/5">
-                                    <!-- Rows -->
+                                <tbody id="updater-log-body">
                                 </tbody>
                             </table>
                         </div>
@@ -1298,235 +1987,155 @@
             </section>
 
             <!-- Backup View -->
-            <section id="view-backup" class="page-view flex-1 hidden overflow-y-auto">
-                <div class="max-w-4xl mx-auto space-y-8 pb-12">
-                    <div class="flex items-center justify-between mb-8">
+            <section id="view-backup" class="page-view hidden">
+                <div class="page-inner narrow">
+                    <div class="page-header">
                         <div>
-                            <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Backup Center</h1>
-                            <p class="text-[#938F99]">Sichere alle Docker-Stacks vollstaendig — Volumes, Configs,
-                                Compose-Dateien.</p>
+                            <div class="title">Backup Center</div>
+                            <div class="subtitle">Sichere alle Docker-Stacks vollständig — Volumes, Configs, Compose-Dateien</div>
                         </div>
                     </div>
 
-                    <!-- Progress Banner (hidden by default) -->
-                    <div id="backup-progress-banner" class="hidden glass-card p-6 border-l-4 border-[#D0BCFF]">
-                        <div class="flex items-center gap-4">
-                            <div
-                                class="w-6 h-6 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin">
-                            </div>
-                            <div class="flex-1">
-                                <p class="text-white font-bold" id="backup-progress-text">Backup laeuft...</p>
-                                <div class="w-full bg-white/10 rounded-full h-2 mt-2">
-                                    <div id="backup-progress-bar" class="bg-[#D0BCFF] h-2 rounded-full transition-all"
-                                        style="width: 0%"></div>
+                    <!-- Progress Banner -->
+                    <div id="backup-progress-banner" class="hidden card accent-primary" style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:14px">
+                            <div class="spinner sm"></div>
+                            <div style="flex:1">
+                                <p style="font-weight:700;color:var(--text)" id="backup-progress-text">Backup läuft...</p>
+                                <div style="width:100%;background:rgba(255,255,255,0.1);border-radius:var(--r-full);height:6px;margin-top:8px">
+                                    <div id="backup-progress-bar" style="background:var(--primary);height:6px;border-radius:var(--r-full);transition:width 0.3s;width:0%"></div>
                                 </div>
                             </div>
-                            <span id="backup-progress-count" class="text-sm text-[#938F99]">0/0</span>
+                            <span id="backup-progress-count" class="text-dim" style="font-size:13px">0/0</span>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <!-- Backup Dir Card -->
-                        <div class="glass-card p-8 space-y-6">
-                            <div class="flex items-center gap-4 mb-2">
-                                <div
-                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5" style="margin-bottom:20px">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2">
-                                        <path
-                                            d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                                     </svg>
                                 </div>
-                                <h3 class="text-xl font-bold text-white">Backup-Pfad</h3>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label
-                                        class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Zielverzeichnis</label>
-                                    <input type="text" id="backup-dir" placeholder="/backup/carla"
-                                        class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-lg font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
+                                <div class="card-title-wrap">
+                                    <div class="card-title">Backup-Pfad</div>
+                                    <div class="card-sub">Zielverzeichnis für alle Backups</div>
                                 </div>
-                                <p class="text-xs text-[#938F99] italic">Jedes Backup wird in einem Unterordner mit
-                                    Zeitstempel gespeichert.</p>
                             </div>
+                            <div class="field-label">Zielverzeichnis</div>
+                            <input type="text" id="backup-dir" class="input mono lg" placeholder="/backup/carla">
+                            <div class="field-hint">Jedes Backup wird in einem Unterordner mit Zeitstempel gespeichert.</div>
                         </div>
 
-                        <!-- Info Card -->
-                        <div class="glass-card p-8 space-y-6">
-                            <div class="flex items-center gap-4 mb-2">
-                                <div
-                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-icon info">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2">
                                         <circle cx="12" cy="12" r="10" />
                                         <line x1="12" y1="16" x2="12" y2="12" />
                                         <line x1="12" y1="8" x2="12.01" y2="8" />
                                     </svg>
                                 </div>
-                                <h3 class="text-xl font-bold text-white">Was wird gesichert?</h3>
-                            </div>
-                            <div class="space-y-3 text-sm text-[#938F99]">
-                                <div class="flex items-center gap-3">
-                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
-                                    <span>Docker-Compose Dateien & .env</span>
-                                </div>
-                                <div class="flex items-center gap-3">
-                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
-                                    <span>Gesamtes Working Directory (tar.gz)</span>
-                                </div>
-                                <div class="flex items-center gap-3">
-                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
-                                    <span>Alle benannten Docker Volumes</span>
-                                </div>
-                                <div class="flex items-center gap-3">
-                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
-                                    <span>Container-Konfigurationen (Inspect)</span>
+                                <div class="card-title-wrap">
+                                    <div class="card-title">Was wird gesichert?</div>
                                 </div>
                             </div>
-                            <p class="text-xs text-[#938F99] italic mt-4">Beim Restore werden Volumes wiederhergestellt
-                                und Stacks automatisch mit <code class="text-[#D0BCFF]">docker compose up -d</code>
-                                gestartet.</p>
+                            <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--text-muted)">
+                                <div style="display:flex;gap:10px;align-items:center"><span class="dot ok"></span>Docker-Compose Dateien & .env</div>
+                                <div style="display:flex;gap:10px;align-items:center"><span class="dot ok"></span>Gesamtes Working Directory (tar.gz)</div>
+                                <div style="display:flex;gap:10px;align-items:center"><span class="dot ok"></span>Alle benannten Docker Volumes</div>
+                                <div style="display:flex;gap:10px;align-items:center"><span class="dot ok"></span>Container-Konfigurationen (Inspect)</div>
+                            </div>
+                            <div class="field-hint" style="margin-top:12px">Beim Restore werden Volumes wiederhergestellt und Stacks mit <code style="color:var(--primary)">docker compose up -d</code> gestartet.</div>
                         </div>
                     </div>
 
-                    <!-- Action Buttons -->
-                    <div class="flex gap-4">
-                        <button onclick="saveBackupConfig()"
-                            class="flex-1 bg-[#D0BCFF] text-[#381E72] font-bold py-4 rounded-3xl hover:bg-[#EADDFF] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                                <polyline points="17 21 17 13 7 13 7 21" />
-                                <polyline points="7 3 7 8 15 8" />
-                            </svg>
-                            Pfad speichern
-                        </button>
-                        <button onclick="runBackupNow()"
-                            class="px-8 bg-green-500/20 border border-green-400/30 text-green-400 font-bold py-4 rounded-3xl hover:bg-green-500/30 transition-all flex items-center justify-center gap-3 active:scale-95">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                                <polyline points="17 21 17 13 7 13 7 21" />
-                                <polyline points="7 3 7 8 15 8" />
-                            </svg>
-                            Jetzt Backup erstellen
-                        </button>
+                    <div style="display:flex;gap:12px;margin-bottom:28px">
+                        <button onclick="saveBackupConfig()" class="btn btn-primary btn-lg" style="flex:1">Pfad speichern</button>
+                        <button onclick="runBackupNow()" class="btn btn-success btn-lg">Jetzt Backup erstellen</button>
                     </div>
 
-                    <!-- Backup Scheduler Card -->
-                    <div class="glass-card p-8 space-y-6">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-4">
-                                <div
-                                    class="w-12 h-12 rounded-2xl bg-[#D0BCFF]/10 flex items-center justify-center text-[#D0BCFF]">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10" />
-                                        <polyline points="12 6 12 12 16 14" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="text-xl font-bold text-white">Automatisches Backup</h3>
-                                    <p class="text-xs text-[#938F99] mt-1">Taegliche Backups zu einer festen Uhrzeit</p>
-                                </div>
+                    <!-- Backup Scheduler -->
+                    <div class="card" style="margin-bottom:20px">
+                        <div class="card-header">
+                            <div class="card-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <polyline points="12 6 12 12 16 14" />
+                                </svg>
+                            </div>
+                            <div class="card-title-wrap">
+                                <div class="card-title">Automatisches Backup</div>
+                                <div class="card-sub">Tägliche Backups zu einer festen Uhrzeit</div>
                             </div>
                             <div id="bs-toggle" class="toggle-switch" onclick="toggleBackupSchedule()"></div>
                         </div>
 
-                        <div id="bs-settings" class="space-y-6 pt-2">
-                            <!-- Uhrzeit -->
+                        <div id="bs-settings" style="display:flex;flex-direction:column;gap:18px">
                             <div>
-                                <label
-                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Taegliche
-                                    Uhrzeit</label>
-                                <input type="time" id="bs-time" value="03:00"
-                                    class="w-full bg-[#1C1B1F] border border-white/10 rounded-2xl px-6 py-4 text-lg font-mono text-[#D0BCFF] focus:border-[#D0BCFF] outline-none transition-all">
-                                <p class="text-xs text-[#938F99] mt-2 italic">Backup laeuft einmal pro Tag zur
-                                    angegebenen Zeit (Server-Zeitzone).</p>
+                                <div class="field-label">Tägliche Uhrzeit</div>
+                                <input type="time" id="bs-time" value="03:00" class="input mono lg" style="font-size:18px;color:var(--primary)">
+                                <div class="field-hint">Backup läuft einmal pro Tag zur angegebenen Zeit (Server-Zeitzone).</div>
                             </div>
 
-                            <!-- Stack Mode -->
                             <div>
-                                <label
-                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Welche
-                                    Stacks sichern?</label>
-                                <div class="grid grid-cols-3 gap-2">
-                                    <button onclick="setBackupScheduleMode('all')" id="bs-mode-all"
-                                        class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Alle</button>
-                                    <button onclick="setBackupScheduleMode('only')" id="bs-mode-only"
-                                        class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Nur
-                                        diese</button>
-                                    <button onclick="setBackupScheduleMode('except')" id="bs-mode-except"
-                                        class="bs-mode-btn px-4 py-3 rounded-2xl text-sm font-bold border transition-all">Ausser
-                                        diese</button>
+                                <div class="field-label">Welche Stacks sichern?</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                                    <button onclick="setBackupScheduleMode('all')" id="bs-mode-all" class="bs-mode-btn chip">Alle</button>
+                                    <button onclick="setBackupScheduleMode('only')" id="bs-mode-only" class="bs-mode-btn chip">Nur diese</button>
+                                    <button onclick="setBackupScheduleMode('except')" id="bs-mode-except" class="bs-mode-btn chip">Außer diese</button>
                                 </div>
                             </div>
 
-                            <!-- Stack Selection -->
                             <div id="bs-stacks-section" class="hidden">
-                                <label
-                                    class="text-[10px] uppercase font-bold text-[#938F99] tracking-widest mb-2 block">Stacks
-                                    auswaehlen</label>
+                                <div class="field-label">Stacks auswählen</div>
                                 <div id="bs-stacks-list"
-                                    class="space-y-2 max-h-60 overflow-y-auto bg-[#1C1B1F] rounded-2xl p-4 border border-white/5">
+                                    style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;background:var(--surface-1);border-radius:var(--r-lg);padding:12px;border:1px solid var(--border)">
                                 </div>
                             </div>
 
-                            <!-- Save Button -->
-                            <button onclick="saveBackupSchedule()"
-                                class="w-full bg-[#D0BCFF] text-[#381E72] font-bold py-4 rounded-3xl hover:bg-[#EADDFF] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                                    <polyline points="17 21 17 13 7 13 7 21" />
-                                    <polyline points="7 3 7 8 15 8" />
-                                </svg>
-                                Zeitplan speichern
-                            </button>
+                            <button onclick="saveBackupSchedule()" class="btn btn-primary btn-block">Zeitplan speichern</button>
 
-                            <!-- Next Run Info -->
-                            <div id="bs-next-run"
-                                class="hidden bg-white/5 rounded-2xl p-4 flex items-center gap-3 border border-white/5">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" class="text-[#81C784]">
+                            <div id="bs-next-run" class="hidden list-row accent-success">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="var(--success)" stroke-width="2">
                                     <circle cx="12" cy="12" r="10" />
                                     <polyline points="12 6 12 12 16 14" />
                                 </svg>
-                                <span class="text-xs text-[#938F99]">Naechstes automatisches Backup: <span
-                                        id="bs-next-run-text" class="text-white font-bold">-</span></span>
+                                <span style="font-size:12px;color:var(--text-muted)">Nächstes Backup: <span id="bs-next-run-text" style="color:var(--text);font-weight:700">-</span></span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Existing Backups (Restore) -->
-                    <div class="glass-card overflow-hidden">
-                        <div
-                            class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99] flex items-center justify-between">
+                    <!-- Existing Backups -->
+                    <div class="card flush" style="margin-bottom:20px">
+                        <div class="table-head" style="display:flex;justify-content:space-between;align-items:center">
                             <span>Vorhandene Backups</span>
-                            <button onclick="loadBackupList()"
-                                class="text-[#D0BCFF] hover:text-white transition-all text-xs normal-case font-normal">Aktualisieren</button>
+                            <button onclick="loadBackupList()" class="btn btn-ghost btn-sm">Aktualisieren</button>
                         </div>
-                        <div id="backup-list-container" class="p-6 space-y-4">
-                            <p class="text-sm text-[#938F99] text-center py-4">Lade Backups...</p>
+                        <div id="backup-list-container" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+                            <p class="text-dim" style="text-align:center;padding:20px 0;font-size:13px">Lade Backups...</p>
                         </div>
                     </div>
 
                     <!-- Backup History Log -->
-                    <div class="glass-card overflow-hidden">
-                        <div
-                            class="p-6 border-b border-white/5 bg-white/5 font-bold uppercase text-[10px] tracking-[0.2em] text-[#938F99]">
-                            Backup Historie (Letzte 30)</div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-sm">
-                                <thead class="bg-[#1C1B1F] text-[#938F99] uppercase text-[10px] tracking-widest">
+                    <div class="card flush">
+                        <div class="table-head">Backup Historie (Letzte 30)</div>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <th class="px-6 py-4">Zeitpunkt</th>
-                                        <th class="px-6 py-4">Status</th>
-                                        <th class="px-6 py-4">Stacks</th>
-                                        <th class="px-6 py-4">Details</th>
+                                        <th>Zeitpunkt</th>
+                                        <th>Status</th>
+                                        <th>Stacks</th>
+                                        <th>Details</th>
                                     </tr>
                                 </thead>
-                                <tbody id="backup-log-body" class="divide-y divide-white/5">
+                                <tbody id="backup-log-body">
                                 </tbody>
                             </table>
                         </div>
@@ -1535,91 +2144,73 @@
             </section>
 
             <!-- Ports View -->
-            <section id="view-ports" class="page-view flex-1 hidden overflow-y-auto">
-                <div class="max-w-6xl mx-auto space-y-8 pb-12">
-                    <div class="flex items-center justify-between mb-4">
+            <section id="view-ports" class="page-view hidden">
+                <div class="page-inner wide">
+                    <div class="page-header">
                         <div>
-                            <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Port Overview</h1>
-                            <p class="text-[#938F99]">Alle offenen Ports des Hosts mit Docker- und Cloudflare-Zuordnung.
-                            </p>
+                            <div class="title">Port Overview</div>
+                            <div class="subtitle">Alle offenen Ports des Hosts mit Docker- und Cloudflare-Zuordnung</div>
                         </div>
-                        <button onclick="loadPortsView()"
-                            class="px-4 py-2 rounded-full bg-[#2B2930] border border-[#4A4458] text-[#D0BCFF] hover:bg-[#4A4458] transition-all text-sm flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <path d="M21 2v6h-6" />
-                                <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-                                <path d="M3 22v-6h6" />
-                                <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-                            </svg>
-                            Aktualisieren
-                        </button>
+                        <div class="actions">
+                            <button onclick="loadPortsView()" class="btn btn-secondary btn-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 2v6h-6" />
+                                    <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                                    <path d="M3 22v-6h6" />
+                                    <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                                </svg>
+                                Aktualisieren
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Stats Cards -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="ports-stats-grid">
-                        <div class="glass-card p-4">
-                            <div class="text-xs text-[#938F99] uppercase tracking-wide">Gesamt</div>
-                            <div class="text-3xl font-bold text-white mt-1" id="ports-stat-total">0</div>
+                    <div class="stat-grid" id="ports-stats-grid" style="margin-bottom:20px">
+                        <div class="stat-tile">
+                            <div class="label">Gesamt</div>
+                            <div class="value" id="ports-stat-total">0</div>
                         </div>
-                        <div class="glass-card p-4 border-l-4 border-[#4ADE80]">
-                            <div class="text-xs text-[#938F99] uppercase tracking-wide">Docker</div>
-                            <div class="text-3xl font-bold text-[#4ADE80] mt-1" id="ports-stat-docker">0</div>
+                        <div class="stat-tile success">
+                            <div class="label">Docker</div>
+                            <div class="value" id="ports-stat-docker">0</div>
                         </div>
-                        <div class="glass-card p-4 border-l-4 border-[#F59E0B]">
-                            <div class="text-xs text-[#938F99] uppercase tracking-wide">Mit Domain</div>
-                            <div class="text-3xl font-bold text-[#F59E0B] mt-1" id="ports-stat-domain">0</div>
+                        <div class="stat-tile amber">
+                            <div class="label">Mit Domain</div>
+                            <div class="value" id="ports-stat-domain">0</div>
                         </div>
-                        <div class="glass-card p-4 border-l-4 border-[#60A5FA]">
-                            <div class="text-xs text-[#938F99] uppercase tracking-wide">Oeffentlich</div>
-                            <div class="text-3xl font-bold text-[#60A5FA] mt-1" id="ports-stat-public">0</div>
+                        <div class="stat-tile info">
+                            <div class="label">Öffentlich</div>
+                            <div class="value" id="ports-stat-public">0</div>
                         </div>
                     </div>
 
                     <!-- Filters -->
-                    <div class="glass-card p-4 space-y-4">
-                        <div class="flex items-center gap-2 flex-wrap" id="ports-filter-bar">
-                            <button data-filter="all"
-                                class="ports-filter-btn active px-4 py-2 rounded-full text-xs font-bold transition-all">Alle</button>
-                            <button data-filter="docker"
-                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Docker</button>
-                            <button data-filter="system"
-                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">System</button>
-                            <button data-filter="public"
-                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Oeffentlich</button>
-                            <button data-filter="local"
-                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Lokal
-                                (10.x / 172.x / 192.x)</button>
-                            <button data-filter="loopback"
-                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Loopback</button>
-                            <button data-filter="with-domain"
-                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Mit
-                                Domain</button>
-                            <button data-filter="without-domain"
-                                class="ports-filter-btn px-4 py-2 rounded-full text-xs font-bold transition-all">Ohne
-                                Domain</button>
+                    <div class="card compact" style="margin-bottom:20px">
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="ports-filter-bar">
+                            <button data-filter="all" class="ports-filter-btn chip active">Alle</button>
+                            <button data-filter="docker" class="ports-filter-btn chip">Docker</button>
+                            <button data-filter="system" class="ports-filter-btn chip">System</button>
+                            <button data-filter="public" class="ports-filter-btn chip">Öffentlich</button>
+                            <button data-filter="local" class="ports-filter-btn chip">Lokal (10.x / 172.x / 192.x)</button>
+                            <button data-filter="loopback" class="ports-filter-btn chip">Loopback</button>
+                            <button data-filter="with-domain" class="ports-filter-btn chip">Mit Domain</button>
+                            <button data-filter="without-domain" class="ports-filter-btn chip">Ohne Domain</button>
                         </div>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-4 flex items-center text-[#938F99]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="11" cy="11" r="8" />
-                                    <path d="m21 21-4.3-4.3" />
-                                </svg>
-                            </span>
-                            <input type="text" id="ports-search" placeholder="Suche nach Port, IP, Container, Domain..."
-                                class="w-full bg-[#1C1B1F] rounded-full py-2.5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-[#D0BCFF] text-sm border border-[#4A4458]/30">
+                        <div class="search-field" style="max-width:100%">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="m21 21-4.3-4.3" />
+                            </svg>
+                            <input type="text" id="ports-search" placeholder="Suche nach Port, IP, Container, Domain...">
                         </div>
                     </div>
 
                     <!-- Port List -->
-                    <div id="ports-list" class="space-y-3">
-                        <div class="text-center text-[#938F99] py-12">
-                            <div
-                                class="inline-block w-8 h-8 border-2 border-[#D0BCFF]/20 border-t-[#D0BCFF] rounded-full animate-spin">
-                            </div>
-                            <p class="mt-4 text-sm">Lade Ports...</p>
+                    <div id="ports-list" style="display:flex;flex-direction:column;gap:10px">
+                        <div class="empty-state" style="padding:48px 0">
+                            <div class="spinner"></div>
+                            <p class="text-dim" style="margin-top:16px;font-size:13px">Lade Ports...</p>
                         </div>
                     </div>
                 </div>
@@ -1707,10 +2298,18 @@
         };
 
         function switchPage(pageId) {
-            document.querySelectorAll('.page-view').forEach(p => p.classList.add('hidden'));
+            document.querySelectorAll('.page-view').forEach(p => {
+                p.classList.add('hidden');
+                p.style.display = 'none';
+            });
             document.querySelectorAll('.nav-rail-item').forEach(n => n.classList.remove('active'));
             const target = document.getElementById(`view-${pageId}`);
-            if (target) target.classList.remove('hidden');
+            if (target) {
+                target.classList.remove('hidden');
+                // Timeline needs flex layout, livemap/carla need block (absolute), rest default block
+                if (pageId === 'timeline') target.style.display = 'flex';
+                else target.style.display = 'block';
+            }
 
             // Highlight nav rail based on logical page
             let navId = pageId;
@@ -2268,13 +2867,13 @@
             const selector = document.getElementById('tunnel-selector');
             const loading = document.getElementById('tunnel-list-loading');
             selector.innerHTML = '';
-            loading.classList.remove('hidden');
+            loading.style.display = 'flex';
             document.getElementById('ingress-section').classList.add('hidden');
 
             fetch('/api/cf/tunnels')
                 .then(r => r.json())
                 .then(tunnels => {
-                    loading.classList.add('hidden');
+                    loading.style.display = 'none';
                     if (tunnels.error) {
                         selector.innerHTML = `<p class="text-sm text-[#F2B8B5]">${tunnels.error}</p>`;
                         return;
@@ -2914,7 +3513,7 @@
         }
 
         function updateStackTimeFilter(range, btn) {
-            document.querySelectorAll('#stack-time-filters .filter-chip').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('#stack-time-filters .chip').forEach(c => c.classList.remove('active'));
             btn.classList.add('active');
             stackPerfLimit = (range === '1h') ? 720 : 5000;
             if (activeStackName) updateStackPerformance(activeStackName);
@@ -3105,8 +3704,10 @@
         }
 
         async function loadSnapshot(ts) {
-            document.getElementById('snapshot-empty').classList.add('hidden');
-            document.getElementById('snapshot-details').classList.remove('hidden');
+            document.getElementById('snapshot-empty').style.display = 'none';
+            const sd = document.getElementById('snapshot-details');
+            sd.classList.remove('hidden');
+            sd.style.display = 'flex';
 
             try {
                 const res = await fetch(`/api/timeline/snapshot/${ts}`);
@@ -3245,7 +3846,7 @@
         }
 
         function updateTimeFilter(range, btn) {
-            document.querySelectorAll('#global-time-filters .filter-chip').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('#global-time-filters .chip').forEach(c => c.classList.remove('active'));
             btn.classList.add('active');
 
             const mapping = {
