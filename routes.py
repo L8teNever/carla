@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive
+from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager
 import config
 
 bp = Blueprint("main", __name__)
@@ -163,6 +163,7 @@ def start_background_fetch():
 @bp.route("/settings")
 @bp.route("/livemap")
 @bp.route("/ports")
+@bp.route("/filemanager")
 def index(stack_name=None, name=None):
     return render_template("dashboard.html")
 
@@ -792,3 +793,65 @@ def api_ports():
     docker_stacks = (data or {}).get("stacks", {}) if data else {}
     enriched = ports.enrich_with_docker(host_ports, docker_stacks)
     return jsonify(enriched)
+
+
+# ---------------------------------------------------------------
+# File Manager Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/files/browse", methods=["GET"])
+def api_files_browse():
+    """Listet Dateien und Ordner in einem Verzeichnis."""
+    path = request.args.get("path", "/")
+    return jsonify(file_manager.list_directory(path))
+
+
+@bp.route("/api/files/read", methods=["GET"])
+def api_files_read():
+    """Liest den Inhalt einer Textdatei."""
+    path = request.args.get("path", "")
+    if not path:
+        return jsonify({"ok": False, "error": "Kein Pfad angegeben."}), 400
+    return jsonify(file_manager.read_file(path))
+
+
+@bp.route("/api/files/write", methods=["POST"])
+def api_files_write():
+    """Schreibt Inhalt in eine Datei."""
+    data = request.json
+    if not data or not data.get("path") or "content" not in data:
+        return jsonify({"ok": False, "error": "Pfad und Inhalt erforderlich."}), 400
+    return jsonify(file_manager.write_file(data["path"], data["content"]))
+
+
+@bp.route("/api/files/mkdir", methods=["POST"])
+def api_files_mkdir():
+    """Erstellt ein neues Verzeichnis."""
+    data = request.json
+    if not data or not data.get("path"):
+        return jsonify({"ok": False, "error": "Pfad erforderlich."}), 400
+    return jsonify(file_manager.create_directory(data["path"]))
+
+
+@bp.route("/api/files/delete", methods=["POST"])
+def api_files_delete():
+    """Loescht eine Datei oder ein Verzeichnis."""
+    data = request.json
+    if not data or not data.get("path"):
+        return jsonify({"ok": False, "error": "Pfad erforderlich."}), 400
+    return jsonify(file_manager.delete_item(data["path"]))
+
+
+@bp.route("/api/files/rename", methods=["POST"])
+def api_files_rename():
+    """Benennt eine Datei oder Ordner um."""
+    data = request.json
+    if not data or not data.get("path") or not data.get("new_name"):
+        return jsonify({"ok": False, "error": "Pfad und neuer Name erforderlich."}), 400
+    return jsonify(file_manager.rename_item(data["path"], data["new_name"]))
+
+
+@bp.route("/api/files/stack/<stack_name>", methods=["GET"])
+def api_files_stack(stack_name):
+    """Gibt Arbeitsverzeichnis und Volumes eines Stacks zurueck."""
+    return jsonify(file_manager.get_stack_paths(stack_name))
