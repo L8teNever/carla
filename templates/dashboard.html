@@ -4117,22 +4117,22 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
                     </div>
                     
                     <div class="flex items-center gap-2 bg-[#1C1B1F] p-1.5 rounded-2xl border border-white/5" id="stack-controls-${name.replace(/[^a-zA-Z0-9]/g, '_')}">
-                        <button onclick="stackAction('${name}', 'restart')" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2B2930] hover:bg-[#36343B] text-[#938F99] hover:text-[#D0BCFF] transition-all text-[11px] font-bold uppercase tracking-wider border border-white/5">
+                        <button onclick="stackAction('${name}', 'restart', this)" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2B2930] hover:bg-[#36343B] text-[#938F99] hover:text-[#D0BCFF] transition-all text-[11px] font-bold uppercase tracking-wider border border-white/5">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg>
                             Restart Stack
                         </button>
                         ${isRunning ? `
-                        <button onclick="stackAction('${name}', 'stop')" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2B2930] hover:bg-[#36343B] text-[#938F99] hover:text-[#F2B8B5] transition-all text-[11px] font-bold uppercase tracking-wider border border-white/5">
+                        <button onclick="stackAction('${name}', 'stop', this)" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2B2930] hover:bg-[#36343B] text-[#938F99] hover:text-[#F2B8B5] transition-all text-[11px] font-bold uppercase tracking-wider border border-white/5">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
                             Stop
                         </button>
                         ` : `
-                        <button onclick="stackAction('${name}', 'start')" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2B2930] hover:bg-[#36343B] text-[#938F99] hover:text-[#81C784] transition-all text-[11px] font-bold uppercase tracking-wider border border-white/5">
+                        <button onclick="stackAction('${name}', 'start', this)" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2B2930] hover:bg-[#36343B] text-[#938F99] hover:text-[#81C784] transition-all text-[11px] font-bold uppercase tracking-wider border border-white/5">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>
                             Start
                         </button>
                         `}
-                        <button onclick="stackAction('${name}', 'update')" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#D0BCFF]/10 hover:bg-[#D0BCFF]/20 text-[#D0BCFF] transition-all text-[11px] font-bold uppercase tracking-wider border border-[#D0BCFF]/20 ml-auto">
+                        <button onclick="stackAction('${name}', 'update', this)" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#D0BCFF]/10 hover:bg-[#D0BCFF]/20 text-[#D0BCFF] transition-all text-[11px] font-bold uppercase tracking-wider border border-[#D0BCFF]/20 ml-auto">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg>
                             Update
                         </button>
@@ -4207,24 +4207,24 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
                                 </div>
 
                                 <div class="flex gap-2" id="controls-${safeName}">
-                                    <button onclick="containerAction('${c.name}', 'restart', '${safeName}')" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2B2930] border border-white/10 text-[#938F99] hover:text-[#D0BCFF] hover:border-[#D0BCFF]/30 transition-all text-[10px] font-bold uppercase tracking-wider" title="Restart">
+                                    <button onclick="containerAction('${c.name}', 'restart', '${safeName}', this)" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2B2930] border border-white/10 text-[#938F99] hover:text-[#D0BCFF] hover:border-[#D0BCFF]/30 transition-all text-[10px] font-bold uppercase tracking-wider" title="Restart">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
                                         Restart
                                     </button>
                                     ${c.state === 'running' ? `
-                                    <button onclick="containerAction('${c.name}', 'stop', '${safeName}')" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2B2930] border border-white/10 text-[#938F99] hover:text-[#F2B8B5] hover:border-[#F2B8B5]/30 transition-all text-[10px] font-bold uppercase tracking-wider" title="Stop">
+                                    <button onclick="containerAction('${c.name}', 'stop', '${safeName}', this)" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2B2930] border border-white/10 text-[#938F99] hover:text-[#F2B8B5] hover:border-[#F2B8B5]/30 transition-all text-[10px] font-bold uppercase tracking-wider" title="Stop">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
                                         Stop
                                     </button>
                                     ` : `
-                                    <button onclick="containerAction('${c.name}', 'start', '${safeName}')" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2B2930] border border-white/10 text-[#938F99] hover:text-[#81C784] hover:border-[#81C784]/30 transition-all text-[10px] font-bold uppercase tracking-wider" title="Start">
+                                    <button onclick="containerAction('${c.name}', 'start', '${safeName}', this)" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2B2930] border border-white/10 text-[#938F99] hover:text-[#81C784] hover:border-[#81C784]/30 transition-all text-[10px] font-bold uppercase tracking-wider" title="Start">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6,4 20,12 6,20"/></svg>
                                         Start
                                     </button>
                                     `}
-                                    <button onclick="containerAction('${c.name}', 'pause', '${safeName}')" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2B2930] border border-white/10 text-[#938F99] hover:text-[#FFB74D] hover:border-[#FFB74D]/30 transition-all text-[10px] font-bold uppercase tracking-wider" title="Pause">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-                                        Pause
+                                    <button onclick="containerAction('${c.name}', ${c.state === 'paused' ? "'unpause'" : "'pause'"}, '${safeName}', this)" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2B2930] border border-white/10 text-[#938F99] hover:text-[#FFB74D] hover:border-[#FFB74D]/30 transition-all text-[10px] font-bold uppercase tracking-wider" title="${c.state === 'paused' ? 'Fortsetzen' : 'Pause'}">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">${c.state === 'paused' ? '<polygon points="6,4 20,12 6,20"/>' : '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>'}</svg>
+                                        ${c.state === 'paused' ? 'Fortsetzen' : 'Pause'}
                                     </button>
                                 </div>
                             </div>
@@ -4371,50 +4371,136 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
         let activeContainer = null;
         let logInterval = null;
 
-        async function stackAction(name, action) {
-            const safeId = name.replace(/[^a-zA-Z0-9]/g, '_');
-            const controlsEl = document.getElementById('stack-controls-' + safeId);
-            const buttons = controlsEl ? controlsEl.querySelectorAll('button') : [];
-            buttons.forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
-            try {
-                const res = await fetch('/api/stack/' + encodeURIComponent(name) + '/' + action, { method: 'POST' });
-                const data = await res.json();
-                if (res.ok) {
-                    setTimeout(() => {
-                        fetch('/api/refresh', { method: 'POST' }).then(() => {
-                            initLoad(); // Lade alles neu
-                        });
-                    }, 1500);
-                } else {
-                    alert('Fehler: ' + (data.error || 'Unbekannt'));
-                    buttons.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
-                }
-            } catch (e) {
-                alert('Fehler: ' + e.message);
-                buttons.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+        const _actionLabels = {
+            start: 'Starten', stop: 'Stoppen', restart: 'Neustart',
+            down: 'Herunterfahren', update: 'Update', pause: 'Pausieren', unpause: 'Fortsetzen'
+        };
+        const _actionDoneLabels = {
+            start: 'Gestartet', stop: 'Gestoppt', restart: 'Neugestartet',
+            down: 'Heruntergefahren', update: 'Aktualisiert', pause: 'Pausiert', unpause: 'Fortgesetzt'
+        };
+
+        function _setActionButton(btn, state, action) {
+            // state: 'loading' | 'done' | 'error'
+            const orig = btn.dataset.origHtml;
+            if (!orig) btn.dataset.origHtml = btn.innerHTML;
+
+            if (state === 'loading') {
+                btn.disabled = true;
+                btn.style.opacity = '1';
+                btn.innerHTML = `<div style="width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite"></div> ${_actionLabels[action] || action}...`;
+                btn.style.background = 'rgba(208,188,255,0.08)';
+            } else if (state === 'done') {
+                btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#81C784" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> ${_actionDoneLabels[action] || 'Fertig'}`;
+                btn.style.background = 'rgba(129,199,132,0.1)';
+                btn.style.color = '#81C784';
+                btn.style.borderColor = 'rgba(129,199,132,0.3)';
+            } else if (state === 'error') {
+                btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F2B8B5" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Fehler`;
+                btn.style.background = 'rgba(242,184,181,0.1)';
+                btn.style.color = '#F2B8B5';
+                btn.style.borderColor = 'rgba(242,184,181,0.3)';
             }
         }
 
-        async function containerAction(name, action, safeName) {
+        async function stackAction(name, action, clickedBtn) {
+            const safeId = name.replace(/[^a-zA-Z0-9]/g, '_');
+            const controlsEl = document.getElementById('stack-controls-' + safeId);
+            if (!controlsEl) return;
+            const buttons = controlsEl.querySelectorAll('button');
+            const activeBtn = clickedBtn || buttons[0];
+
+            // Alle Buttons dimmen, aktiven mit Spinner
+            buttons.forEach(b => { b.disabled = true; b.style.opacity = b === activeBtn ? '1' : '0.3'; });
+            _setActionButton(activeBtn, 'loading', action);
+
+            try {
+                const res = await fetch('/api/stack/' + encodeURIComponent(name) + '/' + action, { method: 'POST' });
+                const data = await res.json();
+
+                if (res.ok && data.success !== false) {
+                    _setActionButton(activeBtn, 'done', action);
+
+                    // Daten im Hintergrund neu laden
+                    fetch('/api/refresh', { method: 'POST' }).then(() => {
+                        setTimeout(async () => {
+                            await initLoad();
+                            // Zurueck zur Stack-Detail-Ansicht nach Reload
+                            const current = window.location.pathname;
+                            if (current.startsWith('/stack/')) {
+                                showStackDetail(name);
+                            }
+                        }, 500);
+                    });
+                } else {
+                    _setActionButton(activeBtn, 'error', action);
+                    // Output als Tooltip
+                    activeBtn.title = data.output || data.error || 'Unbekannter Fehler';
+                    setTimeout(() => {
+                        buttons.forEach(b => { b.disabled = false; b.style.opacity = '1'; b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+                        if (activeBtn.dataset.origHtml) activeBtn.innerHTML = activeBtn.dataset.origHtml;
+                    }, 3000);
+                }
+            } catch (e) {
+                _setActionButton(activeBtn, 'error', action);
+                activeBtn.title = e.message;
+                setTimeout(() => {
+                    buttons.forEach(b => { b.disabled = false; b.style.opacity = '1'; b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+                    if (activeBtn.dataset.origHtml) activeBtn.innerHTML = activeBtn.dataset.origHtml;
+                }, 3000);
+            }
+        }
+
+        async function containerAction(name, action, safeName, clickedBtn) {
             const controlsEl = document.getElementById('controls-' + safeName);
-            const buttons = controlsEl ? controlsEl.querySelectorAll('button') : [];
-            buttons.forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
+            if (!controlsEl) return;
+            const buttons = controlsEl.querySelectorAll('button');
+            const activeBtn = clickedBtn || buttons[0];
+
+            // Alle Buttons dimmen, aktiven mit Spinner
+            buttons.forEach(b => { b.disabled = true; b.style.opacity = b === activeBtn ? '1' : '0.3'; });
+            _setActionButton(activeBtn, 'loading', action);
+
+            // Container-Karte visuell markieren
+            const card = document.getElementById('cont-' + name);
+            if (card) card.style.opacity = '0.7';
+
             try {
                 const res = await fetch('/api/container/' + encodeURIComponent(name) + '/' + action, { method: 'POST' });
                 const data = await res.json();
-                if (res.ok) {
-                    setTimeout(() => {
-                        fetch('/api/refresh', { method: 'POST' }).then(() => {
-                            initLoad(); // Lade alles neu
-                        });
-                    }, 1000);
+
+                if (res.ok && data.success !== false) {
+                    _setActionButton(activeBtn, 'done', action);
+                    if (card) card.style.opacity = '1';
+
+                    // Daten im Hintergrund neu laden
+                    fetch('/api/refresh', { method: 'POST' }).then(() => {
+                        setTimeout(async () => {
+                            await initLoad();
+                            const current = window.location.pathname;
+                            if (current.startsWith('/stack/')) {
+                                const stackName = decodeURIComponent(current.split('/')[2]);
+                                showStackDetail(stackName);
+                            }
+                        }, 500);
+                    });
                 } else {
-                    alert('Fehler: ' + (data.error || 'Unbekannt'));
-                    buttons.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+                    _setActionButton(activeBtn, 'error', action);
+                    activeBtn.title = data.output || data.error || 'Unbekannter Fehler';
+                    if (card) card.style.opacity = '1';
+                    setTimeout(() => {
+                        buttons.forEach(b => { b.disabled = false; b.style.opacity = '1'; b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+                        if (activeBtn.dataset.origHtml) activeBtn.innerHTML = activeBtn.dataset.origHtml;
+                    }, 3000);
                 }
             } catch (e) {
-                alert('Fehler: ' + e.message);
-                buttons.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+                _setActionButton(activeBtn, 'error', action);
+                activeBtn.title = e.message;
+                if (card) card.style.opacity = '1';
+                setTimeout(() => {
+                    buttons.forEach(b => { b.disabled = false; b.style.opacity = '1'; b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+                    if (activeBtn.dataset.origHtml) activeBtn.innerHTML = activeBtn.dataset.origHtml;
+                }, 3000);
             }
         }
 

@@ -257,7 +257,8 @@ def api_container_action(name, action):
     if action not in allowed:
         return jsonify({"error": f"Unerlaubte Aktion: {action}"}), 400
     output = ssh_docker.container_action(name, action)
-    return jsonify({"output": output, "action": action, "container": name})
+    has_error = output and ("Error" in output or "error" in output)
+    return jsonify({"output": output, "action": action, "container": name, "success": not has_error})
 
 @bp.route("/api/stack/<name>/<action>", methods=["POST"])
 def api_stack_action(name, action):
@@ -265,7 +266,8 @@ def api_stack_action(name, action):
     if action not in allowed:
         return jsonify({"error": f"Unerlaubte Aktion: {action}"}), 400
     output = ssh_docker.stack_action(name, action)
-    return jsonify({"output": output, "action": action, "stack": name})
+    has_error = output and output.startswith("Fehler:")
+    return jsonify({"output": output, "action": action, "stack": name, "success": not has_error})
 
 @bp.route("/api/stack/deploy", methods=["POST"])
 def api_stack_deploy():

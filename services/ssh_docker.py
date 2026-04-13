@@ -120,7 +120,9 @@ def stack_action(stack_name: str, action: str) -> str:
     else:
         return "Unbekannte Aktion"
 
-    return system_executor.execute_command(cmd)
+    # Update/Pull braucht laenger
+    cmd_timeout = 120 if action == "update" else 60
+    return system_executor.execute_command(cmd, timeout=cmd_timeout)
 
 
 def deploy_stack(stack_name: str, compose_content: str, env_content: str = "") -> dict:

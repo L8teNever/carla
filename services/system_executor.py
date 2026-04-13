@@ -26,12 +26,12 @@ def close_ssh():
         _ssh_client.close()
         _ssh_client = None
 
-def execute_command(cmd: str) -> str:
+def execute_command(cmd: str, timeout: int = 15) -> str:
     """Führt einen Shell-Befehl entweder lokal oder via SSH aus."""
     if config.MODE == "local":
         try:
             # Shell=True ist hier notwendig für Pipes/Awk/Grep im Befehl
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
             if result.returncode == 0:
                 return result.stdout.strip()
             else:
