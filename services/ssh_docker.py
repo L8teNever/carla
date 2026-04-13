@@ -123,6 +123,46 @@ def stack_action(stack_name: str, action: str) -> str:
     return system_executor.execute_command(cmd)
 
 
+def deploy_stack(stack_name: str, compose_content: str, env_content: str = "") -> dict:
+    """Erstellt einen neuen Stack aus einer docker-compose.yml.
+
+    Legt ein Verzeichnis unter /opt/stacks/<stack_name> an,
+    schreibt die Compose-Datei (und optional .env) und startet den Stack.
+    """
+    import shlex
+    base_dir = "/opt/stacks"
+    workdir = f"{base_dir}/{stack_name}"
+
+    # Verzeichnis erstellen
+    result = system_executor.execute_command(f"mkdir -p {workdir}")
+    if result and "Error" in result:
+        return {"ok": False, "error": f"Verzeichnis konnte nicht erstellt werden: {result}"}
+
+    # Compose-Datei schreiben (via heredoc)
+    escaped = compose_content.replace("'", "'\\''")
+    write_cmd = f"cat > {workdir}/docker-compose.yml << 'CARLA_EOF'\n{compose_content}\nCARLA_EOF"
+    result = system_executor.execute_command(write_cmd)
+    if result and "Error" in result:
+        return {"ok": False, "error": f"Compose-Datei konnte nicht geschrieben werden: {result}"}
+
+    # Optional .env schreiben
+    if env_content and env_content.strip():
+        env_cmd = f"cat > {workdir}/.env << 'CARLA_EOF'\n{env_content}\nCARLA_EOF"
+        result = system_executor.execute_command(env_cmd)
+        if result and "Error" in result:
+            return {"ok": False, "error": f".env konnte nicht geschrieben werden: {result}"}
+
+    # Stack starten
+    up_result = system_executor.execute_command(f"cd {workdir} && docker compose up -d 2>&1")
+
+    return {
+        "ok": True,
+        "output": up_result,
+        "workdir": workdir,
+        "stack_name": stack_name,
+    }
+
+
 def fetch_container_logs_since_last_start(unused_host, unused_user, unused_pass, container_name) -> str:
     """Holt alle Logs seit dem letzten Start des Containers."""
     started_at = system_executor.execute_command(

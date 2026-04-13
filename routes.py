@@ -266,6 +266,35 @@ def api_stack_action(name, action):
     output = ssh_docker.stack_action(name, action)
     return jsonify({"output": output, "action": action, "stack": name})
 
+@bp.route("/api/stack/deploy", methods=["POST"])
+def api_stack_deploy():
+    """Erstellt und startet einen neuen Stack aus einer Compose-Datei."""
+    data = request.json
+    if not data:
+        return jsonify({"error": "Keine Daten erhalten"}), 400
+
+    stack_name = data.get("stack_name", "").strip()
+    compose_content = data.get("compose", "").strip()
+    env_content = data.get("env", "").strip()
+
+    if not stack_name:
+        return jsonify({"error": "Stack-Name ist erforderlich."}), 400
+    if not compose_content:
+        return jsonify({"error": "Compose-Datei ist erforderlich."}), 400
+
+    # Nur alphanumerisch, Bindestrich und Unterstrich erlauben
+    import re
+    if not re.match(r'^[a-zA-Z0-9_-]+$', stack_name):
+        return jsonify({"error": "Stack-Name darf nur Buchstaben, Zahlen, - und _ enthalten."}), 400
+
+    result = ssh_docker.deploy_stack(stack_name, compose_content, env_content)
+    if result.get("ok"):
+        start_background_fetch()
+        return jsonify(result)
+    else:
+        return jsonify(result), 500
+
+
 @bp.route("/api/refresh", methods=["POST"])
 def manual_refresh():
     global is_fetching
