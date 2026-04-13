@@ -33,6 +33,7 @@ def load_config() -> dict:
         "schedule_time": "03:00",
         "schedule_mode": "all",
         "schedule_stacks": [],
+        "gdrive_auto_upload": False,
     }
     if not os.path.exists(CONFIG_FILE):
         return defaults
@@ -252,6 +253,27 @@ def run_backup(stacks_filter: list = None) -> list:
 
         cfg["last_run"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         save_config(cfg)
+
+        # Auto-Upload zu Google Drive
+        if cfg.get("gdrive_auto_upload"):
+            try:
+                import config as app_config
+                if app_config.GDRIVE_CLIENT_ID and app_config.GDRIVE_CLIENT_SECRET and app_config.GDRIVE_REFRESH_TOKEN:
+                    from services import google_drive
+                    # Letztes Backup-Verzeichnis finden
+                    latest = sorted(os.listdir(backup_dir))[-1] if os.listdir(backup_dir) else None
+                    if latest:
+                        print(f"[BACKUP] Auto-Upload zu Google Drive: {latest}")
+                        upload_result = google_drive.upload_backup(
+                            app_config.GDRIVE_CLIENT_ID, app_config.GDRIVE_CLIENT_SECRET,
+                            app_config.GDRIVE_REFRESH_TOKEN, backup_dir, latest
+                        )
+                        if upload_result.get("ok"):
+                            print(f"[BACKUP] Google Drive Upload erfolgreich: {upload_result.get('name')}")
+                        else:
+                            print(f"[BACKUP] Google Drive Upload fehlgeschlagen: {upload_result.get('error')}")
+            except Exception as ue:
+                print(f"[BACKUP] Google Drive Auto-Upload Fehler: {ue}")
 
     except Exception as e:
         print(f"[BACKUP] Fehler: {e}")

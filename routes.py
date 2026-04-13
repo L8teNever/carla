@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup, ports, discovery
+from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive
 import config
 
 bp = Blueprint("main", __name__)
@@ -340,6 +340,9 @@ def api_setup_keys_get():
         "github_token": mask(data.get("github_token", "")),
         "cf_api_token": mask(data.get("cf_api_token", "")),
         "cf_account_id": mask(data.get("cf_account_id", "")),
+        "gdrive_client_id": mask(data.get("gdrive_client_id", "")),
+        "gdrive_client_secret": mask(data.get("gdrive_client_secret", "")),
+        "gdrive_refresh_token": mask(data.get("gdrive_refresh_token", "")),
         "mode": data.get("mode", "local"),
     })
 
@@ -351,7 +354,8 @@ def api_setup_keys_update():
     if not incoming:
         return jsonify({"error": "Keine Daten erhalten"}), 400
 
-    allowed_keys = ("github_token", "cf_api_token", "cf_account_id")
+    allowed_keys = ("github_token", "cf_api_token", "cf_account_id",
+                     "gdrive_client_id", "gdrive_client_secret", "gdrive_refresh_token")
     data = setup.load_setup()
 
     changed = False
@@ -591,6 +595,8 @@ def api_backup_config_save():
         cfg["schedule_mode"] = data["schedule_mode"]
     if "schedule_stacks" in data:
         cfg["schedule_stacks"] = data["schedule_stacks"] or []
+    if "gdrive_auto_upload" in data:
+        cfg["gdrive_auto_upload"] = bool(data["gdrive_auto_upload"])
     backup.save_config(cfg)
     return jsonify({"status": "ok"})
 
@@ -633,6 +639,116 @@ def api_backup_restore():
     stacks = data.get("stacks", None)
     threading.Thread(target=backup.run_restore, args=(backup_id, stacks), daemon=True).start()
     return jsonify({"status": "started", "message": "Restore im Hintergrund gestartet."})
+
+
+# ---------------------------------------------------------------
+# Google Drive Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/gdrive/test", methods=["POST"])
+def api_gdrive_test():
+    """Testet die Google Drive Verbindung."""
+    if not config.GDRIVE_CLIENT_ID or not config.GDRIVE_CLIENT_SECRET or not config.GDRIVE_REFRESH_TOKEN:
+        return jsonify({"ok": False, "error": "Google Drive nicht konfiguriert. Bitte Client ID, Client Secret und Refresh Token in den Einstellungen eingeben."})
+    result = google_drive.test_connection(
+        config.GDRIVE_CLIENT_ID, config.GDRIVE_CLIENT_SECRET, config.GDRIVE_REFRESH_TOKEN
+    )
+    return jsonify(result)
+
+
+@bp.route("/api/gdrive/list", methods=["GET"])
+def api_gdrive_list():
+    """Listet alle Backups auf Google Drive."""
+    if not config.GDRIVE_CLIENT_ID or not config.GDRIVE_CLIENT_SECRET or not config.GDRIVE_REFRESH_TOKEN:
+        return jsonify({"ok": False, "error": "Google Drive nicht konfiguriert.", "backups": []})
+    return jsonify(google_drive.list_backups(
+        config.GDRIVE_CLIENT_ID, config.GDRIVE_CLIENT_SECRET, config.GDRIVE_REFRESH_TOKEN
+    ))
+
+
+@bp.route("/api/gdrive/upload", methods=["POST"])
+def api_gdrive_upload():
+    """Laedt ein lokales Backup auf Google Drive hoch."""
+    if not config.GDRIVE_CLIENT_ID or not config.GDRIVE_CLIENT_SECRET or not config.GDRIVE_REFRESH_TOKEN:
+        return jsonify({"ok": False, "error": "Google Drive nicht konfiguriert."}), 400
+    data = request.json or {}
+    backup_id = data.get("backup_id")
+    if not backup_id:
+        return jsonify({"ok": False, "error": "Keine Backup-ID angegeben."}), 400
+    cfg = backup.load_config()
+    backup_dir = cfg.get("backup_dir", "/backup/carla")
+
+    def _do_upload():
+        google_drive.upload_backup(
+            config.GDRIVE_CLIENT_ID, config.GDRIVE_CLIENT_SECRET, config.GDRIVE_REFRESH_TOKEN,
+            backup_dir, backup_id
+        )
+
+    threading.Thread(target=_do_upload, daemon=True).start()
+    return jsonify({"status": "started", "message": "Upload gestartet."})
+
+
+@bp.route("/api/gdrive/download", methods=["POST"])
+def api_gdrive_download():
+    """Laedt ein Backup von Google Drive herunter (ohne Restore)."""
+    if not config.GDRIVE_CLIENT_ID or not config.GDRIVE_CLIENT_SECRET or not config.GDRIVE_REFRESH_TOKEN:
+        return jsonify({"ok": False, "error": "Google Drive nicht konfiguriert."}), 400
+    data = request.json or {}
+    file_id = data.get("file_id")
+    if not file_id:
+        return jsonify({"ok": False, "error": "Keine Datei-ID angegeben."}), 400
+    cfg = backup.load_config()
+    backup_dir = cfg.get("backup_dir", "/backup/carla")
+
+    def _do_download():
+        google_drive.download_backup(
+            config.GDRIVE_CLIENT_ID, config.GDRIVE_CLIENT_SECRET, config.GDRIVE_REFRESH_TOKEN,
+            file_id, backup_dir
+        )
+
+    threading.Thread(target=_do_download, daemon=True).start()
+    return jsonify({"status": "started", "message": "Download gestartet."})
+
+
+@bp.route("/api/gdrive/restore", methods=["POST"])
+def api_gdrive_restore():
+    """Laedt ein Backup von Google Drive herunter und stellt es wieder her."""
+    if not config.GDRIVE_CLIENT_ID or not config.GDRIVE_CLIENT_SECRET or not config.GDRIVE_REFRESH_TOKEN:
+        return jsonify({"ok": False, "error": "Google Drive nicht konfiguriert."}), 400
+    data = request.json or {}
+    file_id = data.get("file_id")
+    if not file_id:
+        return jsonify({"ok": False, "error": "Keine Datei-ID angegeben."}), 400
+    cfg = backup.load_config()
+    backup_dir = cfg.get("backup_dir", "/backup/carla")
+
+    def _do_restore():
+        result = google_drive.download_backup(
+            config.GDRIVE_CLIENT_ID, config.GDRIVE_CLIENT_SECRET, config.GDRIVE_REFRESH_TOKEN,
+            file_id, backup_dir
+        )
+        if result.get("ok"):
+            backup.run_restore(result["backup_id"])
+
+    threading.Thread(target=_do_restore, daemon=True).start()
+    return jsonify({"status": "started", "message": "Download und Wiederherstellung gestartet."})
+
+
+@bp.route("/api/gdrive/backup/<file_id>", methods=["DELETE"])
+def api_gdrive_delete(file_id):
+    """Loescht ein Backup von Google Drive."""
+    if not config.GDRIVE_CLIENT_ID or not config.GDRIVE_CLIENT_SECRET or not config.GDRIVE_REFRESH_TOKEN:
+        return jsonify({"ok": False, "error": "Google Drive nicht konfiguriert."}), 400
+    return jsonify(google_drive.delete_backup(
+        config.GDRIVE_CLIENT_ID, config.GDRIVE_CLIENT_SECRET, config.GDRIVE_REFRESH_TOKEN,
+        file_id
+    ))
+
+
+@bp.route("/api/gdrive/progress", methods=["GET"])
+def api_gdrive_progress():
+    """Gibt den aktuellen Google Drive Upload/Download Fortschritt zurueck."""
+    return jsonify(google_drive.get_progress())
 
 
 # ---------------------------------------------------------------
