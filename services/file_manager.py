@@ -166,6 +166,147 @@ def get_stack_paths(stack_name: str) -> dict:
     }
 
 
+def get_stack_compose(stack_name: str) -> dict:
+    """Liest die Compose-Datei eines Stacks und parst Volumes/Bind-Mounts."""
+    import yaml
+
+    # Working Directory finden
+    workdir = system_executor.execute_command(
+        f"docker ps -a --filter 'label=com.docker.compose.project={stack_name}' "
+        f"--format '{{{{.Label \"com.docker.compose.project.working_dir\"}}}}' | head -1"
+    ).strip()
+
+    if not workdir or "Error" in workdir:
+        return {"ok": False, "error": "Arbeitsverzeichnis nicht gefunden."}
+
+    # Compose-Datei finden (docker-compose.yml oder compose.yml)
+    compose_file = None
+    for name in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
+        check = system_executor.execute_command(
+            f'test -f {_quote(workdir + "/" + name)} && echo "OK" || echo "NO"'
+        )
+        if "OK" in check:
+            compose_file = f"{workdir}/{name}"
+            break
+
+    if not compose_file:
+        return {"ok": False, "error": "Keine Compose-Datei gefunden.", "workdir": workdir}
+
+    # Compose-Datei lesen
+    content = system_executor.execute_command(f"cat {_quote(compose_file)}")
+    if not content or "Error" in content:
+        return {"ok": False, "error": f"Fehler beim Lesen: {content}", "workdir": workdir}
+
+    # .env lesen (falls vorhanden)
+    env_content = ""
+    env_check = system_executor.execute_command(
+        f'test -f {_quote(workdir + "/.env")} && echo "OK" || echo "NO"'
+    )
+    if "OK" in env_check:
+        env_content = system_executor.execute_command(f"cat {_quote(workdir + '/.env')}") or ""
+
+    # YAML parsen um Volumes/Binds zu extrahieren
+    mounts = []
+    named_volumes = []
+    try:
+        parsed = yaml.safe_load(content)
+        if parsed and isinstance(parsed, dict):
+            services = parsed.get("services", {}) or {}
+            for svc_name, svc in services.items():
+                if not isinstance(svc, dict):
+                    continue
+                vols = svc.get("volumes", []) or []
+                for v in vols:
+                    if isinstance(v, str):
+                        # Kurzform: host:container oder volume:container
+                        parts = v.split(":")
+                        if len(parts) >= 2:
+                            source = parts[0].strip()
+                            target = parts[1].strip()
+                            mode = parts[2].strip() if len(parts) > 2 else "rw"
+                            if source.startswith("/") or source.startswith("./") or source.startswith("../"):
+                                # Bind-Mount — relativen Pfad auflösen
+                                if source.startswith("./") or source.startswith("../"):
+                                    import os.path
+                                    source = os.path.normpath(f"{workdir}/{source}")
+                                mounts.append({
+                                    "service": svc_name, "type": "bind",
+                                    "source": source, "target": target, "mode": mode
+                                })
+                            else:
+                                # Named Volume
+                                named_volumes.append({
+                                    "service": svc_name, "type": "volume",
+                                    "source": source, "target": target, "mode": mode
+                                })
+                        elif len(parts) == 1:
+                            # Nur Container-Pfad (anonym)
+                            mounts.append({
+                                "service": svc_name, "type": "anonymous",
+                                "source": "", "target": parts[0].strip(), "mode": "rw"
+                            })
+                    elif isinstance(v, dict):
+                        # Langform: type, source, target
+                        v_type = v.get("type", "volume")
+                        source = v.get("source", "")
+                        target = v.get("target", "")
+                        mode = "ro" if v.get("read_only") else "rw"
+                        if v_type == "bind" and source:
+                            if source.startswith("./") or source.startswith("../"):
+                                import os.path
+                                source = os.path.normpath(f"{workdir}/{source}")
+                            mounts.append({
+                                "service": svc_name, "type": "bind",
+                                "source": source, "target": target, "mode": mode
+                            })
+                        elif source:
+                            named_volumes.append({
+                                "service": svc_name, "type": "volume",
+                                "source": source, "target": target, "mode": mode
+                            })
+
+            # Top-level volumes Sektion
+            top_volumes = parsed.get("volumes", {}) or {}
+            for vol_name, vol_cfg in top_volumes.items():
+                # Pruefen ob externer oder driver-spezifischer Pfad
+                if isinstance(vol_cfg, dict) and vol_cfg.get("driver_opts", {}).get("device"):
+                    device = vol_cfg["driver_opts"]["device"]
+                    mounts.append({
+                        "service": "(top-level)", "type": "bind",
+                        "source": device, "target": vol_name, "mode": "rw"
+                    })
+    except Exception as e:
+        # YAML-Parse-Fehler ignorieren — Compose-Inhalt wird trotzdem angezeigt
+        pass
+
+    # Named Volumes: Mountpoints vom Docker-Daemon holen
+    for nv in named_volumes:
+        full_name = f"{stack_name}_{nv['source']}"
+        mp = system_executor.execute_command(
+            f"docker volume inspect {full_name} --format '{{{{.Mountpoint}}}}' 2>/dev/null"
+        ).strip()
+        if mp and "Error" not in mp:
+            nv["mountpoint"] = mp
+        else:
+            # Versuch ohne Stack-Prefix
+            mp2 = system_executor.execute_command(
+                f"docker volume inspect {nv['source']} --format '{{{{.Mountpoint}}}}' 2>/dev/null"
+            ).strip()
+            nv["mountpoint"] = mp2 if mp2 and "Error" not in mp2 else ""
+
+    return {
+        "ok": True,
+        "stack_name": stack_name,
+        "workdir": workdir,
+        "compose_file": compose_file,
+        "compose_content": content,
+        "env_content": env_content,
+        "env_file": f"{workdir}/.env" if env_content else "",
+        "bind_mounts": mounts,
+        "named_volumes": named_volumes,
+    }
+
+
 # ---------------------------------------------------------------
 # Hilfsfunktionen
 # ---------------------------------------------------------------

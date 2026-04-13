@@ -5,6 +5,7 @@ urllib3
 websocket-client
 python-socketio[client]
 cryptography
+pyyaml
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib

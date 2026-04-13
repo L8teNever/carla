@@ -857,3 +857,9 @@ def api_files_rename():
 def api_files_stack(stack_name):
     """Gibt Arbeitsverzeichnis und Volumes eines Stacks zurueck."""
     return jsonify(file_manager.get_stack_paths(stack_name))
+
+
+@bp.route("/api/files/stack/<stack_name>/compose", methods=["GET"])
+def api_files_stack_compose(stack_name):
+    """Liest die Compose-Datei und parst Volumes/Bind-Mounts."""
+    return jsonify(file_manager.get_stack_compose(stack_name))
