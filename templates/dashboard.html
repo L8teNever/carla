@@ -883,17 +883,52 @@
         /* ============================================================
            CANVAS VIEWS
            ============================================================ */
-        #carla-canvas {
-            width: 100%;
-            height: calc(100vh - 60px);
-            background: #0F0E11;
-        }
-
-        #livemap-canvas {
+        #infrastructure-canvas {
             width: 100%;
             height: 100%;
-            display: block;
-            background: #0A090D;
+            cursor: grab;
+        }
+
+        /* --- PREVIEW DRAWER --- */
+        .preview-drawer {
+            position: fixed;
+            top: 0;
+            right: -450px;
+            width: 450px;
+            height: 100vh;
+            background: rgba(28, 27, 31, 0.98);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+            transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .preview-drawer.open {
+            right: 0;
+        }
+
+        .drawer-header {
+            padding: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .drawer-content {
+            padding: 24px;
+            flex: 1;
+        }
+
+        @media (max-width: 640px) {
+            .preview-drawer {
+                width: 100%;
+                right: -100%;
+            }
         }
 
         .floating-panel {
@@ -1330,21 +1365,21 @@
                 gap: 12px !important;
             }
 
-            /* --- LIVEMAP panels --- */
-            #livemap-legend {
+            /* --- INFRASTRUCTURE panels --- */
+            #infra-legend {
                 left: 8px !important;
                 bottom: 8px !important;
                 max-width: 150px;
                 padding: 8px !important;
                 font-size: 8px !important;
             }
-            #livemap-stats {
+            #infra-stats {
                 top: 8px !important;
                 right: 8px !important;
                 min-width: 140px !important;
                 padding: 10px !important;
             }
-            #livemap-stats .text-xs { font-size: 10px; }
+            #infra-stats .text-xs { font-size: 10px; }
 
             /* --- CARLA SIDEBAR --- */
             .graph-sidebar {
@@ -1478,23 +1513,14 @@
             <span class="nav-item-label">Timeline</span>
         </button>
 
-        <button onclick="navigateTo('livemap')" id="nav-livemap" class="nav-item nav-rail-item" title="Live Map">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                <path d="M2 12h20" />
-            </svg>
-            <span class="nav-item-label">Live</span>
-        </button>
-
-        <button onclick="navigateTo('carla')" id="nav-carla" class="nav-item nav-rail-item" title="Flow Graph">
+        <button onclick="navigateTo('infrastructure')" id="nav-infrastructure" class="nav-item nav-rail-item" title="Infrastruktur Map">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 <circle cx="12" cy="12" r="3" />
+                <path d="M2 12h20M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
             </svg>
-            <span class="nav-item-label">Flow</span>
+            <span class="nav-item-label">Infrastruktur</span>
         </button>
 
         <button onclick="navigateTo('performance')" id="nav-performance" class="nav-item nav-rail-item" title="Performance">
@@ -1695,53 +1721,32 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
                 </div>
             </section>
 
-            <!-- Live Map View -->
-            <section id="view-livemap" class="page-view hidden absolute inset-0 bg-[#0A090D] overflow-hidden">
-                <canvas id="livemap-canvas"></canvas>
-                <div id="livemap-tooltip"
-                    class="hidden fixed z-50 pointer-events-none px-4 py-3 rounded-2xl text-xs shadow-2xl border border-white/10"
-                    style="background:rgba(43,41,48,0.95);backdrop-filter:blur(12px)"></div>
-                <!-- Legend -->
-                <div id="livemap-legend" class="absolute bottom-6 left-6 glass-card p-4 space-y-2 text-[10px] z-10 pointer-events-none"
-                    style="border-radius:16px">
-                    <div class="text-[#D0BCFF] font-bold uppercase tracking-widest mb-1">Live Network Map</div>
-                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span><span
-                            class="text-[#938F99]">Server Node</span></div>
-                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-[#4A4458]"></span><span
-                            class="text-[#938F99]">Docker Stack</span></div>
-                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#81C784]"></span><span
-                            class="text-[#938F99]">Container (running)</span></div>
-                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#F38020]"></span><span
-                            class="text-[#938F99]">Cloudflare Domain</span></div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-6 h-0.5 bg-[#D0BCFF]"></div><span class="text-[#938F99]">Verbindung</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 rounded-full bg-[#D0BCFF] animate-ping opacity-50"></div><span
-                            class="text-[#938F99]">Netzwerk-Traffic</span>
-                    </div>
-                </div>
-                <!-- Stats Panel -->
-                <div id="livemap-stats" class="absolute top-6 right-6 glass-card p-5 space-y-3 z-10 min-w-[220px]"
-                    style="border-radius:20px">
+            <!-- Infrastructure View (Merged Live Map & Flow) -->
+            <section id="view-infrastructure" class="page-view hidden absolute inset-0 bg-[#0F0E11] overflow-hidden">
+                <div id="infrastructure-canvas" class="w-full h-full"></div>
+                
+                <!-- Floating Info Panel (Live Stats) -->
+                <div id="infra-stats" class="absolute top-6 right-6 glass-card p-5 space-y-3 z-10 min-w-[220px]" style="border-radius:20px">
                     <div class="text-[10px] text-[#D0BCFF] font-bold uppercase tracking-widest">Live Statistiken</div>
-                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Stacks</span><span
-                            id="lm-stat-stacks" class="text-white font-bold">-</span></div>
-                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Container</span><span
-                            id="lm-stat-containers" class="text-white font-bold">-</span></div>
-                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Domains</span><span
-                            id="lm-stat-domains" class="text-white font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Stacks</span><span id="lm-stat-stacks" class="text-white font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Container</span><span id="lm-stat-containers" class="text-white font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">Domains</span><span id="lm-stat-domains" class="text-white font-bold">-</span></div>
                     <div class="border-t border-white/5 pt-2 mt-1"></div>
-                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">RX Total</span><span
-                            id="lm-stat-rx" class="text-[#81C784] font-mono font-bold">-</span></div>
-                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">TX Total</span><span
-                            id="lm-stat-tx" class="text-[#D0BCFF] font-mono font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">RX Total</span><span id="lm-stat-rx" class="text-[#81C784] font-mono font-bold">-</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-[#938F99]">TX Total</span><span id="lm-stat-tx" class="text-[#D0BCFF] font-mono font-bold">-</span></div>
                 </div>
-            </section>
 
-            <!-- Carla View -->
-            <section id="view-carla" class="page-view hidden absolute inset-0 bg-[#0F0E11] overflow-hidden">
-                <div id="carla-canvas"></div>
+                <!-- Legend & Tools -->
+                <div class="absolute bottom-6 left-6 flex flex-col gap-3 z-10 pointer-events-none">
+                    <div id="infra-legend" class="glass-card p-4 space-y-2 text-[10px]" style="border-radius:16px">
+                        <div class="text-[#D0BCFF] font-bold uppercase tracking-widest mb-1">Infrastruktur Map</div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#D0BCFF]"></span><span class="text-[#938F99]">Server Node</span></div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-[#4A4458]"></span><span class="text-[#938F99]">Docker Stack</span></div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#81C784]"></span><span class="text-[#938F99]">Container (running)</span></div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#F38020]"></span><span class="text-[#938F99]">Cloudflare Domain</span></div>
+                    </div>
+                </div>
+
                 <button onclick="toggleSidebar()"
                     class="filter-toggle-btn w-12 h-12 bg-[#D0BCFF] text-[#381E72] rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-xl">
                     <svg id="toggle-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
@@ -1752,9 +1757,9 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
                         <path d="M12 19H12" />
                     </svg>
                 </button>
+
                 <aside id="graph-sidebar" class="graph-sidebar flex flex-col">
-                    <div
-                        class="glass-card flex-1 p-8 flex flex-col space-y-8 overflow-y-auto shadow-2xl border border-white/10">
+                    <div class="glass-card flex-1 p-8 flex flex-col space-y-8 overflow-y-auto shadow-2xl border border-white/10">
                         <div class="flex items-center justify-between">
                             <h2 class="text-xl font-bold text-white tracking-tight">Netzwerk Baum</h2>
                             <button onclick="toggleSidebar()" class="text-[#938F99] hover:text-white transition-colors">
@@ -1823,6 +1828,26 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
                         </div>
                     </div>
                 </aside>
+
+                <div id="infra-tooltip"
+                    class="hidden fixed z-50 pointer-events-none px-4 py-3 rounded-2xl text-xs shadow-2xl border border-white/10"
+                    style="background:rgba(43,41,48,0.95);backdrop-filter:blur(12px)"></div>
+
+                <!-- Detailed Preview Drawer -->
+                <div id="infra-drawer" class="preview-drawer">
+                    <div class="drawer-header">
+                        <div class="flex items-center gap-3">
+                            <div id="drawer-status-dot" class="w-2.5 h-2.5 rounded-full"></div>
+                            <h2 id="drawer-title" class="text-xl font-bold text-white">Vorschau</h2>
+                        </div>
+                        <button onclick="closeInfraDrawer()" class="p-2 rounded-full hover:bg-white/5 text-[#938F99] transition-all">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <div id="drawer-body" class="drawer-content space-y-6">
+                        <!-- Content will be injected via JS -->
+                    </div>
+                </div>
             </section>
 
             <!-- Settings View -->
@@ -3033,10 +3058,8 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
                 showTerminal(containerName);
             } else if (path === '/timeline') {
                 navigateTo('timeline');
-            } else if (path === '/livemap') {
-                navigateTo('livemap');
-            } else if (path === '/carla') {
-                navigateTo('carla');
+            } else if (path === '/infrastructure') {
+                navigateTo('infrastructure');
             } else if (path === '/performance') {
                 navigateTo('performance');
             } else if (path === '/backup') {
@@ -3073,7 +3096,7 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
             const target = document.getElementById(`view-${pageId}`);
             if (target) {
                 target.classList.remove('hidden');
-                // Timeline needs flex layout, livemap/carla need block (absolute), rest default block
+                // Timeline needs flex layout, infrastructure needs block (absolute), rest default block
                 if (pageId === 'timeline') target.style.display = 'flex';
                 else target.style.display = 'block';
             }
@@ -3086,9 +3109,8 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
             if (nav) nav.classList.add('active');
 
             if (pageId === 'dashboard') renderDashboard();
-            if (pageId === 'livemap') initLiveMap();
-            if (pageId !== 'livemap') stopLiveMap();
-            if (pageId === 'carla') initCarla();
+            if (pageId === 'infrastructure') initInfrastructure();
+            if (pageId !== 'infrastructure') stopInfrastructure();
             if (pageId === 'timeline') showTimeline();
             if (pageId === 'updates') loadUpdaterConfig();
             if (pageId === 'backup') loadBackupView();
@@ -3102,196 +3124,364 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
         }
 
         // -----------------------------------------------------------
-        // LIVE MAP – Canvas-basierte Netzwerk-Visualisierung
+        // INFRASTRUCTURE MAP – Unified Network Visualization
         // -----------------------------------------------------------
-        let lmCanvas, lmCtx, lmAnimId = null, lmInterval = null;
-        let lmNodes = [], lmEdges = [], lmParticles = [];
-        let lmNetData = {};
-        let lmDragNode = null, lmOffsetX = 0, lmOffsetY = 0;
-        let lmHoverNode = null;
-        let lmPan = { x: 0, y: 0 }, lmZoom = 1, lmIsPanning = false, lmPanStart = {};
-        let _lmInitialized = false;
-
-        function initLiveMap() {
+        let infraInterval = null, infraAnimId = null;
+        let infraParticles = [];
+        let infraNetData = {};
+        
+        function initInfrastructure() {
             if (!fullInfrastructureData || !fullInfrastructureData.stacks) return;
+            
+            const container = document.getElementById('infrastructure-canvas');
+            if (!container) return;
 
-            // Stop previous instance cleanly
-            stopLiveMap();
+            // vis.js Setup
+            const nodes = new vis.DataSet([
+                { id: 'hetzner', label: 'SERVER NODE', shape: 'box', color: '#D0BCFF', font: { color: '#381E72', face: 'Inter', size: 16, bold: true }, group: 'root', level: 0 },
+                { id: 'cf_root', label: 'CLOUDFLARE EDGE', shape: 'diamond', color: '#F38020', font: { color: 'white', face: 'Inter', size: 16, bold: true }, group: 'root', level: 0 }
+            ]);
 
-            lmCanvas = document.getElementById('livemap-canvas');
-            if (!lmCanvas) return;
-            lmCtx = lmCanvas.getContext('2d');
+            const edges = new vis.DataSet([]);
 
-            // Resize canvas to fill parent
-            const parent = lmCanvas.parentElement;
-            lmCanvas.width = parent.clientWidth;
-            lmCanvas.height = parent.clientHeight || window.innerHeight;
-
-            // Reset state
-            lmNodes = []; lmEdges = []; lmParticles = [];
-            lmNetData = {};
-            lmDragNode = null; lmHoverNode = null;
-            lmPan = { x: 0, y: 0 }; lmZoom = 1;
-
-            // Attach events (named refs so they can be removed later)
-            lmCanvas.addEventListener('mousedown', _lmMouseDown);
-            lmCanvas.addEventListener('mousemove', _lmMouseMove);
-            lmCanvas.addEventListener('mouseup', _lmMouseUp);
-            lmCanvas.addEventListener('mouseleave', _lmMouseUp);
-            lmCanvas.addEventListener('wheel', _lmWheel, { passive: false });
-            window.addEventListener('resize', _lmResize);
-            _lmInitialized = true;
-
-            buildLiveMapGraph();
-            fetchNetworkData();
-            lmInterval = setInterval(fetchNetworkData, 5000);
-            lmAnimate();
-        }
-
-        function stopLiveMap() {
-            if (lmAnimId) { cancelAnimationFrame(lmAnimId); lmAnimId = null; }
-            if (lmInterval) { clearInterval(lmInterval); lmInterval = null; }
-            if (lmCanvas) {
-                lmCanvas.removeEventListener('mousedown', _lmMouseDown);
-                lmCanvas.removeEventListener('mousemove', _lmMouseMove);
-                lmCanvas.removeEventListener('mouseup', _lmMouseUp);
-                lmCanvas.removeEventListener('mouseleave', _lmMouseUp);
-                lmCanvas.removeEventListener('wheel', _lmWheel);
-            }
-            window.removeEventListener('resize', _lmResize);
-            _lmInitialized = false;
-        }
-
-        function _lmResize() {
-            if (!lmCanvas) return;
-            const parent = lmCanvas.parentElement;
-            if (!parent) return;
-            lmCanvas.width = parent.clientWidth;
-            lmCanvas.height = parent.clientHeight || window.innerHeight;
-            // Rebuild so node positions fit new size
-            if (fullInfrastructureData && fullInfrastructureData.stacks) buildLiveMapGraph();
-        }
-
-        function buildLiveMapGraph() {
-            lmNodes = []; lmEdges = []; lmParticles = [];
-            const W = lmCanvas.width || 800;
-            const H = lmCanvas.height || 600;
-            const cx = W / 2, cy = H / 2;
-
-            lmNodes.push({ id: 'server', label: window.location.hostname || 'Server', x: cx, y: cy, r: 32, type: 'server', color: '#D0BCFF' });
-
-            const stacksObj = fullInfrastructureData.stacks || {};
-            const stacks = Object.entries(stacksObj);
-            const stackCount = stacks.length || 1;
-            let allDomains = new Set();
             let totalContainers = 0;
+            let allDomains = new Set();
 
-            stacks.forEach(([stackName, containers], si) => {
-                if (!Array.isArray(containers)) return;
-                const stackAngle = (si / stackCount) * Math.PI * 2 - Math.PI / 2;
-                const stackDist = Math.min(W, H) * 0.22;
-                const sx = cx + Math.cos(stackAngle) * stackDist;
-                const sy = cy + Math.sin(stackAngle) * stackDist;
+            Object.entries(fullInfrastructureData.stacks).forEach(([stackName, containers]) => {
+                nodes.add({ id: stackName, label: stackName, shape: 'dot', color: '#4A4458', font: { color: 'white', bold: true }, group: 'stack', level: 1 });
+                edges.add({ from: 'hetzner', to: stackName, color: '#4A4458', width: 2 });
 
-                lmNodes.push({ id: `s-${stackName}`, label: stackName, x: sx, y: sy, r: 22, type: 'stack', color: '#4A4458', stackName });
-                lmEdges.push({ from: 'server', to: `s-${stackName}`, color: '#4A4458' });
-
-                const contCount = containers.length;
-                totalContainers += contCount;
-                containers.forEach((cont, ci) => {
-                    if (!cont || !cont.name) return;
-                    const cAngle = stackAngle + ((ci - (contCount - 1) / 2) * 0.35);
-                    const cDist = stackDist + 90 + ci * 15;
-                    const cxx = cx + Math.cos(cAngle) * cDist;
-                    const cyy = cy + Math.sin(cAngle) * cDist;
+                totalContainers += containers.length;
+                containers.forEach(cont => {
+                    const contId = `c-${cont.name}`;
                     const isRunning = cont.state === 'running';
-
-                    lmNodes.push({
-                        id: `c-${cont.name}`, label: cont.name,
-                        x: cxx, y: cyy, r: 14, type: 'container',
-                        color: isRunning ? '#81C784' : '#F2B8B5',
-                        state: cont.state || 'unknown', stack: stackName, image: cont.image || '',
+                    nodes.add({ 
+                        id: contId, 
+                        label: cont.name, 
+                        shape: 'circularImage', 
+                        image: 'https://api.dicebear.com/7.x/shapes/svg?seed=' + cont.name, 
+                        group: 'container', 
+                        level: 2,
+                        color: { border: isRunning ? '#81C784' : '#F2B8B5', background: '#1C1B1F' },
+                        borderWidth: 4,
+                        state: cont.state,
+                        stack: stackName,
+                        image_name: cont.image
                     });
-                    lmEdges.push({ from: `s-${stackName}`, to: `c-${cont.name}`, color: '#36343B' });
+                    edges.add({ from: stackName, to: contId, color: '#4A4458' });
 
-                    if (Array.isArray(cont.cloudflares)) {
-                        cont.cloudflares.forEach(cf => {
-                            if (!cf || !cf.public_domain) return;
-                            const domId = `d-${cf.public_domain}`;
-                            if (!lmNodes.find(n => n.id === domId)) {
+                    if (cont.cloudflares && cont.cloudflares.length > 0) {
+                        cont.cloudflares.forEach((cf) => {
+                            const tunnelId = `tunnel-${cf.tunnel_name}`;
+                            if (!nodes.get(tunnelId)) {
+                                nodes.add({ id: tunnelId, label: cf.tunnel_name, shape: 'box', color: '#36343B', font: { color: '#D0BCFF' }, group: 'tunnel', level: 1 });
+                                edges.add({ from: 'cf_root', to: tunnelId, color: '#F38020', width: 2 });
+                            }
+
+                            const dId = `domain-${cf.public_domain}`;
+                            if (!nodes.get(dId)) {
                                 allDomains.add(cf.public_domain);
-                                const dAngle = cAngle + (Math.random() - 0.5) * 0.3;
-                                const dDist = cDist + 80;
-                                lmNodes.push({
-                                    id: domId, label: cf.public_domain,
-                                    x: cx + Math.cos(dAngle) * dDist,
-                                    y: cy + Math.sin(dAngle) * dDist,
-                                    r: 10, type: 'domain', color: '#F38020',
-                                    tunnel: cf.tunnel_name || '',
+                                nodes.add({
+                                    id: dId,
+                                    label: cf.public_domain,
+                                    shape: 'dot',
+                                    size: 15,
+                                    color: '#F38020',
+                                    font: { color: 'white', size: 11, face: 'Inter', bold: true },
+                                    group: 'hostname',
+                                    level: 3,
+                                    tunnel: cf.tunnel_name
                                 });
+                                edges.add({ from: tunnelId, to: dId, color: '#36343B' });
                             }
-                            if (!lmEdges.find(e => e.from === `c-${cont.name}` && e.to === domId)) {
-                                lmEdges.push({ from: `c-${cont.name}`, to: domId, color: '#F38020', dashed: true });
-                            }
+                            // Connection: Domain -> Container
+                            edges.add({
+                                from: dId, to: contId,
+                                width: 1, color: '#D0BCFF60',
+                                arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+                                dashes: true,
+                                smooth: { type: 'curvedCW', roundness: 0.15 }
+                            });
                         });
                     }
                 });
             });
 
-            try {
-                document.getElementById('lm-stat-stacks').textContent = stackCount;
-                document.getElementById('lm-stat-containers').textContent = totalContainers;
-                document.getElementById('lm-stat-domains').textContent = allDomains.size;
-            } catch (_) { }
+            document.getElementById('lm-stat-stacks').textContent = Object.keys(fullInfrastructureData.stacks).length;
+            document.getElementById('lm-stat-containers').textContent = totalContainers;
+            document.getElementById('lm-stat-domains').textContent = allDomains.size;
+
+            nodesView = new vis.DataView(nodes, {
+                filter: (n) => activeLayers[n.group] !== false && (!graphSearchTerm || n.label.toLowerCase().includes(graphSearchTerm))
+            });
+            edgesView = new vis.DataView(edges);
+
+            const options = {
+                layout: { hierarchical: { enabled: true, direction: 'LR', sortMethod: 'directed', levelSeparation: 350, nodeSpacing: 160 } },
+                physics: { enabled: false },
+                interaction: { hover: true, zoomView: true, dragView: true, tooltipDelay: 200 },
+                nodes: {
+                    font: { face: 'Inter', size: 12 },
+                    shadow: { enabled: true, color: 'rgba(0,0,0,0.5)', size: 10, x: 4, y: 4 }
+                }
+            };
+
+            network = new vis.Network(container, { nodes: nodesView, edges: edgesView }, options);
+
+            // Real-time Visual Effects
+            network.on("afterDrawing", (ctx) => {
+                renderInfraParticles(ctx);
+            });
+
+            network.on("hoverNode", function (params) {
+                const node = nodes.get(params.node);
+                if (node) showInfraTooltip(node, params.event.center);
+            });
+
+            network.on("blurNode", function () {
+                document.getElementById('infra-tooltip').classList.add('hidden');
+            });
+
+            network.on("selectNode", function (params) {
+                const node = nodes.get(params.nodes[0]);
+                if (node) openInfraDrawer(node);
+            });
+
+            network.on("deselectNode", function () {
+                closeInfraDrawer();
+            });
+
+            fetchInfraNetworkData();
+            infraInterval = setInterval(fetchInfraNetworkData, 5000);
+            infraAnimate();
         }
 
-        function fetchNetworkData() {
+        function stopInfrastructure() {
+            if (infraInterval) { clearInterval(infraInterval); infraInterval = null; }
+            if (infraAnimId) { cancelAnimationFrame(infraAnimId); infraAnimId = null; }
+            infraParticles = [];
+            closeInfraDrawer();
+            if (network) { network.destroy(); network = null; }
+        }
+
+        function openInfraDrawer(node) {
+            const drawer = document.getElementById('infra-drawer');
+            const title = document.getElementById('drawer-title');
+            const body = document.getElementById('drawer-body');
+            const dot = document.getElementById('drawer-status-dot');
+            const nd = infraNetData[node.label] || {};
+
+            title.textContent = node.label;
+            drawer.classList.add('open');
+
+            let html = '';
+            if (node.group === 'container') {
+                const isRunning = node.state === 'running';
+                dot.style.backgroundColor = isRunning ? '#81C784' : '#F2B8B5';
+                dot.style.boxShadow = `0 0 10px ${isRunning ? '#81C784' : '#F2B8B5'}`;
+
+                html = `
+                    <div class="space-y-4">
+                        <div class="bg-white/5 rounded-2xl p-5 border border-white/5">
+                            <p class="text-[10px] text-[#938F99] uppercase font-bold tracking-widest mb-3">Container Infos</p>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm"><span class="text-[#938F99]">Stack:</span><span class="text-white">${node.stack}</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-[#938F99]">Image:</span><span class="text-white font-mono text-[10px] opacity-70">${node.image_name}</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-[#938F99]">Status:</span><span class="${isRunning ? 'text-[#81C784]' : 'text-[#F2B8B5]'} font-bold">${node.state}</span></div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-white/5 rounded-2xl p-4 border border-white/5">
+                                <p class="text-[9px] text-[#938F99] uppercase font-bold tracking-widest mb-1">CPU Usage</p>
+                                <p class="text-xl font-bold text-white">${nd.cpu ? Number(nd.cpu).toFixed(1) + '%' : 'N/A'}</p>
+                            </div>
+                            <div class="bg-white/5 rounded-2xl p-4 border border-white/5">
+                                <p class="text-[9px] text-[#938F99] uppercase font-bold tracking-widest mb-1">RAM Usage</p>
+                                <p class="text-xl font-bold text-white">${nd.ram ? Number(nd.ram).toFixed(0) + ' MB' : 'N/A'}</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white/5 rounded-2xl p-5 border border-white/5">
+                            <p class="text-[10px] text-[#938F99] uppercase font-bold tracking-widest mb-3">Netzwerk Traffic</p>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm"><span class="text-[#938F99]">Incoming:</span><span class="text-[#D0BCFF]">${nd.net_rx ? lmFormatBytes(nd.net_rx * 1024 * 1024) : '0 B'}</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-[#938F99]">Outgoing:</span><span class="text-[#D0BCFF]">${nd.net_tx ? lmFormatBytes(nd.net_tx * 1024 * 1024) : '0 B'}</span></div>
+                            </div>
+                        </div>
+
+                        <div class="pt-6 space-y-3">
+                            <button onclick="showStackDetail('${node.stack}')" class="w-full py-4 bg-[#D0BCFF] text-[#381E72] rounded-2xl font-bold hover:opacity-90 transition-all flex items-center justify-center gap-2">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+                                Details öffnen
+                            </button>
+                            <button onclick="showTerminal('${node.label}')" class="w-full py-4 bg-white/5 text-white border border-white/10 rounded-2xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 15 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg>
+                                Terminal öffnen
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (node.group === 'stack') {
+                dot.style.backgroundColor = '#4A4458';
+                dot.style.boxShadow = `0 0 10px #4A4458`;
+                const containers = fullInfrastructureData.stacks[node.label] || [];
+                const runningCount = containers.filter(c => c.state === 'running').length;
+
+                html = `
+                    <div class="space-y-4">
+                        <div class="bg-white/5 rounded-2xl p-5 border border-white/5">
+                            <p class="text-[10px] text-[#938F99] uppercase font-bold tracking-widest mb-3">Stack Übersicht</p>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm"><span class="text-[#938F99]">Name:</span><span class="text-white">${node.label}</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-[#938F99]">Container:</span><span class="text-white">${containers.length} insgesamt</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-[#938F99]">Aktiv:</span><span class="text-[#81C784] font-bold">${runningCount} laufend</span></div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <p class="text-[10px] text-[#938F99] uppercase font-bold tracking-widest px-2 mb-2">Enthaltene Container</p>
+                            ${containers.map(c => `
+                                <div onclick="openInfraDrawer({label:'${c.name}', group:'container', state:'${c.state}', stack:'${node.label}', image_name:'${c.image}'})" 
+                                     class="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 cursor-pointer hover:bg-white/10 transition-all">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-2 h-2 rounded-full" style="background-color: ${c.state === 'running' ? '#81C784' : '#F2B8B5'}"></div>
+                                        <span class="text-xs text-white">${c.name}</span>
+                                    </div>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#938F99]"><path d="m9 18 6-6-6-6"/></svg>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button onclick="showStackDetail('${node.label}')" class="w-full py-4 bg-[#D0BCFF] text-[#381E72] rounded-2xl font-bold mt-4 hover:opacity-90 transition-all">
+                            Stack Details öffnen
+                        </button>
+                    </div>
+                `;
+            } else if (node.group === 'hostname') {
+                dot.style.backgroundColor = '#F38020';
+                dot.style.boxShadow = `0 0 10px #F38020`;
+                html = `
+                    <div class="space-y-4">
+                        <div class="bg-white/5 rounded-2xl p-5 border border-white/5">
+                            <p class="text-[10px] text-[#938F99] uppercase font-bold tracking-widest mb-3">Cloudflare Hostname</p>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm"><span class="text-[#938F99]">Domain:</span><span class="text-white">${node.label}</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-[#938F99]">Tunnel:</span><span class="text-[#F38020]">${node.tunnel || '-'}</span></div>
+                            </div>
+                        </div>
+                        <a href="https://${node.label}" target="_blank" class="w-full py-4 bg-[#F38020] text-white rounded-2xl font-bold hover:opacity-90 transition-all flex items-center justify-center gap-2">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+                            Webseite öffnen
+                        </a>
+                    </div>
+                `;
+            } else {
+                dot.style.backgroundColor = '#D0BCFF';
+                dot.style.boxShadow = `0 0 10px #D0BCFF`;
+                html = `<p class="text-[#938F99] text-center py-20 italic">Keine weiteren Details für diesen Knotentyp verfügbar.</p>`;
+            }
+
+            body.innerHTML = html;
+        }
+
+        function closeInfraDrawer() {
+            document.getElementById('infra-drawer').classList.remove('open');
+            if (network) network.unselectAll();
+        }
+
+        function fetchInfraNetworkData() {
             fetch('/api/metrics/network')
                 .then(r => r.ok ? r.json() : [])
                 .then(data => {
                     if (!Array.isArray(data)) return;
                     let totalRx = 0, totalTx = 0;
-                    const newNet = {};
                     data.forEach(c => {
-                        if (!c || !c.name) return;
-                        newNet[c.name] = c;
+                        infraNetData[c.name] = c;
                         totalRx += Number(c.net_rx) || 0;
                         totalTx += Number(c.net_tx) || 0;
 
                         const activity = Number(c.activity) || 0;
-                        if (activity > 0 && lmParticles.length < 200) {
-                            const node = lmNodes.find(n => n.id === `c-${c.name}`);
-                            if (node) {
-                                const connDomains = lmEdges
-                                    .filter(e => e.from === node.id && e.to.startsWith('d-'))
-                                    .map(e => e.to);
-                                const intensity = Math.min(Math.ceil(activity / 0.5), 3);
+                        if (activity > 0 && infraParticles.length < 400) {
+                            const contId = `c-${c.name}`;
+                            // Find particles paths
+                            const edges = edgesView.get({ filter: e => e.to === contId && e.from.startsWith('domain-') });
+                            edges.forEach(e => {
+                                const intensity = Math.min(Math.ceil(activity / 0.3), 4);
                                 for (let i = 0; i < intensity; i++) {
-                                    if (connDomains.length > 0) {
-                                        const domId = connDomains[Math.floor(Math.random() * connDomains.length)];
-                                        const domNode = lmNodes.find(n => n.id === domId);
-                                        if (domNode) {
-                                            lmParticles.push({ fromX: domNode.x, fromY: domNode.y, toX: node.x, toY: node.y, t: Math.random() * 0.3, speed: 0.008 + Math.random() * 0.008, color: '#F38020' });
-                                        }
-                                    }
-                                    const stackEdge = lmEdges.find(e => e.to === node.id && e.from.startsWith('s-'));
-                                    if (stackEdge) {
-                                        const stackNode = lmNodes.find(n => n.id === stackEdge.from);
-                                        if (stackNode) {
-                                            lmParticles.push({ fromX: node.x, fromY: node.y, toX: stackNode.x, toY: stackNode.y, t: Math.random() * 0.3, speed: 0.006 + Math.random() * 0.006, color: '#D0BCFF' });
-                                        }
-                                    }
+                                    infraParticles.push({
+                                        edgeId: e.id,
+                                        from: e.from,
+                                        to: e.to,
+                                        t: Math.random() * 0.2,
+                                        speed: 0.005 + Math.random() * 0.01,
+                                        color: '#F38020'
+                                    });
                                 }
-                            }
+                            });
                         }
                     });
-                    lmNetData = newNet;
-                    try {
-                        document.getElementById('lm-stat-rx').textContent = lmFormatBytes(totalRx * 1024 * 1024);
-                        document.getElementById('lm-stat-tx').textContent = lmFormatBytes(totalTx * 1024 * 1024);
-                    } catch (_) { }
-                })
-                .catch(() => { });
+                    document.getElementById('lm-stat-rx').textContent = lmFormatBytes(totalRx * 1024 * 1024);
+                    document.getElementById('lm-stat-tx').textContent = lmFormatBytes(totalTx * 1024 * 1024);
+                });
+        }
+
+        function renderInfraParticles(ctx) {
+            if (!network) return;
+            const now = Date.now();
+            infraParticles = infraParticles.filter(p => p.t <= 1);
+            
+            infraParticles.forEach(p => {
+                p.t += p.speed;
+                const posFrom = network.getPositions([p.from])[p.from];
+                const posTo = network.getPositions([p.to])[p.to];
+                if (!posFrom || !posTo) return;
+
+                const px = posFrom.x + (posTo.x - posFrom.x) * p.t;
+                const py = posFrom.y + (posTo.y - posFrom.y) * p.t;
+
+                const alpha = p.t < 0.2 ? p.t / 0.2 : p.t > 0.8 ? (1 - p.t) / 0.2 : 1;
+                ctx.beginPath();
+                ctx.fillStyle = p.color + Math.round(alpha * 200).toString(16).padStart(2, '0');
+                ctx.arc(px, py, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Glow
+                const grad = ctx.createRadialGradient(px, py, 0, px, py, 8);
+                grad.addColorStop(0, p.color + Math.round(alpha * 80).toString(16).padStart(2, '0'));
+                grad.addColorStop(1, p.color + '00');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(px, py, 8, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function infraAnimate() {
+            if (!infraInterval) return;
+            if (network) network.redraw();
+            infraAnimId = requestAnimationFrame(infraAnimate);
+        }
+
+        function showInfraTooltip(node, pos) {
+            const tip = document.getElementById('infra-tooltip');
+            const nd = infraNetData[node.label] || {};
+            let html = `<div class="font-bold text-white mb-1">${node.label}</div>`;
+            html += `<div class="text-[#938F99]">Typ: <span class="text-[#D0BCFF]">${node.group}</span></div>`;
+            
+            if (node.group === 'container') {
+                const stateColor = node.state === 'running' ? 'text-[#81C784]' : 'text-[#F2B8B5]';
+                html += `<div class="text-[#938F99]">Status: <span class="${stateColor}">${node.state}</span></div>`;
+                html += `<div class="text-[#938F99]">Stack: <span class="text-white">${node.stack}</span></div>`;
+                if (nd.cpu != null) html += `<div class="text-[#938F99]">CPU: <span class="text-white">${Number(nd.cpu).toFixed(1)}%</span></div>`;
+                if (nd.ram != null) html += `<div class="text-[#938F99]">RAM: <span class="text-white">${Number(nd.ram).toFixed(0)} MB</span></div>`;
+                if (node.image_name) html += `<div class="text-[#938F99] mt-1 text-[10px] opacity-60">${node.image_name}</div>`;
+            } else if (node.group === 'hostname') {
+                html += `<div class="text-[#938F99]">Tunnel: <span class="text-[#F38020]">${node.tunnel || '-'}</span></div>`;
+            }
+            
+            tip.innerHTML = html;
+            tip.classList.remove('hidden');
+            tip.style.left = (pos.x + 15) + 'px';
+            tip.style.top = (pos.y + 15) + 'px';
         }
 
         function lmFormatBytes(b) {
@@ -3302,249 +3492,6 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
             return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + s[i];
         }
 
-        function lmAnimate() {
-            // Guard: if stopLiveMap was called, do NOT reschedule
-            if (!_lmInitialized) return;
-
-            try {
-                if (!lmCtx || !lmCanvas) { lmAnimId = requestAnimationFrame(lmAnimate); return; }
-                const W = lmCanvas.width, H = lmCanvas.height;
-                if (W === 0 || H === 0) { lmAnimId = requestAnimationFrame(lmAnimate); return; }
-
-                lmCtx.clearRect(0, 0, W, H);
-                lmCtx.save();
-                lmCtx.translate(lmPan.x, lmPan.y);
-                lmCtx.scale(lmZoom, lmZoom);
-
-                // Background grid
-                lmCtx.strokeStyle = 'rgba(74,68,88,0.08)';
-                lmCtx.lineWidth = 0.5;
-                const gridSize = 60;
-                const gW = W / lmZoom, gH = H / lmZoom;
-                for (let gx = 0; gx < gW; gx += gridSize) {
-                    lmCtx.beginPath(); lmCtx.moveTo(gx, 0); lmCtx.lineTo(gx, gH); lmCtx.stroke();
-                }
-                for (let gy = 0; gy < gH; gy += gridSize) {
-                    lmCtx.beginPath(); lmCtx.moveTo(0, gy); lmCtx.lineTo(gW, gy); lmCtx.stroke();
-                }
-
-                // Edges
-                lmEdges.forEach(e => {
-                    const from = lmNodes.find(n => n.id === e.from);
-                    const to = lmNodes.find(n => n.id === e.to);
-                    if (!from || !to) return;
-                    lmCtx.beginPath();
-                    lmCtx.strokeStyle = (e.color || '#4A4458') + '60';
-                    lmCtx.lineWidth = 1.5;
-                    if (e.dashed) lmCtx.setLineDash([6, 4]); else lmCtx.setLineDash([]);
-                    lmCtx.moveTo(from.x, from.y);
-                    lmCtx.lineTo(to.x, to.y);
-                    lmCtx.stroke();
-                    lmCtx.setLineDash([]);
-                });
-
-                // Particles (cap array size)
-                lmParticles = lmParticles.filter(p => p.t <= 1);
-                if (lmParticles.length > 300) lmParticles = lmParticles.slice(-200);
-                lmParticles.forEach(p => {
-                    p.t += p.speed;
-                    const px = p.fromX + (p.toX - p.fromX) * p.t;
-                    const py = p.fromY + (p.toY - p.fromY) * p.t;
-                    const alpha = p.t < 0.1 ? p.t / 0.1 : p.t > 0.8 ? (1 - p.t) / 0.2 : 1;
-                    const alphaHex = Math.round(alpha * 255).toString(16).padStart(2, '0');
-
-                    lmCtx.beginPath();
-                    const grad = lmCtx.createRadialGradient(px, py, 0, px, py, 6);
-                    grad.addColorStop(0, (p.color || '#D0BCFF') + alphaHex);
-                    grad.addColorStop(1, (p.color || '#D0BCFF') + '00');
-                    lmCtx.fillStyle = grad;
-                    lmCtx.arc(px, py, 6, 0, Math.PI * 2);
-                    lmCtx.fill();
-                    lmCtx.beginPath();
-                    lmCtx.fillStyle = (p.color || '#D0BCFF') + Math.round(alpha * 180).toString(16).padStart(2, '0');
-                    lmCtx.arc(px, py, 2.5, 0, Math.PI * 2);
-                    lmCtx.fill();
-                });
-
-                // Nodes
-                const now = Date.now();
-                lmNodes.forEach(node => {
-                    const nd = lmNetData[node.label] || {};
-                    const hasTraffic = Number(nd.activity) > 0;
-
-                    // Glow for active containers
-                    if (node.type === 'container' && hasTraffic) {
-                        const glow = lmCtx.createRadialGradient(node.x, node.y, node.r, node.x, node.y, node.r * 3);
-                        glow.addColorStop(0, (node.color || '#81C784') + '30');
-                        glow.addColorStop(1, (node.color || '#81C784') + '00');
-                        lmCtx.fillStyle = glow;
-                        lmCtx.beginPath();
-                        lmCtx.arc(node.x, node.y, node.r * 3, 0, Math.PI * 2);
-                        lmCtx.fill();
-                    }
-
-                    // Pulse ring for server
-                    if (node.type === 'server') {
-                        lmCtx.beginPath();
-                        lmCtx.arc(node.x, node.y, node.r + 4, 0, Math.PI * 2);
-                        lmCtx.strokeStyle = '#D0BCFF40';
-                        lmCtx.lineWidth = 2;
-                        lmCtx.stroke();
-                        const pulse = (Math.sin(now / 1000) + 1) / 2;
-                        lmCtx.beginPath();
-                        lmCtx.arc(node.x, node.y, node.r + 8 + pulse * 6, 0, Math.PI * 2);
-                        lmCtx.strokeStyle = `rgba(208,188,255,${(0.1 + pulse * 0.1).toFixed(2)})`;
-                        lmCtx.lineWidth = 1;
-                        lmCtx.stroke();
-                    }
-
-                    // Main node shape
-                    lmCtx.beginPath();
-                    if (node.type === 'stack') {
-                        const sz = node.r;
-                        lmRoundRect(lmCtx, node.x - sz, node.y - sz * 0.7, sz * 2, sz * 1.4, 8);
-                    } else {
-                        lmCtx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
-                    }
-                    lmCtx.fillStyle = node.color || '#4A4458';
-                    lmCtx.fill();
-
-                    // Label
-                    lmCtx.textAlign = 'center';
-                    lmCtx.textBaseline = 'top';
-                    if (node.type === 'server') {
-                        lmCtx.font = 'bold 11px Inter, sans-serif';
-                        lmCtx.fillStyle = '#E6E1E5';
-                        lmCtx.fillText(String(node.label), node.x, node.y + node.r + 6);
-                    } else if (node.type === 'stack') {
-                        lmCtx.font = 'bold 10px Inter, sans-serif';
-                        lmCtx.fillStyle = '#E6E1E5';
-                        lmCtx.textBaseline = 'middle';
-                        lmCtx.fillText(String(node.label), node.x, node.y);
-                    } else if (node.type === 'domain') {
-                        lmCtx.font = '9px Inter, sans-serif';
-                        lmCtx.fillStyle = '#F38020';
-                        lmCtx.fillText(String(node.label), node.x, node.y + node.r + 4);
-                    } else {
-                        lmCtx.font = '9px Inter, sans-serif';
-                        lmCtx.fillStyle = '#E6E1E5';
-                        const lbl = String(node.label || '');
-                        lmCtx.fillText(lbl.length > 18 ? lbl.slice(0, 16) + '..' : lbl, node.x, node.y + node.r + 4);
-                    }
-
-                    // Traffic badge
-                    if (node.type === 'container' && hasTraffic && nd.rx_rate != null) {
-                        lmCtx.font = 'bold 8px Inter, sans-serif';
-                        lmCtx.fillStyle = '#D0BCFF';
-                        lmCtx.textBaseline = 'bottom';
-                        lmCtx.fillText(`${Number(nd.rx_rate).toFixed(1)} MB/s`, node.x, node.y - node.r - 2);
-                    }
-                });
-
-                lmCtx.restore();
-
-                // Tooltip (DOM, outside canvas transform)
-                const tip = document.getElementById('livemap-tooltip');
-                if (tip) {
-                    if (lmHoverNode) {
-                        const nd = lmNetData[lmHoverNode.label] || {};
-                        let html = `<div class="font-bold text-white mb-1">${lmHoverNode.label}</div>`;
-                        html += `<div class="text-[#938F99]">Typ: <span class="text-[#D0BCFF]">${lmHoverNode.type}</span></div>`;
-                        if (lmHoverNode.type === 'container') {
-                            const stateColor = lmHoverNode.state === 'running' ? 'text-[#81C784]' : 'text-[#F2B8B5]';
-                            html += `<div class="text-[#938F99]">Status: <span class="${stateColor}">${lmHoverNode.state}</span></div>`;
-                            html += `<div class="text-[#938F99]">Stack: <span class="text-white">${lmHoverNode.stack}</span></div>`;
-                            if (nd.cpu != null) html += `<div class="text-[#938F99]">CPU: <span class="text-white">${Number(nd.cpu).toFixed(1)}%</span></div>`;
-                            if (nd.ram != null) html += `<div class="text-[#938F99]">RAM: <span class="text-white">${Number(nd.ram).toFixed(0)} MB</span></div>`;
-                        }
-                        if (lmHoverNode.type === 'domain') html += `<div class="text-[#938F99]">Tunnel: <span class="text-[#F38020]">${lmHoverNode.tunnel || '-'}</span></div>`;
-                        if (lmHoverNode.image) html += `<div class="text-[#938F99]">Image: <span class="text-white">${lmHoverNode.image}</span></div>`;
-                        tip.innerHTML = html;
-                        tip.classList.remove('hidden');
-                    } else {
-                        tip.classList.add('hidden');
-                    }
-                }
-            } catch (err) {
-                console.warn('[LiveMap] Frame error (non-fatal):', err);
-            }
-
-            lmAnimId = requestAnimationFrame(lmAnimate);
-        }
-
-        function lmRoundRect(ctx, x, y, w, h, r) {
-            ctx.beginPath();
-            ctx.moveTo(x + r, y);
-            ctx.lineTo(x + w - r, y);
-            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-            ctx.lineTo(x + w, y + h - r);
-            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-            ctx.lineTo(x + r, y + h);
-            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-            ctx.lineTo(x, y + r);
-            ctx.quadraticCurveTo(x, y, x + r, y);
-            ctx.closePath();
-        }
-
-        function _lmScreenToWorld(sx, sy) {
-            return { x: (sx - lmPan.x) / lmZoom, y: (sy - lmPan.y) / lmZoom };
-        }
-
-        function _lmFindNode(sx, sy) {
-            const { x, y } = _lmScreenToWorld(sx, sy);
-            for (let i = lmNodes.length - 1; i >= 0; i--) {
-                const n = lmNodes[i];
-                const dx = x - n.x, dy = y - n.y;
-                if (dx * dx + dy * dy <= (n.r + 8) * (n.r + 8)) return n;
-            }
-            return null;
-        }
-
-        function _lmMouseDown(e) {
-            const rect = lmCanvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-            const node = _lmFindNode(mx, my);
-            if (node) {
-                lmDragNode = node;
-                const wp = _lmScreenToWorld(mx, my);
-                lmOffsetX = node.x - wp.x;
-                lmOffsetY = node.y - wp.y;
-            } else {
-                lmIsPanning = true;
-                lmPanStart = { x: e.clientX - lmPan.x, y: e.clientY - lmPan.y };
-            }
-        }
-
-        function _lmMouseMove(e) {
-            const rect = lmCanvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-            if (lmDragNode) {
-                const wp = _lmScreenToWorld(mx, my);
-                lmDragNode.x = wp.x + lmOffsetX;
-                lmDragNode.y = wp.y + lmOffsetY;
-            } else if (lmIsPanning) {
-                lmPan.x = e.clientX - lmPanStart.x;
-                lmPan.y = e.clientY - lmPanStart.y;
-            } else {
-                lmHoverNode = _lmFindNode(mx, my);
-                lmCanvas.style.cursor = lmHoverNode ? 'pointer' : 'grab';
-                const tip = document.getElementById('livemap-tooltip');
-                if (tip) { tip.style.left = (e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 16) + 'px'; }
-            }
-        }
-
-        function _lmMouseUp() { lmDragNode = null; lmIsPanning = false; }
-
-        function _lmWheel(e) {
-            e.preventDefault();
-            const rect = lmCanvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            const newZoom = Math.max(0.3, Math.min(3, lmZoom * delta));
-            lmPan.x = mx - (mx - lmPan.x) * (newZoom / lmZoom);
-            lmPan.y = my - (my - lmPan.y) * (newZoom / lmZoom);
-            lmZoom = newZoom;
-        }
 
         // -----------------------------------------------------------
         // SETTINGS / API-KEY LOGIC
@@ -4681,76 +4628,6 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
             } catch (e) { console.error("Load Snapshot error:", e); }
         }
 
-        function initCarla() {
-            if (network) { network.redraw(); return; }
-            const container = document.getElementById('carla-canvas');
-
-            const nodes = new vis.DataSet([
-                { id: 'hetzner', label: 'HETZNER NODE', shape: 'box', color: '#D0BCFF', font: { color: '#381E72', face: 'Inter', size: 16, bold: true }, group: 'root', level: 0 },
-                { id: 'cf_root', label: 'CLOUDFLARE EDGE', shape: 'diamond', color: '#F38020', font: { color: 'white', face: 'Inter', size: 16, bold: true }, group: 'root', level: 0 }
-            ]);
-
-            const edges = new vis.DataSet([]);
-
-            Object.entries(fullInfrastructureData.stacks).forEach(([stackName, containers]) => {
-                nodes.add({ id: stackName, label: stackName, shape: 'dot', color: '#4A4458', font: { color: 'white' }, group: 'stack', level: 1 });
-                edges.add({ from: 'hetzner', to: stackName, color: '#4A4458' });
-
-                containers.forEach(cont => {
-                    const contId = `c-${cont.name}`;
-                    nodes.add({ id: contId, label: cont.name, shape: 'circularImage', image: 'https://api.dicebear.com/7.x/shapes/svg?seed=' + cont.name, group: 'container', level: 2 });
-                    edges.add({ from: stackName, to: contId, color: '#4A4458' });
-
-                    if (cont.cloudflares && cont.cloudflares.length > 0) {
-                        cont.cloudflares.forEach((cf, i) => {
-                            const tunnelId = `tunnel-${cf.tunnel_name}`;
-                            if (!nodes.get(tunnelId)) {
-                                nodes.add({ id: tunnelId, label: cf.tunnel_name, shape: 'box', color: '#36343B', font: { color: '#D0BCFF' }, group: 'tunnel', level: 1 });
-                                edges.add({ from: 'cf_root', to: tunnelId, color: '#F38020' });
-                            }
-
-                            const dId = `domain-${cf.public_domain}`;
-                            if (!nodes.get(dId)) {
-                                nodes.add({
-                                    id: dId,
-                                    label: cf.public_domain,
-                                    shape: 'dot',
-                                    size: 15,
-                                    color: '#81C784',
-                                    font: { color: 'white', size: 10, face: 'Inter', bold: true },
-                                    group: 'hostname',
-                                    level: 3
-                                });
-                                edges.add({ from: tunnelId, to: dId, color: '#36343B' });
-                            }
-
-                            // Die magische Verbindung: Domain -> Container
-                            edges.add({
-                                from: dId, to: contId,
-                                width: 2, color: '#D0BCFF',
-                                arrows: 'to',
-                                dashes: true,
-                                smooth: { type: 'curvedCW', roundness: 0.2 }
-                            });
-                        });
-                    }
-                });
-            });
-
-            nodesView = new vis.DataView(nodes, {
-                filter: (n) => activeLayers[n.group] !== false && (!graphSearchTerm || n.label.toLowerCase().includes(graphSearchTerm))
-            });
-
-            edgesView = new vis.DataView(edges);
-
-            const options = {
-                layout: { hierarchical: { enabled: true, direction: 'LR', sortMethod: 'directed', levelSeparation: 400, nodeSpacing: 120 } },
-                physics: { enabled: false },
-                interaction: { hover: true, zoomView: true, dragView: true }
-            };
-
-            network = new vis.Network(container, { nodes: nodesView, edges: edgesView }, options);
-        }
 
         // Metrics Logic
         let metricsInterval = null;

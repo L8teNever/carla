@@ -159,6 +159,7 @@ def start_background_fetch():
 @bp.route("/performance")
 @bp.route("/timeline")
 @bp.route("/carla")
+@bp.route("/infrastructure")
 @bp.route("/backup")
 @bp.route("/settings")
 @bp.route("/livemap")
