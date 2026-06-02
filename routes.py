@@ -104,50 +104,44 @@ def _build_cf_graph_data(client: cloudflare.CloudflareClient) -> dict:
 
     return {"nodes": nodes, "edges": edges}
 
-def _build_cf_indices(mapping: dict) -> tuple:
-    """Baut Port- und Name-Index aus dem CF Tunnel-Mapping."""
-    port_index = {}
-    name_index = {}
+def _build_cf_index(mapping: dict) -> dict:
+    """Baut einen exakten IP:PORT-Index aus dem CF Tunnel-Mapping.
+    Keys: 'host_ip:port' (z.B. '10.7.0.1:1014') und 'localhost:port'.
+    """
+    index = {}
     for svc_url, entries in mapping.items():
         normalized = svc_url if "://" in svc_url else "http://" + svc_url
         try:
             p = urlparse(normalized)
             host = (p.hostname or "").lower()
             port = p.port
-            if port:
-                port_index.setdefault(port, []).extend(entries)
-            # Name-Index nur für echte Hostnamen (nicht localhost/IPs)
-            if host and host not in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
-                name_index.setdefault(host, []).extend(entries)
-                norm = host.replace("_", "-")
-                if norm != host:
-                    name_index.setdefault(norm, []).extend(entries)
+            if host and port:
+                index.setdefault(f"{host}:{port}", []).extend(entries)
+                # localhost-Aliase
+                if host in ("127.0.0.1", "::1"):
+                    index.setdefault(f"localhost:{port}", []).extend(entries)
         except Exception:
             pass
-    return port_index, name_index
+    return index
 
 
-def _match_container_to_cf(container: dict, port_index: dict, name_index: dict, access_info: dict) -> list:
-    """Findet alle CF-Domains für einen Container. Gibt Liste von cloudflare-Dicts zurück."""
-    c_name = container["name"].lower()
-    c_name_norm = c_name.replace("_", "-")
-    internal_ips = set(container.get("internal_ips", []))
-    host_ports = container.get("host_ports", [])
-
+def _match_container_to_cf(container: dict, cf_index: dict, access_info: dict) -> list:
+    """Findet CF-Domains per exaktem IP:PORT-Match gegen die Container-Port-Bindings."""
     matched = []
 
-    # Strategie 1: Alle Host-Ports im Port-Index (CF nutzt http://HOST_IP:HOST_PORT)
-    for hp in host_ports:
-        matched.extend(port_index.get(hp, []))
-
-    # Strategie 2: Container-Name im Name-Index (für container-name:PORT Routing)
-    matched.extend(name_index.get(c_name, []))
-    if c_name_norm != c_name:
-        matched.extend(name_index.get(c_name_norm, []))
-
-    # Strategie 3: Interne Container-IPs im Name-Index
-    for ip in internal_ips:
-        matched.extend(name_index.get(ip, []))
+    for binding in container.get("port_bindings", []):
+        host_ip = binding.get("host_ip", "")
+        hp = binding.get("host_port")
+        if not hp:
+            continue
+        # Exakter Match: z.B. '10.7.0.1:1014'
+        if host_ip:
+            matched.extend(cf_index.get(f"{host_ip}:{hp}", []))
+        # Fallback: 0.0.0.0 bindet an alle Interfaces → auch localhost und andere IPs prüfen
+        if host_ip in ("0.0.0.0", "", "::"):
+            for key, entries in cf_index.items():
+                if key.endswith(f":{hp}"):
+                    matched.extend(entries)
 
     # Deduplizieren nach Domain + Access-Info anhängen
     seen = set()
@@ -224,15 +218,15 @@ def _fetch_and_cache_task():
             try:
                 mapping = cf.get_tunnel_mapping()
                 access_info = cf.get_access_info()
-                port_index, name_index = _build_cf_indices(mapping)
+                cf_index = _build_cf_index(mapping)
 
-                print(f"☁️  [CARLA] CF Mapping: {len(mapping)} Service-URLs, Port-Index: {sorted(port_index.keys())}")
+                print(f"☁️  [CARLA] CF Mapping: {len(mapping)} Service-URLs, Index-Keys: {len(cf_index)}")
 
                 matched_total = 0
                 for stack in docker_data["stacks"].values():
                     for container in stack:
                         container["cloudflares"] = _match_container_to_cf(
-                            container, port_index, name_index, access_info
+                            container, cf_index, access_info
                         )
                         if container["cloudflares"]:
                             domains = [c["public_domain"] for c in container["cloudflares"]]
@@ -324,19 +318,16 @@ def api_cf_debug_log():
     try:
         mapping = cf.get_tunnel_mapping()
         access_info = cf.get_access_info()
-        port_index, name_index = _build_cf_indices(mapping)
+        cf_index = _build_cf_index(mapping)
         docker_data = docker_service.fetch_docker_data(config.GITHUB_TOKEN)
 
         container_matching = []
         for stack_name, stack in docker_data.get("stacks", {}).items():
             for container in stack:
-                matched = _match_container_to_cf(container, port_index, name_index, access_info)
+                matched = _match_container_to_cf(container, cf_index, access_info)
                 container_matching.append({
                     "container_name": container["name"],
-                    "local_url": container.get("local_url", ""),
-                    "host_ports": container.get("host_ports", []),
-                    "container_port": container.get("container_port"),
-                    "internal_ips": container.get("internal_ips", []),
+                    "port_bindings": container.get("port_bindings", []),
                     "matched_domains": [m["public_domain"] for m in matched],
                 })
 

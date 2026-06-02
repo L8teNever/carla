@@ -71,34 +71,39 @@ def fetch_docker_data(github_token: str) -> dict:
                 status_text = parts[4].strip()
                 state = parts[5].strip()
 
-                host_ports = []
-                container_port = None
+                # Alle Port-Bindings als exakte IP:PORT Paare speichern
+                port_bindings = []  # [{"host_ip": "10.7.0.1", "host_port": 1014}, ...]
                 local_url = ""
                 if "->" in ports:
+                    seen_bindings = set()
                     for mapping in ports.split(","):
                         mapping = mapping.strip()
                         if "->" not in mapping:
                             continue
                         try:
-                            host_side, container_side = mapping.split("->")
+                            host_side, _ = mapping.split("->")
                             host_side = host_side.strip()
-                            _, hp_str = host_side.rsplit(":", 1) if ":" in host_side else ("", host_side)
+                            if ":" in host_side:
+                                host_ip, hp_str = host_side.rsplit(":", 1)
+                            else:
+                                host_ip, hp_str = "", host_side
                             hp = int(hp_str)
-                            host_ports.append(hp)
-                            if container_port is None:
-                                container_port = int(container_side.strip().split("/")[0])
+                            key = (host_ip, hp)
+                            if key not in seen_bindings:
+                                seen_bindings.add(key)
+                                port_bindings.append({"host_ip": host_ip, "host_port": hp})
                         except Exception:
                             pass
-                    if host_ports:
-                        local_url = f"http://localhost:{host_ports[0]}"
+                    if port_bindings:
+                        b = port_bindings[0]
+                        local_url = f"http://{b['host_ip']}:{b['host_port']}" if b['host_ip'] else f"http://localhost:{b['host_port']}"
 
                 containers.append({
                     "stack": stack,
                     "name": name,
                     "image": img,
                     "local_url": local_url,
-                    "host_ports": host_ports,
-                    "container_port": container_port,
+                    "port_bindings": port_bindings,
                     "ports_raw": ports,
                     "status_text": status_text,
                     "state": state,
