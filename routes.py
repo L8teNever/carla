@@ -314,6 +314,101 @@ def get_full_infrastructure():
     data["_is_updating"] = is_fetching
     return jsonify(data)
 
+@bp.route("/api/cf-debug-log")
+def api_cf_debug_log():
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare not configured (API token or Account ID missing)"})
+    
+    try:
+        mapping = cf.get_tunnel_mapping()
+        access_info = cf.get_access_info()
+        
+        # Load local docker data
+        docker_data = docker_service.fetch_docker_data(config.GITHUB_TOKEN)
+        
+        debug_output = {
+            "cloudflare_configured": True,
+            "tunnels_count": len(mapping),
+            "access_apps_count": len(access_info),
+            "mapping_raw": mapping,
+            "container_matching": []
+        }
+        
+        # Port-basierter Index
+        port_index: dict = {}
+        for svc_url, entries in mapping.items():
+            try:
+                svc_url_parsed = svc_url if "://" in svc_url else "http://" + svc_url
+                p = urlparse(svc_url_parsed)
+                if p.port:
+                    port_index.setdefault(p.port, []).extend(entries)
+            except Exception:
+                pass
+                
+        for stack_name, stack in docker_data.get("stacks", {}).items():
+            for container in stack:
+                c_name = container["name"]
+                internal_ips = container.get("internal_ips", [])
+                l_url = container.get("local_url", "").rstrip("/")
+                
+                matched = []
+                
+                # Perform the matching logic
+                if l_url:
+                    matched.extend(mapping.get(l_url, []))
+                    try:
+                        l_url_parsed = l_url if "://" in l_url else "http://" + l_url
+                        port = urlparse(l_url_parsed).port
+                        if port:
+                            matched.extend(port_index.get(port, []))
+                    except Exception:
+                        pass
+                        
+                for svc_url, entries in mapping.items():
+                    try:
+                        svc_url_parsed = svc_url if "://" in svc_url else "http://" + svc_url
+                        p = urlparse(svc_url_parsed)
+                        svc_host = p.hostname
+                        if svc_host:
+                            sh_clean = svc_host.split(":")[0].lower()
+                            cn_clean = c_name.lower()
+                            
+                            is_match = False
+                            if sh_clean in internal_ips:
+                                is_match = True
+                            elif sh_clean == cn_clean:
+                                is_match = True
+                            elif sh_clean.replace("_", "-") == cn_clean.replace("_", "-"):
+                                is_match = True
+                            elif len(sh_clean) > 3 and (sh_clean in cn_clean or cn_clean in sh_clean):
+                                is_match = True
+                                
+                            if is_match:
+                                matched.extend(entries)
+                    except Exception:
+                        pass
+                        
+                # Deduplicate by public domain
+                dedup = []
+                seen = set()
+                for entry in matched:
+                    domain = entry["hostname"]
+                    if domain not in seen:
+                        seen.add(domain)
+                        dedup.append(entry)
+                        
+                debug_output["container_matching"].append({
+                    "container_name": c_name,
+                    "local_url": l_url,
+                    "internal_ips": internal_ips,
+                    "matched_entries": dedup
+                })
+                
+        return jsonify(debug_output)
+    except Exception as e:
+        return jsonify({"error": f"Exception during debug generation: {e}"})
+
 @bp.route("/api/discovery/status", methods=["GET"])
 def api_discovery_status():
     """Gibt den Status des Auto-Discovery-Daemons zurück."""
