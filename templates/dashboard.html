@@ -2637,13 +2637,69 @@
                                 edges.add({ from: tunnelId, to: dId, color: '#27272a' });
                             }
 
-                            edges.add({
-                                from: dId, to: contId,
-                                width: 1, color: 'rgba(167, 139, 250, 0.25)',
-                                dashed: true,
-                                arrows: { to: { enabled: true, scaleFactor: 0.5 } }
-                            });
+                            // Spezialfall: vhosts (Virtual Host Sites) dazwischenschalten
+                            let connectedToVhost = false;
+                            if (c.name === 'carla-vhost' && fullInfrastructureData.vhosts) {
+                                const vhost = fullInfrastructureData.vhosts.find(v => 
+                                    v.hostname === cf.public_domain || 
+                                    (v.extra_hostnames && v.extra_hostnames.includes(cf.public_domain))
+                                );
+                                if (vhost) {
+                                    const vNodeId = `vhost-site-${vhost.name}`;
+                                    if (!nodes.get(vNodeId)) {
+                                        nodes.add({
+                                            id: vNodeId,
+                                            label: `Site: ${vhost.name}`,
+                                            shape: 'box',
+                                            color: '#8b5cf6',
+                                            font: { color: '#ffffff', face: 'Outfit', size: 12, bold: true },
+                                            group: 'vhost',
+                                            level: 4
+                                        });
+                                        edges.add({ from: vNodeId, to: contId, color: '#8b5cf6', width: 2 });
+                                    }
+                                    edges.add({
+                                        from: dId, to: vNodeId,
+                                        width: 1, color: 'rgba(139, 92, 246, 0.45)',
+                                        dashed: true,
+                                        arrows: { to: { enabled: true, scaleFactor: 0.5 } }
+                                    });
+                                    connectedToVhost = true;
+                                }
+                            }
+
+                            if (!connectedToVhost) {
+                                edges.add({
+                                    from: dId, to: contId,
+                                    width: 1, color: 'rgba(167, 139, 250, 0.25)',
+                                    dashed: true,
+                                    arrows: { to: { enabled: true, scaleFactor: 0.5 } }
+                                });
+                            }
                         });
+                    }
+
+                    // Spezialfall: Redirect-Regeln unterhalb des Containers zeichnen
+                    if (c.name.startsWith('redirect-') && fullInfrastructureData.redirects) {
+                        try {
+                            const port = parseInt(c.name.split('-')[1]);
+                            const red = fullInfrastructureData.redirects.find(r => r.port === port);
+                            if (red && red.rules) {
+                                red.rules.forEach((rule, rIdx) => {
+                                    const ruleNodeId = `redirect-rule-${port}-${rIdx}`;
+                                    nodes.add({
+                                        id: ruleNodeId,
+                                        label: `${rule.path} ➔ ${rule.url}`,
+                                        shape: 'ellipse',
+                                        color: '#db2777',
+                                        font: { color: '#ffffff', face: 'Outfit', size: 10 },
+                                        group: 'redirect-rule',
+                                        level: 3
+                                    });
+                                    edges.add({ from: contId, to: ruleNodeId, color: '#db2777', width: 1.5 });
+                                });
+                            }
+                        } catch(e) { console.error("Error drawing redirect rules in graph", e); }
                     }
                 });
             });

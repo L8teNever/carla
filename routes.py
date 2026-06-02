@@ -118,9 +118,40 @@ def _fetch_and_cache_task():
     try:
         # Stufe 1: Docker-Daten holen und sofort cachen (Container sind direkt sichtbar)
         docker_data = docker_service.fetch_docker_data(config.GITHUB_TOKEN)
+        
+        # Lokale vhosts und redirects für Live-Map laden
+        try:
+            docker_data["vhosts"] = vhost_server.list_sites()
+            docker_data["redirects"] = redirect_service.list_redirects()
+        except Exception as e:
+            print(f"⚠️ [CARLA] Fehler beim Laden von vhosts/redirects für Cache: {e}")
+            docker_data["vhosts"] = []
+            docker_data["redirects"] = []
+
+        # Local-URLs für Host-Network-Container anreichern (damit das Cloudflare-Matching klappt)
+        try:
+            site_ports = {s["name"]: s["port"] for s in static_server.list_sites()}
+        except Exception:
+            site_ports = {}
+
         for stack in docker_data["stacks"].values():
             for container in stack:
                 container["cloudflares"] = []
+                c_name = container["name"]
+                if c_name == "carla-vhost":
+                    container["local_url"] = "http://localhost:10050"
+                elif c_name.startswith("redirect-"):
+                    try:
+                        port = int(c_name.split("-")[1])
+                        container["local_url"] = f"http://localhost:{port}"
+                    except Exception:
+                        pass
+                elif c_name.startswith("carla-site-"):
+                    site_name = c_name[len("carla-site-"):]
+                    port = site_ports.get(site_name)
+                    if port:
+                        container["local_url"] = f"http://localhost:{port}"
+
         docker_data["cf_graph"] = {}
         cache.save(CACHE_KEY, docker_data)
         print("✅ [CARLA] Docker-Daten gecacht – Container sind jetzt sichtbar.")
