@@ -7,6 +7,7 @@
 
 import json
 import base64
+import re
 from urllib.parse import urlparse
 from services import system_executor
 from services.cloudflare import CloudflareClient
@@ -340,33 +341,149 @@ def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
             "urls": all_urls, "www_path": site_dir}
 
 
+def _cleanup_cf_hostnames(cf, tunnel_id: str, hostnames: list, remaining_sites: list):
+    """Entfernt Ingress-Regeln und DNS-Einträge für eine Liste von Hostnames,
+    wenn sie von keinem der verbleibenden Sites mehr genutzt werden.
+    """
+    used_hostnames = set()
+    for s in remaining_sites:
+        used_hostnames.add(s.get("hostname"))
+        for eh in s.get("extra_hostnames", []):
+            used_hostnames.add(eh)
+
+    to_remove = [h for h in hostnames if h and h not in used_hostnames]
+    if not to_remove:
+        return
+
+    try:
+        rules = cf.get_tunnel_ingress(tunnel_id)
+        new_rules = [r for r in rules if not r.get("is_catchall") and r.get("hostname") not in to_remove]
+        catchall = next((r for r in rules if r.get("is_catchall")), {"service": "http_status:404"})
+        new_rules.append(catchall)
+        cf.update_tunnel_ingress(tunnel_id, new_rules)
+
+        for hostname in to_remove:
+            zone_id = cf.find_zone_id(hostname)
+            if zone_id:
+                cf.delete_cname_record(zone_id, hostname)
+    except Exception as e:
+        print(f"❌ [vhost] Fehler beim Cloudflare-Cleanup: {e}")
+
+
 def remove_site(name: str) -> dict:
     sites = _load_meta()
     site = next((s for s in sites if s.get("name") == name), None)
     if not site:
         return {"ok": False, "error": f"Site '{name}' nicht gefunden."}
 
-    hostname = site.get("hostname")
-    path = site.get("path", "/")
     new_sites = [s for s in sites if s.get("name") != name]
 
-    # Cloudflare aufräumen — nur wenn kein anderer Site denselben Hostname mehr nutzt
-    hostname_still_used = any(s.get("hostname") == hostname for s in new_sites)
     cf = _get_cf_client()
-    if cf and not hostname_still_used:
+    if cf:
         tunnel_id = site.get("tunnel_id")
-        if tunnel_id and hostname:
-            rules = cf.get_tunnel_ingress(tunnel_id)
-            new_rules = [r for r in rules if not r.get("is_catchall") and r.get("hostname") != hostname]
-            catchall = next((r for r in rules if r.get("is_catchall")), {"service": "http_status:404"})
-            new_rules.append(catchall)
-            cf.update_tunnel_ingress(tunnel_id, new_rules)
-            zone_id = cf.find_zone_id(hostname)
-            if zone_id:
-                cf.delete_cname_record(zone_id, hostname)
+        if tunnel_id:
+            old_domains = [site.get("hostname")] + site.get("extra_hostnames", [])
+            _cleanup_cf_hostnames(cf, tunnel_id, old_domains, new_sites)
 
     system_executor.execute_command(f"rm -rf {SITES_DIR}/{name}")
     _save_meta(new_sites)
     ensure_server(new_sites)
 
     return {"ok": True}
+
+
+def update_site(old_name: str, new_name: str, domain_input: str, tunnel_id: str, spa: bool = False,
+                extra_hostnames: list = None) -> dict:
+    """Aktualisiert eine bestehende Virtual Host Site."""
+    if not old_name or not new_name or not domain_input or not tunnel_id:
+        return {"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}
+
+    if not re.match(r'^[a-zA-Z0-9_-]+$', new_name):
+        return {"ok": False, "error": "Name darf nur Buchstaben, Zahlen, - und _ enthalten."}
+
+    sites = _load_meta()
+    site_idx = next((i for i, s in enumerate(sites) if s.get("name") == old_name), -1)
+    if site_idx == -1:
+        return {"ok": False, "error": f"Site '{old_name}' nicht gefunden."}
+
+    old_site = sites[site_idx]
+
+    if old_name != new_name and any(s.get("name") == new_name for s in sites):
+        return {"ok": False, "error": f"Eine Site mit dem Namen '{new_name}' existiert bereits."}
+
+    extra_hostnames_clean = [h.strip() for h in (extra_hostnames or []) if h.strip()]
+    hostname, path = _parse_domain(domain_input)
+    if not hostname and extra_hostnames_clean:
+        hostname = extra_hostnames_clean[0]
+        extra_hostnames_clean = extra_hostnames_clean[1:]
+
+    if not hostname:
+        return {"ok": False, "error": "Ungültige Domain: Hostname darf nicht leer sein."}
+
+    if any(s.get("name") != old_name and s.get("hostname") == hostname and s.get("path", "/") == path for s in sites):
+        return {"ok": False, "error": f"'{hostname}{path}' wird bereits von einer anderen Site verwendet."}
+
+    cf = _get_cf_client()
+    if not cf:
+        return {"ok": False, "error": "Cloudflare nicht konfiguriert."}
+
+    host_ip = _get_host_ip(cf, tunnel_id)
+
+    # 1. Cloudflare Cleanup für alte Domains, die nicht mehr verwendet werden
+    old_domains = [old_site.get("hostname")] + old_site.get("extra_hostnames", [])
+    other_sites = [s for s in sites if s.get("name") != old_name]
+    _cleanup_cf_hostnames(cf, old_site.get("tunnel_id"), old_domains, other_sites + [{"hostname": hostname, "extra_hostnames": extra_hostnames_clean}])
+
+    # 2. Setup für die neuen Domains
+    rules = cf.get_tunnel_ingress(tunnel_id)
+    non_catchall = [r for r in rules if not r.get("is_catchall") and r.get("hostname")]
+    hostname_already_in_tunnel = any(
+        r["hostname"] == hostname and f":{VHOST_PORT}" in r.get("service", "")
+        for r in non_catchall
+    )
+
+    if not hostname_already_in_tunnel:
+        existing_entry = next((r for r in non_catchall if r["hostname"] == hostname), None)
+        if existing_entry and f":{VHOST_PORT}" not in existing_entry.get("service", ""):
+            return {"ok": False, "error": f"'{hostname}' ist bereits für einen anderen Service konfiguriert ({existing_entry['service']})."}
+        
+        non_catchall.append({"hostname": hostname, "service": f"http://{host_ip}:{VHOST_PORT}"})
+        catchall = next((r for r in rules if r.get("is_catchall")), {"service": "http_status:404"})
+        non_catchall.append(catchall)
+        res = cf.update_tunnel_ingress(tunnel_id, non_catchall)
+        if not res.get("success"):
+            return {"ok": False, "error": f"Tunnel konnte nicht aktualisiert werden: {res.get('errors')}"}
+
+        zone_id = cf.find_zone_id(hostname)
+        if not zone_id:
+            return {"ok": False, "error": f"Keine Cloudflare-Zone für '{hostname}' gefunden."}
+        cf.delete_cname_record(zone_id, hostname)
+        dns_res = cf.create_cname_record(zone_id, hostname, f"{tunnel_id}.cfargotunnel.com")
+        if not dns_res.get("success"):
+            return {"ok": False, "error": f"DNS-Eintrag konnte nicht erstellt werden: {dns_res.get('errors')}"}
+
+    for eh in extra_hostnames_clean:
+        result = _setup_cf_hostname(cf, tunnel_id, eh, host_ip)
+        if result and not result.get("ok"):
+            return result
+
+    # 3. Rename Site-Verzeichnis falls Name geändert
+    old_dir = f"{SITES_DIR}/{old_name}"
+    new_dir = f"{SITES_DIR}/{new_name}"
+    if old_name != new_name:
+        system_executor.execute_command(f"mv {old_dir} {new_dir}")
+
+    # 4. Metadata updaten
+    updated_entry = {
+        "name": new_name, "hostname": hostname, "path": path,
+        "tunnel_id": tunnel_id, "spa": spa,
+        "extra_hostnames": extra_hostnames_clean,
+    }
+    sites[site_idx] = updated_entry
+    _save_meta(sites)
+
+    ensure_server(sites)
+
+    all_urls = [f"https://{hostname}{path}"] + [f"https://{eh}" for eh in extra_hostnames_clean]
+    return {"ok": True, "name": new_name, "hostname": hostname, "path": path,
+            "urls": all_urls, "www_path": new_dir}

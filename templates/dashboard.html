@@ -1974,7 +1974,7 @@
                 <div id="site-modal" class="modal-backdrop">
                     <div class="modal" style="max-width:520px;">
                         <div class="modal-header">
-                            <h3 class="modal-title">Website erstellen</h3>
+                            <h3 class="modal-title" id="site-modal-title">Website erstellen</h3>
                             <button onclick="closeSiteModal()" class="modal-close">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
@@ -4485,6 +4485,12 @@
         // SITES VIEW
         // ---------------------------------------------------------------
 
+        // ---------------------------------------------------------------
+        // SITES VIEW
+        // ---------------------------------------------------------------
+
+        let editingSiteName = null;
+
         async function loadSitesView() {
             const grid = document.getElementById('sites-grid');
             grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">Lade Sites...</div>';
@@ -4501,6 +4507,7 @@
                     const card = document.createElement('div');
                     card.className = 'card';
                     card.style.cssText = 'display:flex;flex-direction:column;gap:14px;padding:20px;';
+                    card.dataset.site = JSON.stringify(site);
                     card.innerHTML = `
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                             <div>
@@ -4530,6 +4537,7 @@
                             <span class="badge ${isRunning ? 'badge-success' : 'badge-danger'}">${isRunning ? 'RUNNING' : 'STOPPED'}</span>
                             <div style="display:flex;gap:8px;">
                                 <button onclick="openSiteFiles('${site.www_path}')" class="btn btn-sm">Dateien</button>
+                                <button onclick="editSiteFromCard(this)" class="btn btn-sm">Bearbeiten</button>
                                 <button onclick="deleteSite('${site.name}')" class="btn btn-danger btn-sm">Löschen</button>
                             </div>
                         </div>`;
@@ -4540,7 +4548,27 @@
             }
         }
 
+        function editSiteFromCard(btn) {
+            const card = btn.closest('.card');
+            const site = JSON.parse(card.dataset.site);
+            editingSiteName = site.name;
+            
+            document.getElementById('site-modal-title').textContent = 'Website bearbeiten';
+            document.getElementById('site-submit-btn').textContent = 'Speichern & Übernehmen';
+            document.getElementById('site-name').value = site.name;
+            document.getElementById('site-cf-hostname').value = `${site.hostname}${site.path && site.path !== '/' ? site.path : ''}`;
+            document.getElementById('site-extra-domains').value = (site.extra_hostnames || []).join('\n');
+            document.getElementById('site-spa').checked = site.spa || false;
+            
+            updateSitePreview();
+            loadSiteTunnels(site.tunnel_id);
+            document.getElementById('site-modal').classList.add('active');
+        }
+
         function openSiteModal() {
+            editingSiteName = null;
+            document.getElementById('site-modal-title').textContent = 'Website erstellen';
+            document.getElementById('site-submit-btn').textContent = 'Erstellen & Starten';
             document.getElementById('site-name').value = '';
             document.getElementById('site-cf-hostname').value = '';
             document.getElementById('site-extra-domains').value = '';
@@ -4577,13 +4605,13 @@
             }
         }
 
-        async function loadSiteTunnels() {
+        async function loadSiteTunnels(selectedTunnelId = null) {
             const sel = document.getElementById('site-cf-tunnel');
             sel.innerHTML = '<option>Lade Tunnel...</option>';
             try {
                 const r = await fetch('/api/cf/tunnels');
                 const tunnels = r.ok ? await r.json() : [];
-                sel.innerHTML = tunnels.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                sel.innerHTML = tunnels.map(t => `<option value="${t.id}" ${t.id === selectedTunnelId ? 'selected' : ''}>${t.name}</option>`).join('');
             } catch(e) {
                 sel.innerHTML = '<option>Fehler beim Laden</option>';
             }
@@ -4601,27 +4629,29 @@
 
             const extraRaw = document.getElementById('site-extra-domains').value;
             const extra_hostnames = extraRaw.split('\n').map(s=>s.trim()).filter(Boolean);
-            const url = '/api/vhosts';
+            
+            const url = editingSiteName ? `/api/vhosts/${editingSiteName}` : '/api/vhosts';
+            const method = editingSiteName ? 'PUT' : 'POST';
             const body = { name, domain: hostname, tunnel_id: tunnel, spa, extra_hostnames };
 
             const btn = document.getElementById('site-submit-btn');
             btn.disabled = true;
-            btn.textContent = 'Erstelle...';
+            btn.textContent = editingSiteName ? 'Speichere...' : 'Erstelle...';
             try {
-                const r = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const r = await fetch(url, { method: method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
                 const res = await r.json();
                 if (res.ok) {
-                    showToast(`Site '${name}' erstellt!`, 'success');
+                    showToast(editingSiteName ? `Site '${name}' aktualisiert!` : `Site '${name}' erstellt!`, 'success');
                     closeSiteModal();
                     loadSitesView();
                 } else {
-                    showToast(res.error || 'Fehler beim Erstellen.', 'error');
+                    showToast(res.error || 'Fehler.', 'error');
                 }
             } catch(e) {
                 showToast(e.message, 'error');
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Erstellen & Starten';
+                btn.textContent = editingSiteName ? 'Speichern & Übernehmen' : 'Erstellen & Starten';
             }
         }
 

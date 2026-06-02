@@ -1111,3 +1111,19 @@ def api_vhosts_delete(name):
     if result.get("ok"):
         start_background_fetch()
     return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/vhosts/<name>", methods=["PUT"])
+def api_vhosts_update(name):
+    data = request.json or {}
+    new_name = data.get("name", name).strip()
+    domain_input = data.get("domain", "").strip()
+    tunnel_id = data.get("tunnel_id", "").strip()
+    spa = bool(data.get("spa", False))
+    if not new_name or not domain_input or not tunnel_id:
+        return jsonify({"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}), 400
+    extra = [h.strip() for h in data.get("extra_hostnames", []) if h.strip()]
+    result = vhost_server.update_site(old_name=name, new_name=new_name, domain_input=domain_input, tunnel_id=tunnel_id, spa=spa, extra_hostnames=extra)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
