@@ -1049,12 +1049,12 @@ def api_vhosts_list():
 def api_vhosts_add():
     data = request.json or {}
     name = data.get("name", "").strip()
-    hostname = data.get("hostname", "").strip()
+    domain_input = data.get("domain", "").strip()
     tunnel_id = data.get("tunnel_id", "").strip()
     spa = bool(data.get("spa", False))
-    if not name or not hostname or not tunnel_id:
-        return jsonify({"ok": False, "error": "Name, Hostname und Tunnel sind erforderlich."}), 400
-    result = vhost_server.add_site(name=name, hostname=hostname, tunnel_id=tunnel_id, spa=spa)
+    if not name or not domain_input or not tunnel_id:
+        return jsonify({"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}), 400
+    result = vhost_server.add_site(name=name, domain_input=domain_input, tunnel_id=tunnel_id, spa=spa)
     if result.get("ok"):
         start_background_fetch()
     return jsonify(result), 200 if result["ok"] else 400

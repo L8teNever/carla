@@ -52,9 +52,24 @@ def _save_meta(sites: list):
     system_executor.execute_command(f"echo '{encoded}' | base64 -d > {META_FILE}")
 
 
+def _parse_domain(domain_input: str) -> tuple[str, str]:
+    """Trennt 'domain.de/pfad/xy' in ('domain.de', '/pfad/xy').
+    Gibt ('domain.de', '/') zurück wenn kein Pfad angegeben."""
+    domain_input = domain_input.strip().rstrip("/")
+    if "/" in domain_input:
+        idx = domain_input.index("/")
+        return domain_input[:idx], domain_input[idx:] or "/"
+    return domain_input, "/"
+
+
 def _generate_nginx_conf(sites: list) -> str:
+    from collections import defaultdict
+    # Gruppiere Sites nach Hostname
+    by_host: dict = defaultdict(list)
+    for site in sites:
+        by_host[site["hostname"]].append(site)
+
     lines = [
-        "# Default: unbekannte Hosts → 404",
         "server {",
         f"    listen {VHOST_PORT} default_server;",
         "    server_name _;",
@@ -62,31 +77,63 @@ def _generate_nginx_conf(sites: list) -> str:
         "}",
         ""
     ]
-    for site in sites:
-        hostname = site.get("hostname", "")
-        name = site.get("name", "")
-        spa = site.get("spa", False)
-        root = f"{SITES_DIR}/{name}"
-        fallback = "try_files $uri $uri/ /index.html;" if spa else "try_files $uri $uri/ =404;"
-        lines += [
-            f"server {{",
-            f"    listen {VHOST_PORT};",
-            f"    server_name {hostname};",
-            f"    root {root};",
-            "    index index.html index.htm;",
-            "    charset utf-8;",
-            "",
-            "    location / {",
-            f"        {fallback}",
-            "    }",
-            "",
-            "    location ~* \\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {",
-            "        expires 7d;",
-            "        add_header Cache-Control \"public\";",
-            "    }",
-            "}",
-            ""
-        ]
+
+    for hostname, host_sites in by_host.items():
+        # Spezifischere Pfade zuerst (längster Pfad hat Vorrang)
+        host_sites_sorted = sorted(host_sites, key=lambda s: len(s.get("path", "/")), reverse=True)
+        root_site = next((s for s in host_sites_sorted if s.get("path", "/") == "/"), None)
+
+        lines += [f"server {{", f"    listen {VHOST_PORT};", f"    server_name {hostname};", "    charset utf-8;", ""]
+
+        # Zuerst alle Unterpfad-Sites (alias-basiert)
+        for site in host_sites_sorted:
+            path = site.get("path", "/")
+            if path == "/":
+                continue
+            name = site["name"]
+            spa = site.get("spa", False)
+            site_dir = f"{SITES_DIR}/{name}"
+            # SPA: unbekannte Unterrouten → index.html; sonst 404
+            fallback = f"try_files $uri $uri/ @spa_{name};" if spa else "try_files $uri $uri/ =404;"
+            path_slash = path.rstrip("/") + "/"
+            lines += [
+                f"    location {path_slash} {{",
+                f"        alias {site_dir}/;",
+                "        index index.html index.htm;",
+                f"        {fallback}",
+                "    }",
+            ]
+            if spa:
+                lines += [
+                    f"    location @spa_{name} {{",
+                    f"        rewrite ^ {path_slash}index.html break;",
+                    "    }",
+                ]
+            lines.append("")
+
+        # Root-Site am Ende (niedrigste Priorität)
+        if root_site:
+            name = root_site["name"]
+            spa = root_site.get("spa", False)
+            site_dir = f"{SITES_DIR}/{name}"
+            fallback = "try_files $uri $uri/ /index.html;" if spa else "try_files $uri $uri/ =404;"
+            lines += [
+                f"    root {site_dir};",
+                "    index index.html index.htm;",
+                "",
+                "    location / {",
+                f"        {fallback}",
+                "    }",
+                "",
+                "    location ~* \\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {",
+                "        expires 7d;",
+                '        add_header Cache-Control "public";',
+                "    }",
+                ""
+            ]
+
+        lines += ["}", ""]
+
     return "\n".join(lines)
 
 
@@ -168,41 +215,54 @@ def list_sites() -> list:
     return _load_meta()
 
 
-def add_site(name: str, hostname: str, tunnel_id: str, spa: bool = False) -> dict:
-    if not name or not hostname or not tunnel_id:
-        return {"ok": False, "error": "Name, Hostname und Tunnel sind erforderlich."}
+def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False) -> dict:
+    """domain_input kann 'host.de' oder 'host.de/pfad/xy' sein."""
+    if not name or not domain_input or not tunnel_id:
+        return {"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}
+
+    hostname, path = _parse_domain(domain_input)
 
     sites = _load_meta()
     if any(s.get("name") == name for s in sites):
         return {"ok": False, "error": f"Site '{name}' existiert bereits."}
-    if any(s.get("hostname") == hostname for s in sites):
-        return {"ok": False, "error": f"Hostname '{hostname}' wird bereits verwendet."}
+    if any(s.get("hostname") == hostname and s.get("path", "/") == path for s in sites):
+        return {"ok": False, "error": f"'{hostname}{path}' wird bereits verwendet."}
 
     cf = _get_cf_client()
     if not cf:
         return {"ok": False, "error": "Cloudflare nicht konfiguriert."}
 
     host_ip = _get_host_ip(cf, tunnel_id)
-
-    # Cloudflare Tunnel-Eintrag
     rules = cf.get_tunnel_ingress(tunnel_id)
     non_catchall = [r for r in rules if not r.get("is_catchall") and r.get("hostname")]
-    if not any(r["hostname"] == hostname for r in non_catchall):
-        non_catchall.append({"hostname": hostname, "service": f"http://{host_ip}:{VHOST_PORT}"})
-    catchall = next((r for r in rules if r.get("is_catchall")), {"service": "http_status:404"})
-    non_catchall.append(catchall)
-    res = cf.update_tunnel_ingress(tunnel_id, non_catchall)
-    if not res.get("success"):
-        return {"ok": False, "error": f"Tunnel konnte nicht aktualisiert werden: {res.get('errors')}"}
+    hostname_already_in_tunnel = any(
+        r["hostname"] == hostname and f":{VHOST_PORT}" in r.get("service", "")
+        for r in non_catchall
+    )
 
-    # CNAME
-    zone_id = cf.find_zone_id(hostname)
-    if not zone_id:
-        return {"ok": False, "error": f"Keine Cloudflare-Zone für '{hostname}' gefunden."}
-    cf.delete_cname_record(zone_id, hostname)
-    dns_res = cf.create_cname_record(zone_id, hostname, f"{tunnel_id}.cfargotunnel.com")
-    if not dns_res.get("success"):
-        return {"ok": False, "error": f"DNS-Eintrag konnte nicht erstellt werden: {dns_res.get('errors')}"}
+    if not hostname_already_in_tunnel:
+        # Tunnel-Eintrag nur anlegen wenn Hostname noch nicht auf unseren vhost zeigt
+        # (bei Unterpfaden desselben Hosts ist der Eintrag bereits vorhanden)
+        existing_entry = next((r for r in non_catchall if r["hostname"] == hostname), None)
+        if existing_entry:
+            # Hostname existiert schon, zeigt aber auf anderen Service → Fehler
+            if f":{VHOST_PORT}" not in existing_entry.get("service", ""):
+                return {"ok": False, "error": f"'{hostname}' ist bereits für einen anderen Service konfiguriert ({existing_entry['service']}). Wähle einen Unterpfad oder einen anderen Hostnamen."}
+        else:
+            non_catchall.append({"hostname": hostname, "service": f"http://{host_ip}:{VHOST_PORT}"})
+            catchall = next((r for r in rules if r.get("is_catchall")), {"service": "http_status:404"})
+            non_catchall.append(catchall)
+            res = cf.update_tunnel_ingress(tunnel_id, non_catchall)
+            if not res.get("success"):
+                return {"ok": False, "error": f"Tunnel konnte nicht aktualisiert werden: {res.get('errors')}"}
+
+            zone_id = cf.find_zone_id(hostname)
+            if not zone_id:
+                return {"ok": False, "error": f"Keine Cloudflare-Zone für '{hostname}' gefunden."}
+            cf.delete_cname_record(zone_id, hostname)
+            dns_res = cf.create_cname_record(zone_id, hostname, f"{tunnel_id}.cfargotunnel.com")
+            if not dns_res.get("success"):
+                return {"ok": False, "error": f"DNS-Eintrag konnte nicht erstellt werden: {dns_res.get('errors')}"}
 
     # Site-Verzeichnis + Standard-index.html
     site_dir = f"{SITES_DIR}/{name}"
@@ -212,14 +272,15 @@ def add_site(name: str, hostname: str, tunnel_id: str, spa: bool = False) -> dic
     system_executor.execute_command(f"echo '{encoded}' | base64 -d > {site_dir}/index.html")
 
     # Metadata speichern
-    site_entry = {"name": name, "hostname": hostname, "tunnel_id": tunnel_id, "spa": spa}
+    site_entry = {"name": name, "hostname": hostname, "path": path, "tunnel_id": tunnel_id, "spa": spa}
     sites.append(site_entry)
     _save_meta(sites)
 
     # nginx neu laden (kein neuer Container)
     ensure_server(sites)
 
-    return {"ok": True, "name": name, "hostname": hostname, "port": VHOST_PORT, "www_path": site_dir}
+    return {"ok": True, "name": name, "hostname": hostname, "path": path,
+            "url": f"https://{hostname}{path}", "www_path": site_dir}
 
 
 def remove_site(name: str) -> dict:
@@ -228,11 +289,15 @@ def remove_site(name: str) -> dict:
     if not site:
         return {"ok": False, "error": f"Site '{name}' nicht gefunden."}
 
-    # Cloudflare aufräumen
+    hostname = site.get("hostname")
+    path = site.get("path", "/")
+    new_sites = [s for s in sites if s.get("name") != name]
+
+    # Cloudflare aufräumen — nur wenn kein anderer Site denselben Hostname mehr nutzt
+    hostname_still_used = any(s.get("hostname") == hostname for s in new_sites)
     cf = _get_cf_client()
-    if cf:
+    if cf and not hostname_still_used:
         tunnel_id = site.get("tunnel_id")
-        hostname = site.get("hostname")
         if tunnel_id and hostname:
             rules = cf.get_tunnel_ingress(tunnel_id)
             new_rules = [r for r in rules if not r.get("is_catchall") and r.get("hostname") != hostname]
@@ -243,9 +308,7 @@ def remove_site(name: str) -> dict:
             if zone_id:
                 cf.delete_cname_record(zone_id, hostname)
 
-    # Dateien und Metadata
     system_executor.execute_command(f"rm -rf {SITES_DIR}/{name}")
-    new_sites = [s for s in sites if s.get("name") != name]
     _save_meta(new_sites)
     ensure_server(new_sites)
 
