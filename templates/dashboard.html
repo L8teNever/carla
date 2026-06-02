@@ -2557,56 +2557,72 @@
                 const data = fullInfrastructureData;
                 if(!data||!data.stacks) return;
                 topoNodes=[]; topoLinks=[];
-
                 topoNodes.push({id:'root',name:'SERVER HOST',type:'host',x:0,y:0,radius:20,targetX:0,targetY:0});
 
                 const stackNames = Object.keys(data.stacks);
-                const STACK_R=300, CONT_EXTRA=190, DOM_EXTRA=150;
+                const n = stackNames.length;
+                // Scale rings so nodes don't collide regardless of stack count
+                const STACK_R   = Math.max(280, n * 38);
+                const CONT_EXTRA = Math.max(160, n * 8);
+                const DOM_EXTRA  = 130;
+                // Max angular slice per stack (to keep spread tight)
+                const sliceAngle = (2 * Math.PI) / n;
 
                 let totalDomains=0, totalContainers=0;
 
-                stackNames.forEach((stackName,si) => {
-                    const angle=(si/stackNames.length)*2*Math.PI;
-                    const sx=Math.cos(angle)*STACK_R, sy=Math.sin(angle)*STACK_R;
-                    const stackId='s'+si;
-                    topoNodes.push({id:stackId,name:stackName,type:'stack',angle,branchBaseAngle:angle,x:sx,y:sy,radius:12,targetX:sx,targetY:sy});
-                    topoLinks.push({source:'root',target:stackId,particles:[]});
+                stackNames.forEach((stackName, si) => {
+                    const baseAngle = (si / n) * 2 * Math.PI;
+                    const sx = Math.cos(baseAngle) * STACK_R;
+                    const sy = Math.sin(baseAngle) * STACK_R;
+                    const stackId = 's' + si;
+                    topoNodes.push({id:stackId, name:stackName, type:'stack', angle:baseAngle,
+                        branchBaseAngle:baseAngle, x:sx, y:sy, radius:10, targetX:sx, targetY:sy});
+                    topoLinks.push({source:'root', target:stackId, particles:[]});
 
-                    const containers=data.stacks[stackName]||[];
-                    totalContainers+=containers.length;
-                    containers.forEach((cont,ci) => {
-                        const spread=containers.length>1?(ci-(containers.length-1)/2)*0.28:0;
-                        const ca=angle+spread;
-                        const cr=STACK_R+CONT_EXTRA;
-                        const cx=Math.cos(ca)*cr, cy=Math.sin(ca)*cr;
-                        const contId='c'+si+'_'+ci;
-                        const cfs=cont.cloudflares||[];
-                        const hasZT=cfs.some(cf=>cf.allowed_emails&&cf.allowed_emails.length>0);
-                        topoNodes.push({id:contId,name:cont.name,type:'container',iconType:getIconType(cont.name),
-                            security:hasZT?'zerotrust':'public',isRunning:cont.state==='running',
-                            cloudflares:cfs,parentStackId:stackId,subAngle:ca,branchBaseAngle:angle,
-                            x:cx,y:cy,radius:22,targetX:cx,targetY:cy});
-                        topoLinks.push({source:stackId,target:contId,particles:[]});
+                    const containers = data.stacks[stackName] || [];
+                    totalContainers += containers.length;
+                    const maxSpread = Math.min(sliceAngle * 0.4, 0.35);
 
-                        cfs.forEach((cf,di) => {
+                    containers.forEach((cont, ci) => {
+                        const spread = containers.length > 1
+                            ? (ci - (containers.length - 1) / 2) * (maxSpread / Math.max(containers.length - 1, 1))
+                            : 0;
+                        const ca = baseAngle + spread;
+                        const cr = STACK_R + CONT_EXTRA;
+                        const cx = Math.cos(ca) * cr, cy = Math.sin(ca) * cr;
+                        const contId = 'c' + si + '_' + ci;
+                        const cfs = cont.cloudflares || [];
+                        const hasZT = cfs.some(cf => cf.allowed_emails && cf.allowed_emails.length > 0);
+                        topoNodes.push({id:contId, name:cont.name, type:'container',
+                            iconType:getIconType(cont.name), security:hasZT?'zerotrust':'public',
+                            isRunning:cont.state==='running', cloudflares:cfs,
+                            parentStackId:stackId, subAngle:ca, branchBaseAngle:baseAngle,
+                            x:cx, y:cy, radius:18, targetX:cx, targetY:cy});
+                        topoLinks.push({source:stackId, target:contId, particles:[]});
+
+                        const domSpread = Math.min(0.30, sliceAngle * 0.25);
+                        cfs.forEach((cf, di) => {
                             totalDomains++;
-                            const spread2=cfs.length>1?(di-(cfs.length-1)/2)*0.38:0;
-                            const da=ca+spread2;
-                            const dr=cr+DOM_EXTRA;
-                            const dx=Math.cos(da)*dr, dy=Math.sin(da)*dr;
-                            const domId='d'+si+'_'+ci+'_'+di;
-                            const isZT=cf.allowed_emails&&cf.allowed_emails.length>0;
-                            topoNodes.push({id:domId,name:cf.public_domain,type:'domain',security:isZT?'zerotrust':'public',
-                                tunnelName:cf.tunnel_name,parentContainerId:contId,subAngle:da,branchBaseAngle:angle,
-                                x:dx,y:dy,radius:7,targetX:dx,targetY:dy});
-                            topoLinks.push({source:contId,target:domId,particles:[]});
+                            const s2 = cfs.length > 1
+                                ? (di - (cfs.length - 1) / 2) * (domSpread / Math.max(cfs.length - 1, 1))
+                                : 0;
+                            const da = ca + s2;
+                            const dr = cr + DOM_EXTRA;
+                            const domId = 'd' + si + '_' + ci + '_' + di;
+                            const isZT = cf.allowed_emails && cf.allowed_emails.length > 0;
+                            topoNodes.push({id:domId, name:cf.public_domain, type:'domain',
+                                security:isZT?'zerotrust':'public', tunnelName:cf.tunnel_name,
+                                parentContainerId:contId, subAngle:da, branchBaseAngle:baseAngle,
+                                x:Math.cos(da)*dr, y:Math.sin(da)*dr, radius:6,
+                                targetX:Math.cos(da)*dr, targetY:Math.sin(da)*dr});
+                            topoLinks.push({source:contId, target:domId, particles:[]});
                         });
                     });
                 });
 
-                document.getElementById('lm-stat-stacks').textContent=stackNames.length;
-                document.getElementById('lm-stat-containers').textContent=totalContainers;
-                document.getElementById('lm-stat-domains').textContent=totalDomains;
+                document.getElementById('lm-stat-stacks').textContent = stackNames.length;
+                document.getElementById('lm-stat-containers').textContent = totalContainers;
+                document.getElementById('lm-stat-domains').textContent = totalDomains;
             }
 
             function drawContainerIcon(ctx,x,y,radius,iconType,security,isRunning) {
@@ -2634,53 +2650,65 @@
                 ctx.restore();
             }
 
-            function drawLabel(ctx, node) {
+            function drawLabel(ctx, node, forceShow) {
+                if(!forceShow && node !== topoHovered && node.type !== 'stack') return;
                 const parent = node.type==='domain'
                     ? topoNodes.find(n=>n.id===node.parentContainerId)
                     : node.type==='container'
                     ? topoNodes.find(n=>n.id===node.parentStackId)
                     : topoNodes.find(n=>n.id==='root');
                 const angle = parent ? Math.atan2(node.y-parent.y, node.x-parent.x) : (node.angle||0);
-                const dist = node.radius+14;
-                const tx = node.x+Math.cos(angle)*dist;
-                const ty = node.y+Math.sin(angle)*dist;
-                const cos=Math.cos(angle);
-                ctx.textAlign = cos>0.3?'left':cos<-0.3?'right':'center';
-                ctx.textBaseline = Math.sin(angle)>0.4?'top':Math.sin(angle)<-0.4?'bottom':'middle';
+                const dist = node.radius + (node.type==='stack' ? 12 : 16);
+                const tx = node.x + Math.cos(angle)*dist;
+                const ty = node.y + Math.sin(angle)*dist;
+                const cos = Math.cos(angle), sin = Math.sin(angle);
+                ctx.textAlign    = cos > 0.25 ? 'left' : cos < -0.25 ? 'right' : 'center';
+                ctx.textBaseline = sin > 0.4  ? 'top'  : sin < -0.4  ? 'bottom' : 'middle';
 
-                const label = node.name.length>22 ? node.name.slice(0,20)+'…' : node.name;
+                const isStack = node.type === 'stack';
+                const label = node.name.length > 20 ? node.name.slice(0,18)+'…' : node.name;
                 let sub = null;
-                if(node.type==='container') {
-                    sub = node.security==='zerotrust' ? '🔒 Zero Trust' : '🌐 Öffentlich';
-                } else if(node.type==='domain') {
-                    sub = node.tunnelName ? '⚡ '+node.tunnelName : null;
-                }
-
-                ctx.font = 'bold 11px Roboto,sans-serif';
-                const mw = ctx.measureText(label).width;
-                let sw=0; if(sub){ctx.font='9px Roboto,sans-serif';sw=ctx.measureText(sub).width;}
-                const boxW = Math.max(mw,sw)+12;
-                const boxH = sub?26:16;
-                let rx = tx, ry = ty;
-                if(ctx.textAlign==='left') rx=tx-4;
-                else if(ctx.textAlign==='right') rx=tx-boxW+4;
-                else rx=tx-boxW/2;
-                if(ctx.textBaseline==='top') ry=ty-4;
-                else if(ctx.textBaseline==='bottom') ry=ty-boxH-4;
-                else ry=ty-boxH/2;
+                if(node.type==='container') sub = node.security==='zerotrust' ? '🔒 Zero Trust' : '🌐 Öffentlich';
 
                 ctx.save();
-                ctx.beginPath();
-                ctx.roundRect(rx,ry,boxW,boxH+8,5);
-                ctx.fillStyle='rgba(5,5,7,0.88)';ctx.fill();
-                ctx.strokeStyle='rgba(255,255,255,0.10)';ctx.lineWidth=1;ctx.stroke();
-                ctx.font='bold 11px Roboto,sans-serif';
-                ctx.fillStyle=node===topoHovered?'#fff':'#d4d4d8';
+                if(isStack && node !== topoHovered) {
+                    // Stack-Namen immer dezent anzeigen (klein, kein Kasten)
+                    ctx.font = '9px Roboto,sans-serif';
+                    ctx.fillStyle = 'rgba(156,163,175,0.7)';
+                    ctx.fillText(label, tx, ty);
+                    ctx.restore(); return;
+                }
+                ctx.font = 'bold 11px Roboto,sans-serif';
+                const mw = ctx.measureText(label).width;
+                let sw = 0;
+                if(sub){ ctx.font='9px Roboto,sans-serif'; sw=ctx.measureText(sub).width; }
+                const boxW = Math.max(mw, sw) + 14, boxH = sub ? 28 : 18;
+                let rx = tx, ry = ty;
+                if(ctx.textAlign==='left') rx = tx - 5;
+                else if(ctx.textAlign==='right') rx = tx - boxW + 5;
+                else rx = tx - boxW/2;
+                if(ctx.textBaseline==='top') ry = ty - 4;
+                else if(ctx.textBaseline==='bottom') ry = ty - boxH - 4;
+                else ry = ty - boxH/2;
+
+                ctx.beginPath(); ctx.roundRect(rx, ry, boxW, boxH+8, 6);
+                ctx.fillStyle = 'rgba(5,5,7,0.92)'; ctx.fill();
+                ctx.strokeStyle = node.type==='domain'
+                    ? (node.security==='zerotrust' ? 'rgba(249,115,22,0.4)' : 'rgba(16,185,129,0.4)')
+                    : 'rgba(255,255,255,0.14)';
+                ctx.lineWidth = 1; ctx.stroke();
+
+                ctx.font = 'bold 11px Roboto,sans-serif';
+                ctx.fillStyle = '#fff';
                 if(sub) {
-                    if(ctx.textBaseline==='bottom'){ctx.fillStyle=node.security==='zerotrust'?'#f97316':'#10b981';ctx.font='9px Roboto,sans-serif';ctx.fillText(sub,tx,ty);ctx.fillStyle=node===topoHovered?'#fff':'#d4d4d8';ctx.font='bold 11px Roboto,sans-serif';ctx.fillText(label,tx,ty-12);}
-                    else if(ctx.textBaseline==='top'){ctx.fillText(label,tx,ty);ctx.fillStyle=node.security==='zerotrust'?'#f97316':'#10b981';ctx.font='9px Roboto,sans-serif';ctx.fillText(sub,tx,ty+13);}
-                    else{ctx.fillText(label,tx,ty-6);ctx.fillStyle=node.security==='zerotrust'?'#f97316':'#10b981';ctx.font='9px Roboto,sans-serif';ctx.fillText(sub,tx,ty+6);}
-                } else { ctx.fillText(label,tx,ty); }
+                    const midY = ry + (boxH+8)/2;
+                    ctx.fillText(label, tx, midY - 6);
+                    ctx.fillStyle = node.security==='zerotrust' ? '#f97316' : '#10b981';
+                    ctx.font = '9px Roboto,sans-serif';
+                    ctx.fillText(sub, tx, midY + 7);
+                } else {
+                    ctx.fillText(label, tx, ry + (boxH+8)/2);
+                }
                 ctx.restore();
             }
 
@@ -2696,7 +2724,7 @@
                     const s=topoNodes.find(n=>n.id===link.source);
                     const t=topoNodes.find(n=>n.id===link.target);
                     if(!s||!t) return;
-                    if(Math.random()<0.012) {
+                    if(Math.random()<0.004) {
                         let col='#10b981';
                         if(t.type==='stack') col='#8b5cf6';
                         else if(t.type==='domain') col=t.security==='zerotrust'?'#f97316':'#10b981';
@@ -2710,6 +2738,17 @@
                 });
             }
 
+            function getActiveBranch() {
+                if(!topoHovered || topoHovered.id==='root') return null;
+                return topoHovered.branchBaseAngle;
+            }
+
+            function nodeInBranch(node, branch) {
+                if(branch===null) return true;
+                if(node.id==='root') return true;
+                return node.branchBaseAngle === branch;
+            }
+
             function drawTopology() {
                 if(!topoCtx) return;
                 topoCtx.clearRect(0,0,topoWidth,topoHeight);
@@ -2717,32 +2756,40 @@
                 topoCtx.translate(topoWidth/2+window.topoPan.x, topoHeight/2+window.topoPan.y);
                 topoCtx.scale(window.topoZoom,window.topoZoom);
 
+                const activeBranch = getActiveBranch();
+
                 // Links
                 topoLinks.forEach(link => {
                     const s=topoNodes.find(n=>n.id===link.source);
                     const t=topoNodes.find(n=>n.id===link.target);
                     if(!s||!t) return;
-                    const isHov = topoHovered && (link.source===topoHovered.id||link.target===topoHovered.id||
-                        s.branchBaseAngle===topoHovered.branchBaseAngle||t.branchBaseAngle===topoHovered.branchBaseAngle);
+                    const inBranch = nodeInBranch(s, activeBranch) && nodeInBranch(t, activeBranch);
+                    const isHov = topoHovered && (link.source===topoHovered.id||link.target===topoHovered.id);
+                    topoCtx.globalAlpha = activeBranch ? (inBranch ? 1.0 : 0.06) : 1.0;
                     topoCtx.beginPath();
                     topoCtx.moveTo(s.x,s.y); topoCtx.lineTo(t.x,t.y);
-                    topoCtx.strokeStyle=isHov?'rgba(139,92,246,0.85)':'rgba(255,255,255,0.20)';
-                    topoCtx.lineWidth=isHov?2.0:0.9;
+                    topoCtx.strokeStyle = isHov ? 'rgba(139,92,246,0.9)' : inBranch ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.12)';
+                    topoCtx.lineWidth = isHov ? 2.0 : 0.8;
                     topoCtx.stroke();
-                    link.particles.forEach(p => {
-                        const px=s.x+(t.x-s.x)*p.progress, py=s.y+(t.y-s.y)*p.progress;
-                        topoCtx.beginPath();topoCtx.arc(px,py,2.5,0,2*Math.PI);
-                        topoCtx.fillStyle=p.color;
-                        topoCtx.shadowColor=p.color;topoCtx.shadowBlur=8;
-                        topoCtx.fill();topoCtx.shadowBlur=0;
-                    });
+                    if(inBranch || !activeBranch) {
+                        link.particles.forEach(p => {
+                            const px=s.x+(t.x-s.x)*p.progress, py=s.y+(t.y-s.y)*p.progress;
+                            topoCtx.beginPath();topoCtx.arc(px,py,2,0,2*Math.PI);
+                            topoCtx.fillStyle=p.color;
+                            topoCtx.shadowColor=p.color;topoCtx.shadowBlur=6;
+                            topoCtx.fill();topoCtx.shadowBlur=0;
+                        });
+                    }
+                    topoCtx.globalAlpha=1;
                 });
 
                 // Nodes
                 topoNodes.forEach(node => {
                     const isHov=node===topoHovered;
+                    const inBranch = nodeInBranch(node, activeBranch);
                     const sc=isHov?1.2:1.0;
                     topoCtx.save();
+                    topoCtx.globalAlpha = activeBranch ? (inBranch ? 1.0 : 0.10) : 1.0;
                     if(node.type==='host') {
                         const lbl=node.name;
                         topoCtx.font='bold 10px Roboto,sans-serif';
@@ -2756,24 +2803,25 @@
                     } else if(node.type==='stack') {
                         topoCtx.shadowColor=isHov?'#fff':'transparent';topoCtx.shadowBlur=isHov?16:0;
                         topoCtx.beginPath();topoCtx.arc(node.x,node.y,node.radius*sc,0,2*Math.PI);
-                        topoCtx.fillStyle='#3f3f46';topoCtx.strokeStyle='#1e293b';topoCtx.lineWidth=2;
+                        topoCtx.fillStyle=inBranch?'#52525b':'#3f3f46';topoCtx.strokeStyle='#1e293b';topoCtx.lineWidth=2;
                         topoCtx.fill();topoCtx.stroke();topoCtx.shadowBlur=0;
-                        drawLabel(topoCtx,node);
+                        drawLabel(topoCtx,node,false);
                     } else if(node.type==='container') {
                         if(isHov){topoCtx.shadowColor=node.security==='zerotrust'?'#f97316':'#10b981';topoCtx.shadowBlur=20;}
                         drawContainerIcon(topoCtx,node.x,node.y,node.radius*sc,node.iconType,node.security,node.isRunning);
                         topoCtx.shadowBlur=0;
-                        drawLabel(topoCtx,node);
+                        drawLabel(topoCtx,node,false);
                     } else if(node.type==='domain') {
                         const col=node.security==='zerotrust'?'#f97316':'#10b981';
-                        topoCtx.shadowColor=col;topoCtx.shadowBlur=isHov?14:6;
+                        topoCtx.shadowColor=col;topoCtx.shadowBlur=isHov?12:(inBranch?4:0);
                         topoCtx.beginPath();topoCtx.arc(node.x,node.y,node.radius*sc,0,2*Math.PI);
                         topoCtx.fillStyle=col+'33';topoCtx.strokeStyle=col;topoCtx.lineWidth=1.5;
                         topoCtx.fill();topoCtx.stroke();topoCtx.shadowBlur=0;
-                        topoCtx.beginPath();topoCtx.arc(node.x,node.y,3*sc,0,2*Math.PI);
+                        topoCtx.beginPath();topoCtx.arc(node.x,node.y,2.5*sc,0,2*Math.PI);
                         topoCtx.fillStyle=col;topoCtx.fill();
-                        drawLabel(topoCtx,node);
+                        drawLabel(topoCtx,node,false);
                     }
+                    topoCtx.globalAlpha=1;
                     topoCtx.restore();
                 });
 
