@@ -60,11 +60,11 @@ def parse_nginx_config(content: str) -> list:
         rules.append({"path": path, "url": url})
     return rules
 
-def generate_nginx_config(rules: list) -> str:
+def generate_nginx_config(rules: list, port: int = 80) -> str:
     """Generiert den Inhalt der nginx.conf aus den Regeln."""
     config_lines = [
         "server {",
-        "    listen 80;",
+        f"    listen {port};",
         "    server_name localhost;",
         ""
     ]
@@ -90,14 +90,12 @@ def generate_nginx_config(rules: list) -> str:
 
 def generate_compose_config(port: int) -> str:
     """Generiert die docker-compose.yml für den Weiterleitungsserver."""
-    return f"""version: '3.8'
-services:
+    return f"""services:
   nginx:
     image: nginx:alpine
     container_name: redirect-{port}
     restart: always
-    ports:
-      - "{port}:80"
+    network_mode: host
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
 """
@@ -258,7 +256,7 @@ def create_redirect(port: int, rules: list, cloudflare_data: dict = None) -> dic
         return {"ok": False, "error": f"Verzeichnis konnte nicht erstellt werden: {mkdir_res}"}
         
     # Konfigurationen erzeugen
-    nginx_content = generate_nginx_config(rules)
+    nginx_content = generate_nginx_config(rules, port)
     compose_content = generate_compose_config(port)
     
     # Dateien via heredoc schreiben
