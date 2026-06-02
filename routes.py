@@ -159,6 +159,7 @@ def start_background_fetch():
 @bp.route("/ports")
 @bp.route("/filemanager")
 @bp.route("/redirects")
+@bp.route("/sites")
 def index(stack_name=None, name=None):
     return render_template("dashboard.html")
 

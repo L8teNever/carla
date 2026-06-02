@@ -1292,6 +1292,15 @@
             <span>Umleit.</span>
         </button>
 
+        <button onclick="navigateTo('sites')" id="nav-sites" class="rail-item" title="Statische Websites">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                <path d="M8 21h8M12 17v4"></path>
+                <path d="M7 8h2M11 8h6M7 11h4M13 11h4"></path>
+            </svg>
+            <span>Sites</span>
+        </button>
+
         <button onclick="navigateTo('filemanager')" id="nav-filemanager" class="rail-item" title="Datei-Manager">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
@@ -1944,6 +1953,71 @@
                 </div>
             </section>
 
+            <!-- 9c. SITES VIEW -->
+            <section id="view-sites" class="page-view">
+                <div class="view-title">Statische Websites</div>
+                <div class="view-subtitle">Hoste eigene Websites direkt auf deinem Server — HTML, CSS, JS Dateien über den File Manager bearbeitbar</div>
+
+                <div class="section-header">
+                    <div class="section-title">Aktive Sites</div>
+                    <button onclick="openSiteModal()" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Site erstellen
+                    </button>
+                </div>
+
+                <div class="grid-layout grid-2" id="sites-grid">
+                    <!-- Dynamic site cards -->
+                </div>
+
+                <!-- Create Site Modal -->
+                <div id="site-modal" class="modal-backdrop">
+                    <div class="modal" style="max-width:520px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title">Website erstellen</h3>
+                            <button onclick="closeSiteModal()" class="modal-close">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:15px;">
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label">Name <span style="color:var(--text-muted);font-weight:400;">(nur a-z, 0-9, - und _)</span></label>
+                                <input type="text" id="site-name" class="input mono" placeholder="z.B. meine-website">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label">Host-Port</label>
+                                <input type="number" id="site-port" class="input mono" placeholder="z.B. 8100" min="1" max="65535">
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <input type="checkbox" id="site-spa" style="width:16px;height:16px;">
+                                <label for="site-spa" style="font-size:13px;cursor:pointer;">SPA-Modus (React/Vue/etc. — alle Routen → index.html)</label>
+                            </div>
+
+                            <div style="border-top:1px solid var(--border);padding-top:15px;">
+                                <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;font-weight:600;user-select:none;">
+                                    <input type="checkbox" id="site-cf-enabled" onchange="toggleSiteCfFields(this.checked)">
+                                    Über Cloudflare Tunnel freigeben
+                                </label>
+                                <div id="site-cf-fields" style="display:none;flex-direction:column;gap:12px;margin-top:12px;background:rgba(255,255,255,0.01);border:1px solid var(--border);padding:12px;border-radius:var(--r-md);">
+                                    <div class="form-group" style="margin-bottom:0;">
+                                        <label class="form-label" style="font-size:10px;">Cloudflare Tunnel</label>
+                                        <select id="site-cf-tunnel" class="select" style="padding:8px 12px;font-size:13px;"></select>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom:0;">
+                                        <label class="form-label" style="font-size:10px;">Öffentlicher Hostname</label>
+                                        <input type="text" id="site-cf-hostname" class="input mono" placeholder="z.B. blog.meinedomain.de" style="padding:8px 12px;font-size:13px;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button onclick="closeSiteModal()" class="btn">Abbrechen</button>
+                            <button onclick="submitSite()" class="btn btn-primary" id="site-submit-btn">Erstellen &amp; Starten</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- 10. FILE MANAGER (Safer action toolbars) -->
             <section id="view-filemanager" class="page-view">
                 <div class="view-title">Datei-Manager</div>
@@ -2257,6 +2331,8 @@
                 navigateTo('filemanager');
             } else if (path === '/redirects') {
                 navigateTo('redirects');
+            } else if (path === '/sites') {
+                navigateTo('sites');
             } else {
                 navigateTo('dashboard');
             }
@@ -2310,6 +2386,7 @@
             if (pageId === 'filemanager') loadFileManagerView();
             if (pageId === 'performance') startMetricsPolling();
             if (pageId === 'redirects') loadRedirectsView();
+            if (pageId === 'sites') loadSitesView();
         }
 
         function stopAllPolling() {
@@ -4428,6 +4505,165 @@
             } catch(e) {
                 showToast(e.message, "error");
             }
+        }
+
+        // ---------------------------------------------------------------
+        // SITES VIEW
+        // ---------------------------------------------------------------
+
+        async function loadSitesView() {
+            const grid = document.getElementById('sites-grid');
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">Lade Sites...</div>';
+            try {
+                const r = await fetch('/api/sites');
+                const sites = r.ok ? await r.json() : [];
+                if (sites.length === 0) {
+                    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">Keine Sites vorhanden. Erstelle deine erste Website!</div>';
+                    return;
+                }
+                grid.innerHTML = '';
+                sites.forEach(site => {
+                    const isRunning = site.state === 'running';
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.style.cssText = 'display:flex;flex-direction:column;gap:14px;padding:20px;';
+                    card.innerHTML = `
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <div>
+                                <div style="font-weight:600;font-size:15px;color:var(--text);">${site.name}</div>
+                                <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Port :${site.port}${site.spa ? ' · SPA' : ''}</div>
+                            </div>
+                            <div style="display:flex;gap:6px;">
+                                ${isRunning ? '' : `<button onclick="siteAction('${site.name}','start')" title="Starten" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;">▶</button>`}
+                                <button onclick="siteAction('${site.name}','restart')" title="Neu starten" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;">↺</button>
+                                <button onclick="siteAction('${site.name}','stop')" title="Stoppen" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;">⏹</button>
+                            </div>
+                        </div>
+
+                        ${site.domain ? `
+                        <div style="background:rgba(243,128,32,0.07);border:1px solid rgba(243,128,32,0.18);border-radius:var(--r-md);padding:10px 12px;font-size:12px;">
+                            <div style="color:var(--cf);font-weight:600;font-size:10px;letter-spacing:.05em;margin-bottom:4px;">CLOUDFLARE TUNNEL</div>
+                            <a href="https://${site.domain}" target="_blank" style="color:var(--text);text-decoration:none;display:flex;align-items:center;gap:6px;">
+                                🌐 ${site.domain}
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;opacity:.5;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                            </a>
+                        </div>` : ''}
+
+                        <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);background:rgba(255,255,255,0.03);border-radius:var(--r-md);padding:8px 10px;">
+                            📁 ${site.www_path}
+                        </div>
+
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+                            <span class="badge ${isRunning ? 'badge-success' : 'badge-danger'}">${isRunning ? 'RUNNING' : 'STOPPED'}</span>
+                            <div style="display:flex;gap:8px;">
+                                <button onclick="openSiteFiles('${site.www_path}')" class="btn btn-sm">Dateien</button>
+                                <button onclick="deleteSite('${site.name}')" class="btn btn-danger btn-sm">Löschen</button>
+                            </div>
+                        </div>`;
+                    grid.appendChild(card);
+                });
+            } catch(e) {
+                grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--danger);">Fehler beim Laden.</div>`;
+            }
+        }
+
+        function openSiteModal() {
+            document.getElementById('site-name').value = '';
+            document.getElementById('site-port').value = '';
+            document.getElementById('site-spa').checked = false;
+            document.getElementById('site-cf-enabled').checked = false;
+            toggleSiteCfFields(false);
+            document.getElementById('site-modal').classList.add('active');
+        }
+
+        function closeSiteModal() {
+            document.getElementById('site-modal').classList.remove('active');
+        }
+
+        function toggleSiteCfFields(show) {
+            document.getElementById('site-cf-fields').style.display = show ? 'flex' : 'none';
+            if (show) loadSiteTunnels();
+        }
+
+        async function loadSiteTunnels() {
+            const sel = document.getElementById('site-cf-tunnel');
+            sel.innerHTML = '<option>Lade Tunnel...</option>';
+            try {
+                const r = await fetch('/api/cf/tunnels');
+                const tunnels = r.ok ? await r.json() : [];
+                sel.innerHTML = tunnels.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+            } catch(e) {
+                sel.innerHTML = '<option>Fehler beim Laden</option>';
+            }
+        }
+
+        async function submitSite() {
+            const name = document.getElementById('site-name').value.trim();
+            const port = parseInt(document.getElementById('site-port').value);
+            const spa = document.getElementById('site-spa').checked;
+            const cfEnabled = document.getElementById('site-cf-enabled').checked;
+
+            if (!name) return showToast('Name ist erforderlich.', 'error');
+            if (!port || port < 1 || port > 65535) return showToast('Ungültiger Port.', 'error');
+
+            const body = { name, port, spa };
+            if (cfEnabled) {
+                const tunnel = document.getElementById('site-cf-tunnel').value;
+                const hostname = document.getElementById('site-cf-hostname').value.trim();
+                if (!tunnel || !hostname) return showToast('Tunnel und Hostname erforderlich.', 'error');
+                body.cloudflare = { enabled: true, tunnel_id: tunnel, hostname };
+            }
+
+            const btn = document.getElementById('site-submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Erstelle...';
+            try {
+                const r = await fetch('/api/sites', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const res = await r.json();
+                if (res.ok) {
+                    showToast(`Site '${name}' erstellt!`, 'success');
+                    closeSiteModal();
+                    loadSitesView();
+                } else {
+                    showToast(res.error || 'Fehler beim Erstellen.', 'error');
+                }
+            } catch(e) {
+                showToast(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Erstellen & Starten';
+            }
+        }
+
+        async function siteAction(name, action) {
+            showToast(`Führe '${action}' auf '${name}' aus...`, 'info');
+            try {
+                const r = await fetch(`/api/sites/${name}/${action}`, { method: 'POST' });
+                const res = await r.json();
+                if (res.ok) {
+                    showToast(`Site '${name}' ${action === 'start' ? 'gestartet' : action === 'stop' ? 'gestoppt' : 'neugestartet'}.`, 'success');
+                    setTimeout(loadSitesView, 800);
+                } else {
+                    showToast(res.error || 'Fehler.', 'error');
+                }
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        async function deleteSite(name) {
+            if (!confirm(`Site '${name}' wirklich löschen?`)) return;
+            try {
+                const r = await fetch(`/api/sites/${name}`, { method: 'DELETE' });
+                const res = await r.json();
+                if (res.ok) { showToast(`Site '${name}' gelöscht.`, 'success'); loadSitesView(); }
+                else showToast(res.error || 'Fehler beim Löschen.', 'error');
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        function openSiteFiles(wwwPath) {
+            navigateTo('filemanager');
+            setTimeout(() => {
+                if (typeof loadDirectory === 'function') loadDirectory(wwwPath);
+            }, 300);
         }
     </script>
 </body>
