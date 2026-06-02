@@ -97,17 +97,22 @@ def _fetch_and_cache_task():
     print("="*60)
 
     try:
-        docker_data = docker_service.fetch_docker_data(
-            config.GITHUB_TOKEN,
-        )
+        # Stufe 1: Docker-Daten holen und sofort cachen (Container sind direkt sichtbar)
+        docker_data = docker_service.fetch_docker_data(config.GITHUB_TOKEN)
+        for stack in docker_data["stacks"].values():
+            for container in stack:
+                container["cloudflares"] = []
+        docker_data["cf_graph"] = {}
+        cache.save(CACHE_KEY, docker_data)
+        print("✅ [CARLA] Docker-Daten gecacht – Container sind jetzt sichtbar.")
 
+        # Stufe 2: Cloudflare-Daten nachladen und Cache aktualisieren
         cf = cloudflare.CloudflareClient(config.CF_API_TOKEN, config.CF_ACCOUNT_ID)
         mapping = cf.get_tunnel_mapping()
         access_info = cf.get_access_info()
 
         for stack in docker_data["stacks"].values():
             for container in stack:
-                container["cloudflares"] = []
                 l_url = container["local_url"].rstrip("/")
                 if l_url in mapping:
                     for entry in mapping[l_url]:
@@ -117,23 +122,14 @@ def _fetch_and_cache_task():
                             "allowed_emails": access_info.get(entry["hostname"], [])
                         })
 
-        # 3. Baue Cloudflare Dashboard Graph Struktur direkt mit:
-        cf_graph = _build_cf_graph_data(cf)
-        
-        # Kombiniere Docker- und Cloudflare-Daten
-        full_data = docker_data
-        full_data["cf_graph"] = cf_graph
-        
-        # In den JSON-Cache!
-        cache.save(CACHE_KEY, full_data)
+        docker_data["cf_graph"] = _build_cf_graph_data(cf)
+        cache.save(CACHE_KEY, docker_data)
 
-        # Baseline zurücksetzen – Discovery soll nach diesem Fetch
-        # einen frischen Vergleichspunkt haben
         try:
             discovery.force_reset_baseline()
         except Exception:
             pass
-        
+
         print("✅ [CARLA] Hintergrund-Abfrage abgeschlossen! Daten im SQL-Cache abgelegt.\n")
     except Exception as e:
         print(f"❌ [CARLA] Abfrage fehlgeschlagen: {e}\n")
