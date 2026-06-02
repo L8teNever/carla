@@ -2719,17 +2719,56 @@
                     n.x+=(n.targetX-n.x)*0.10;
                     n.y+=(n.targetY-n.y)*0.10;
                 });
-                // Particle traffic
+                // Particle traffic — nur bei echtem Netzwerk-Traffic
                 topoLinks.forEach(link => {
                     const s=topoNodes.find(n=>n.id===link.source);
                     const t=topoNodes.find(n=>n.id===link.target);
                     if(!s||!t) return;
-                    if(Math.random()<0.004) {
-                        let col='#10b981';
-                        if(t.type==='stack') col='#8b5cf6';
-                        else if(t.type==='domain') col=t.security==='zerotrust'?'#f97316':'#10b981';
-                        else if(t.type==='container'&&!t.isRunning) col='#71717a';
-                        link.particles.push({progress:0,speed:0.007+Math.random()*0.01,color:col});
+
+                    // Finde den Container-Knoten in diesem Link
+                    const contNode = t.type==='container' ? t : s.type==='container' ? s : null;
+                    const domNode  = t.type==='domain'    ? t : null;
+
+                    let shouldSpawn = false;
+                    let spawnRate   = 0;
+                    let col         = '#10b981';
+
+                    if(contNode) {
+                        const net = infraNetData[contNode.name];
+                        const activity = net ? (Number(net.net_rx)||0) + (Number(net.net_tx)||0) : 0;
+                        if(activity > 0.001) {
+                            // Spawn-Rate proportional zum Traffic (max ~2% pro Frame)
+                            spawnRate = Math.min(0.02, activity * 0.003);
+                            shouldSpawn = Math.random() < spawnRate;
+                            col = contNode.security==='zerotrust' ? '#f97316' : '#10b981';
+                            if(!contNode.isRunning) col = '#71717a';
+                        }
+                    } else if(domNode && s.type==='container') {
+                        // Domain-Link: nur Partikel wenn der Container Traffic hat
+                        const net = infraNetData[s.name];
+                        const activity = net ? (Number(net.net_rx)||0) + (Number(net.net_tx)||0) : 0;
+                        if(activity > 0.01) {
+                            spawnRate = Math.min(0.01, activity * 0.002);
+                            shouldSpawn = Math.random() < spawnRate;
+                            col = domNode.security==='zerotrust' ? '#f97316' : '#10b981';
+                        }
+                    } else if(t.type==='stack' || s.type==='stack') {
+                        // Root→Stack: aggregierter Traffic des gesamten Stacks
+                        const stackNode = t.type==='stack' ? t : s;
+                        let totalActivity = 0;
+                        topoNodes.filter(n=>n.type==='container'&&n.parentStackId===stackNode.id).forEach(c=>{
+                            const net=infraNetData[c.name];
+                            if(net) totalActivity+=(Number(net.net_rx)||0)+(Number(net.net_tx)||0);
+                        });
+                        if(totalActivity > 0.001) {
+                            spawnRate = Math.min(0.015, totalActivity * 0.001);
+                            shouldSpawn = Math.random() < spawnRate;
+                            col = '#8b5cf6';
+                        }
+                    }
+
+                    if(shouldSpawn && link.particles.length < 8) {
+                        link.particles.push({progress:0, speed:0.007+Math.random()*0.009, color:col});
                     }
                     for(let i=link.particles.length-1;i>=0;i--) {
                         link.particles[i].progress+=link.particles[i].speed;
