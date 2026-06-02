@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager
+from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service
 import config
 
 bp = Blueprint("main", __name__)
@@ -162,6 +162,7 @@ def start_background_fetch():
 @bp.route("/livemap")
 @bp.route("/ports")
 @bp.route("/filemanager")
+@bp.route("/redirects")
 def index(stack_name=None, name=None):
     return render_template("dashboard.html")
 
@@ -850,3 +851,60 @@ def api_files_stack(stack_name):
 def api_files_stack_compose(stack_name):
     """Liest die Compose-Datei und parst Volumes/Bind-Mounts."""
     return jsonify(file_manager.get_stack_compose(stack_name))
+
+
+# ---------------------------------------------------------------
+# Redirect Server Endpoints
+# ---------------------------------------------------------------
+
+@bp.route("/api/redirects", methods=["GET"])
+def api_list_redirects():
+    return jsonify(redirect_service.list_redirects())
+
+
+@bp.route("/api/redirects", methods=["POST"])
+def api_create_redirect():
+    data = request.json
+    if not data:
+        return jsonify({"error": "Keine Daten empfangen"}), 400
+        
+    port_val = data.get("port")
+    rules = data.get("rules", [])
+    
+    try:
+        port = int(port_val)
+    except (ValueError, TypeError):
+        return jsonify({"error": "Ungültiger Port. Port muss eine Zahl sein."}), 400
+        
+    if port < 1 or port > 65535:
+        return jsonify({"error": "Port muss zwischen 1 und 65535 liegen."}), 400
+        
+    if not rules:
+        return jsonify({"error": "Mindestens eine Weiterleitungsregel ist erforderlich."}), 400
+        
+    res = redirect_service.create_redirect(port, rules)
+    if res.get("ok"):
+        start_background_fetch()
+        return jsonify({"success": True, "port": port})
+    else:
+        return jsonify({"error": res.get("error", "Fehler beim Erstellen der Weiterleitung.")}), 500
+
+
+@bp.route("/api/redirects/<int:port>", methods=["DELETE"])
+def api_delete_redirect(port):
+    res = redirect_service.delete_redirect(port)
+    if res.get("ok"):
+        start_background_fetch()
+        return jsonify({"success": True})
+    else:
+        return jsonify({"error": res.get("error", "Fehler beim Löschen.")}), 500
+
+
+@bp.route("/api/redirects/<int:port>/<action>", methods=["POST"])
+def api_redirect_action(port, action):
+    res = redirect_service.execute_action(port, action)
+    if res.get("ok"):
+        start_background_fetch()
+        return jsonify({"success": True, "output": res.get("output", "")})
+    else:
+        return jsonify({"error": res.get("error", "Fehler bei der Ausführung."), "output": res.get("output", "")}), 500

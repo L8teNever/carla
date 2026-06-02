@@ -981,7 +981,7 @@
     <nav class="app-rail">
         <div class="rail-logo">CA</div>
         
-        <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="rail-item active" title="Dashboard">
+        <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="rail-item active" title="Stacks & Übersicht">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="7" height="9"></rect>
                 <rect x="14" y="3" width="7" height="5"></rect>
@@ -991,7 +991,7 @@
             <span>Stacks</span>
         </button>
 
-        <button onclick="navigateTo('infrastructure')" id="nav-infrastructure" class="rail-item" title="Netzwerk Map">
+        <button onclick="navigateTo('infrastructure')" id="nav-infrastructure" class="rail-item" title="Netzwerk-Karte">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path>
                 <path d="M6 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path>
@@ -1001,7 +1001,7 @@
             <span>Live Map</span>
         </button>
 
-        <button onclick="navigateTo('performance')" id="nav-performance" class="rail-item" title="Host Performance">
+        <button onclick="navigateTo('performance')" id="nav-performance" class="rail-item" title="Host-Auslastung">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"></line>
                 <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -1010,7 +1010,7 @@
             <span>Leistung</span>
         </button>
 
-        <button onclick="navigateTo('timeline')" id="nav-timeline" class="rail-item" title="Time Travel Snapshots">
+        <button onclick="navigateTo('timeline')" id="nav-timeline" class="rail-item" title="Timeline & Snapshots">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
@@ -1018,7 +1018,7 @@
             <span>Timeline</span>
         </button>
 
-        <button onclick="navigateTo('backup')" id="nav-backup" class="rail-item" title="Volume Backups">
+        <button onclick="navigateTo('backup')" id="nav-backup" class="rail-item" title="Backup-Verwaltung">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="17 8 12 3 7 8"></polyline>
@@ -1027,7 +1027,7 @@
             <span>Backup</span>
         </button>
 
-        <button onclick="navigateTo('ports')" id="nav-ports" class="rail-item" title="Ports Manager">
+        <button onclick="navigateTo('ports')" id="nav-ports" class="rail-item" title="Port-Übersicht">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="22" y1="12" x2="18" y2="12"></line>
@@ -1038,7 +1038,18 @@
             <span>Ports</span>
         </button>
 
-        <button onclick="navigateTo('filemanager')" id="nav-filemanager" class="rail-item" title="File Explorer">
+        <button onclick="navigateTo('redirects')" id="nav-redirects" class="rail-item" title="Weiterleitungsserver">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 3h5v5"></path>
+                <path d="M4 20L21 3"></path>
+                <path d="M21 16v5h-5"></path>
+                <path d="M15 15l6 6"></path>
+                <path d="M4 4l5 5"></path>
+            </svg>
+            <span>Umleit.</span>
+        </button>
+
+        <button onclick="navigateTo('filemanager')" id="nav-filemanager" class="rail-item" title="Datei-Manager">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             </svg>
@@ -1047,12 +1058,12 @@
 
         <div class="rail-divider"></div>
 
-        <button onclick="navigateTo('settings')" id="nav-settings" class="rail-item" title="Settings" style="margin-top: auto;">
+        <button onclick="navigateTo('settings')" id="nav-settings" class="rail-item" title="Einstellungen" style="margin-top: auto;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
-            <span>Setup</span>
+            <span>Einstell.</span>
         </button>
     </nav>
 
@@ -1298,22 +1309,7 @@
                 </div>
             </section>
 
-            <!-- 4. STACK PERFORMANCE VIEW -->
-            <section id="view-stack-performance" class="page-view">
-                <div style="display:flex; align-items:center; gap: 15px; margin-bottom: 10px;">
-                    <button onclick="navigateTo('dashboard')" class="btn btn-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                    </button>
-                    <div class="view-title" id="stack-perf-title" style="margin-bottom: 0;">Stack Performance</div>
-                </div>
-                <div class="view-subtitle">Verbrauchshistorie des ausgewählten Stacks</div>
-
-                <div class="card">
-                    <div style="height: 350px; position: relative;">
-                        <canvas id="chart-stack-resources"></canvas>
-                    </div>
-                </div>
-            </section>
+            <!-- 4. STACK PERFORMANCE VIEW (ENTFERNT - NUN IN DETAILEBENE INTEGRIERT) -->
 
             <!-- 5. TIMELINE VIEW (Snapshots list & details) -->
             <section id="view-timeline" class="page-view">
@@ -1421,7 +1417,7 @@
                 </div>
             </section>
 
-            <!-- 7. STACK DETAILS VIEW (Modern split-pane design) -->
+            <!-- 7. STACK DETAILS VIEW (Konsolidierte Registerkarten) -->
             <section id="view-stack-details" class="page-view">
                 <div style="display:flex; align-items:center; gap: 15px; margin-bottom: 10px;">
                     <button onclick="navigateTo('dashboard')" class="btn btn-icon">
@@ -1429,50 +1425,85 @@
                     </button>
                     <div class="view-title" id="stack-detail-title" style="margin-bottom: 0;">Stack Details</div>
                 </div>
-                <div class="view-subtitle">Konfiguriere Compose und verwalte die Ressourcen dieses Stacks</div>
+                <div class="view-subtitle" id="stack-detail-subtitle">Verwalte Container und Konfigurationen dieses Compose-Projekts</div>
 
-                <div class="stack-detail-grid">
-                    <!-- Left side: editor for compose/env -->
-                    <div style="display:flex; flex-direction:column; gap: 10px;">
-                        <div class="tabs-nav" style="margin-bottom: 0;">
-                            <button class="tab-btn active" id="btn-edit-env" onclick="toggleComposeEnv(false)">docker-compose.yml</button>
-                            <button class="tab-btn" id="btn-edit-compose" onclick="toggleComposeEnv(true)">.env (Variablen)</button>
-                        </div>
-                        
-                        <div class="editor-container">
-                            <div class="editor-header">
-                                <span class="editor-filepath" id="compose-filepath-label">docker-compose.yml</span>
-                                <button class="btn btn-primary btn-sm" onclick="saveStackComposeEnv()">Datei Speichern</button>
-                            </div>
-                            <textarea class="editor-textarea" id="compose-editor-content" spellcheck="false"></textarea>
-                        </div>
+                <!-- Tab navigation -->
+                <div class="tabs-nav" id="stack-detail-tabs" style="margin-bottom: 20px;">
+                    <button class="tab-btn active" onclick="switchStackDetailTab('overview')">Übersicht &amp; Container</button>
+                    <button class="tab-btn" onclick="switchStackDetailTab('config')">Konfiguration (YAML/.env)</button>
+                    <button class="tab-btn" onclick="switchStackDetailTab('metrics')">Auslastung (Charts)</button>
+                    <button class="tab-btn" onclick="switchStackDetailTab('mounts')">Speichermounts</button>
+                    <button class="tab-btn" onclick="switchStackDetailTab('actions')">Systemaktionen</button>
+                </div>
+
+                <!-- Tab content panels -->
+                
+                <!-- 1. Overview Tab -->
+                <div id="stack-tab-overview" class="table-container">
+                    <div class="table-header-panel">
+                        <span style="font-weight: 600;">Laufende Docker-Container in diesem Projekt</span>
                     </div>
+                    <table class="table" id="stack-containers-table">
+                        <thead>
+                            <tr>
+                                <th>Container</th>
+                                <th>Docker Image</th>
+                                <th>Zustand / Status</th>
+                                <th>Exponierte Ports</th>
+                                <th style="text-align: right;">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stack-containers-tbody">
+                            <!-- Dynamic containers list -->
+                        </tbody>
+                    </table>
+                </div>
 
-                    <!-- Right side: mounts, actions, and direct container management -->
-                    <div style="display:flex; flex-direction:column; gap: 20px;">
-                        <!-- Stack Actions -->
-                        <div class="card">
-                            <h4 class="card-title" style="margin-bottom: 15px;">Stack-Steuerung</h4>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                <button id="btn-stack-start" class="btn btn-success" onclick="executeStackAction('start')">Stack Starten</button>
-                                <button id="btn-stack-stop" class="btn btn-danger" onclick="executeStackAction('stop')">Stack Stoppen</button>
-                                <button id="btn-stack-restart" class="btn" onclick="executeStackAction('restart')">Neustarten</button>
-                                <button id="btn-stack-down" class="btn btn-danger" onclick="executeStackAction('down')">Stack Down</button>
-                            </div>
-                            <div style="margin-top: 10px;">
-                                <button id="btn-stack-update" class="btn btn-primary" style="width:100%;" onclick="executeStackAction('update')">Images pullen &amp; updaten</button>
-                            </div>
-                            <div class="badge success" id="stack-action-output" style="margin-top:15px; display:none; justify-content:center; word-break:break-all; font-family:var(--font-mono); font-size:11px;"></div>
-                        </div>
-
-                        <!-- Volumes & Bind Mounts -->
-                        <div class="card">
-                            <h4 class="card-title" style="margin-bottom: 12px;">Speichermounts (Volumes)</h4>
-                            <div style="display:flex; flex-direction:column; gap: 12px;" id="stack-detail-mounts">
-                                <!-- Mount info injected -->
-                            </div>
-                        </div>
+                <!-- 2. Configuration Tab -->
+                <div id="stack-tab-config" style="display: none; flex-direction:column; gap: 15px; width: 100%;">
+                    <div class="tabs-nav" style="margin-bottom: 0;">
+                        <button class="tab-btn active" id="btn-edit-env" onclick="toggleComposeEnv(false)">docker-compose.yml</button>
+                        <button class="tab-btn" id="btn-edit-compose" onclick="toggleComposeEnv(true)">.env (Variablen)</button>
                     </div>
+                    <div class="editor-container">
+                        <div class="editor-header">
+                            <span class="editor-filepath" id="compose-filepath-label">docker-compose.yml</span>
+                            <button class="btn btn-primary btn-sm" onclick="saveStackComposeEnv()">Datei Speichern</button>
+                        </div>
+                        <textarea class="editor-textarea" id="compose-editor-content" spellcheck="false" style="height: 450px;"></textarea>
+                    </div>
+                </div>
+
+                <!-- 3. Metrics Tab -->
+                <div id="stack-tab-metrics" class="card" style="display: none;">
+                    <h4 class="card-title" style="margin-bottom: 15px;">Ressourcenverbrauch Historie</h4>
+                    <div style="height: 380px; position: relative;">
+                        <canvas id="chart-stack-resources"></canvas>
+                    </div>
+                </div>
+
+                <!-- 4. Volumes Tab -->
+                <div id="stack-tab-mounts" class="card" style="display: none;">
+                    <h4 class="card-title" style="margin-bottom: 15px;">Speichermounts &amp; Bind-Mounts</h4>
+                    <div style="display:flex; flex-direction:column; gap: 12px;" id="stack-detail-mounts">
+                        <!-- Dynamic mount points -->
+                    </div>
+                </div>
+
+                <!-- 5. Actions Tab -->
+                <div id="stack-tab-actions" class="card" style="display: none; max-width: 600px;">
+                    <h4 class="card-title" style="margin-bottom: 15px;">Globale Compose-Steuerung</h4>
+                    <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px;">
+                        Steuere alle Container in diesem Compose-Projekt gleichzeitig über globale Systembefehle.
+                    </p>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
+                        <button id="btn-stack-start" class="btn btn-success" onclick="executeStackAction('start')">Projekt starten</button>
+                        <button id="btn-stack-stop" class="btn btn-danger" onclick="executeStackAction('stop')">Projekt stoppen</button>
+                        <button id="btn-stack-restart" class="btn" onclick="executeStackAction('restart')">Projekt neu starten</button>
+                        <button id="btn-stack-down" class="btn btn-danger" onclick="executeStackAction('down')">Projekt abbauen (down)</button>
+                    </div>
+                    <button id="btn-stack-update" class="btn btn-primary" style="width:100%;" onclick="executeStackAction('update')">Images pullen &amp; Container updaten</button>
+                    <div class="badge success" id="stack-action-output" style="margin-top:20px; display:none; justify-content:center; word-break:break-all; font-family:var(--font-mono); font-size:11px;"></div>
                 </div>
             </section>
 
@@ -1599,6 +1630,55 @@
                             <!-- Dynamic ports -->
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- 9b. REDIRECTS VIEW -->
+            <section id="view-redirects" class="page-view">
+                <div class="view-title">Weiterleitungsserver (Redirects)</div>
+                <div class="view-subtitle">Hoste kleine Webserver auf bestimmten Ports, die URLs direkt auf andere Webseiten weiterleiten</div>
+
+                <div class="section-header">
+                    <div class="section-title">Aktive Port-Umleitungen</div>
+                    <button onclick="openRedirectModal()" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 14px; height: 14px; margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Weiterleitung erstellen
+                    </button>
+                </div>
+
+                <div class="grid-layout grid-2" id="redirects-grid">
+                    <!-- Dynamic redirect cards -->
+                </div>
+
+                <!-- Create/Edit Redirect Modal -->
+                <div id="redirect-modal" class="modal-backdrop">
+                    <div class="modal" style="max-width: 520px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title" id="redirect-modal-title">Weiterleitungsserver erstellen</h3>
+                            <button onclick="closeRedirectModal()" class="modal-close">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Host-Port</label>
+                                <input type="number" id="redirect-port" class="input mono" placeholder="z.B. 8000" min="1" max="65535">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Weiterleitungsregeln</label>
+                                <div id="redirect-rules-container" style="display:flex; flex-direction:column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                                    <!-- Dynamic rule rows -->
+                                </div>
+                                <button onclick="addRedirectRuleRow()" class="btn btn-sm" style="margin-top: 10px; width: 100%;">
+                                    ➕ Regel hinzufügen
+                                </button>
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button onclick="closeRedirectModal()" class="btn">Abbrechen</button>
+                            <button onclick="submitRedirectServer()" class="btn btn-primary" id="redirect-submit-btn">Erstellen &amp; Starten</button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -1913,6 +1993,8 @@
                 navigateTo('ports');
             } else if (path === '/filemanager') {
                 navigateTo('filemanager');
+            } else if (path === '/redirects') {
+                navigateTo('redirects');
             } else {
                 navigateTo('dashboard');
             }
@@ -1948,7 +2030,7 @@
 
             // Map sub-views to rail items
             let navId = pageId;
-            if (['stack-details', 'stack-performance', 'container-terminal'].includes(pageId)) navId = 'dashboard';
+            if (['stack-details', 'container-terminal'].includes(pageId)) navId = 'dashboard';
 
             const nav = document.getElementById(`nav-${navId}`);
             if (nav) nav.classList.add('active');
@@ -1965,6 +2047,7 @@
             if (pageId === 'ports') startPortsPolling();
             if (pageId === 'filemanager') loadFileManagerView();
             if (pageId === 'performance') startMetricsPolling();
+            if (pageId === 'redirects') loadRedirectsView();
         }
 
         function stopAllPolling() {
@@ -2028,14 +2111,18 @@
                 let containerHtml = '';
                 containers.forEach(c => {
                     const statusDotColor = c.state === 'running' ? 'var(--success)' : 'var(--danger)';
-                    const statusText = c.state === 'running' ? 'Running' : 'Exited';
                     containerHtml += `
-                        <div class="container-row">
-                            <div class="container-name">
+                        <div class="container-item-row" style="margin-bottom: 6px;">
+                            <div style="display:flex; align-items:center; gap: 8px; font-weight: 500;">
                                 <span style="width: 7.5px; height: 7.5px; border-radius: 50%; background-color: ${statusDotColor}; box-shadow: 0 0 5px ${statusDotColor};"></span>
                                 ${c.name}
                             </div>
-                            <span class="container-image">${c.image.split('@')[0]}</span>
+                            <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); margin: 0 10px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 145px;" title="${c.image}">
+                                ${c.image.split('@')[0]}
+                            </span>
+                            <button onclick="event.stopPropagation(); showTerminal('${c.name}')" class="btn-quick" title="Logs & Terminal öffnen" style="margin-left: auto;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 13px; height: 13px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                            </button>
                         </div>
                     `;
                 });
@@ -2062,11 +2149,11 @@
                     </div>
                     
                     <div class="stack-containers-list">
-                        ${containerHtml}
+                        ${containerHtml || '<div style="text-align:center; color:var(--text-muted); font-size:12px; padding: 10px 0;">Keine Container erfasst.</div>'}
                     </div>
 
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 15px; border-top: 1px solid var(--border); padding-top:12px;">
-                        <span class="pill ${activeContainers === containers.length ? 'success' : 'warning'}" style="font-size:11px;">
+                        <span class="badge ${activeContainers === containers.length ? 'success' : 'warning'}" style="font-size:10px;">
                             ${activeContainers}/${containers.length} online
                         </span>
                         <div style="display:flex; gap: 8px;">
@@ -2789,18 +2876,21 @@
         }
 
         // -----------------------------------------------------------
-        // 7. STACK DETAILS VIEW & FILE WRITING
+        // 7. STACK DETAILS VIEW & FILE WRITING (Konsolidiert & Tab-basiert)
         // -----------------------------------------------------------
         let activeComposeTab = 'compose'; // 'compose' or 'env'
         let detailSelectedStack = "";
         let cachedComposeData = {};
+        let activeStackDetailTab = "overview";
 
         async function showStackDetail(stackName) {
             detailSelectedStack = stackName;
             switchPage('stack-details');
 
             document.getElementById('stack-detail-title').innerText = `${stackName} | Stack verwalten`;
-            document.getElementById('stack-action-output').style.display = 'none';
+            
+            const actionsOutput = document.getElementById('stack-action-output');
+            if (actionsOutput) actionsOutput.style.display = 'none';
 
             // Reset Editor
             const editorText = document.getElementById('compose-editor-content');
@@ -2808,7 +2898,56 @@
             editorText.disabled = true;
 
             try {
-                // Fetch paths & mounts
+                // 1. Render Containers for this Stack
+                const containers = (fullInfrastructureData && fullInfrastructureData.stacks && fullInfrastructureData.stacks[stackName]) || [];
+                const tbody = document.getElementById('stack-containers-tbody');
+                tbody.innerHTML = '';
+                
+                if (containers.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--text-muted); padding:20px 0;">Keine Container erfasst. Läuft dieses Projekt?</td></tr>`;
+                } else {
+                    containers.forEach(c => {
+                        const isRunning = c.state === 'running';
+                        const statusDotColor = isRunning ? 'var(--success)' : 'var(--danger)';
+                        
+                        let portsHtml = '';
+                        if (c.ports_raw) {
+                            portsHtml = c.ports_raw.split(',').map(p => {
+                                p = p.trim();
+                                if (c.local_url && p.includes('->')) {
+                                    return `<a href="${c.local_url}" target="_blank" class="breadcrumb-node" style="font-family:var(--font-mono); font-size:11.5px;">${p}</a>`;
+                                }
+                                return `<span style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted);">${p}</span>`;
+                            }).join('<br>');
+                        } else {
+                            portsHtml = '<span style="color:var(--text-muted);">-</span>';
+                        }
+                        
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-weight:600;">${c.name}</td>
+                            <td style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted); max-width:200px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${c.image.split('@')[0]}</td>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="width: 7.5px; height: 7.5px; border-radius: 50%; background-color: ${statusDotColor}; box-shadow: 0 0 5px ${statusDotColor};"></span>
+                                    <span>${c.status_text}</span>
+                                </div>
+                            </td>
+                            <td>${portsHtml}</td>
+                            <td style="text-align:right;">
+                                <div style="display:flex; gap:6px; justify-content:flex-end;">
+                                    <button onclick="executeContainerDirectAction('${c.name}', 'start')" class="btn btn-sm btn-success" title="Container starten" ${isRunning ? 'disabled style="opacity:0.3;"' : ''}>Start</button>
+                                    <button onclick="executeContainerDirectAction('${c.name}', 'stop')" class="btn btn-sm btn-danger" title="Container stoppen" ${!isRunning ? 'disabled style="opacity:0.3;"' : ''}>Stop</button>
+                                    <button onclick="executeContainerDirectAction('${c.name}', 'restart')" class="btn btn-sm" title="Container neu starten">Restart</button>
+                                    <button onclick="showTerminal('${c.name}')" class="btn btn-sm btn-primary" title="Logs / Shell">Terminal</button>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+
+                // 2. Fetch paths & mounts
                 const rPaths = await fetch(`/api/files/stack/${stackName}`);
                 if (rPaths.ok) {
                     const data = await rPaths.json();
@@ -2817,8 +2956,8 @@
                     
                     if (data.workdir) {
                         mountsEl.innerHTML += `
-                            <div style="display:flex; justify-content:space-between; font-size:13px; align-items:center;">
-                                <span style="color:var(--text-muted);">Ordner:</span>
+                            <div style="display:flex; justify-content:space-between; font-size:13px; align-items:center; margin-bottom: 12px;">
+                                <span style="color:var(--text-muted);">Ordnerpfad:</span>
                                 <strong style="font-family:var(--font-mono); font-size:11.5px; opacity:0.8; background:rgba(255,255,255,0.02); padding: 4px 8px; border-radius:4px; border:1px solid var(--border);">${data.workdir}</strong>
                             </div>
                         `;
@@ -2837,7 +2976,7 @@
                     }
                 }
 
-                // Fetch YAML compose content
+                // 3. Fetch YAML compose content
                 const rCompose = await fetch(`/api/files/stack/${stackName}/compose`);
                 if (rCompose.ok) {
                     const data = await rCompose.json();
@@ -2851,7 +2990,62 @@
                     document.getElementById('btn-edit-compose').className = "tab-btn";
                     document.getElementById('btn-edit-env').className = "tab-btn active";
                 }
-            } catch(e) { console.error(e); }
+
+                // Default to overview tab
+                switchStackDetailTab('overview');
+
+            } catch(e) { console.error("Stack-Details laden fehlgeschlagen:", e); }
+        }
+
+        function switchStackDetailTab(tabId) {
+            activeStackDetailTab = tabId;
+            
+            // Buttons toggle
+            const tabsContainer = document.getElementById('stack-detail-tabs');
+            if (tabsContainer) {
+                tabsContainer.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                const activeBtn = Array.from(tabsContainer.querySelectorAll('.tab-btn')).find(btn => 
+                    btn.getAttribute('onclick').includes(`'${tabId}'`)
+                );
+                if (activeBtn) activeBtn.classList.add('active');
+            }
+
+            // Panels toggle
+            document.getElementById('stack-tab-overview').style.display = tabId === 'overview' ? 'block' : 'none';
+            document.getElementById('stack-tab-config').style.display = tabId === 'config' ? 'flex' : 'none';
+            document.getElementById('stack-tab-metrics').style.display = tabId === 'metrics' ? 'block' : 'none';
+            document.getElementById('stack-tab-mounts').style.display = tabId === 'mounts' ? 'block' : 'none';
+            document.getElementById('stack-tab-actions').style.display = tabId === 'actions' ? 'block' : 'none';
+
+            // Trigger charting if metrics is selected
+            if (tabId === 'metrics') {
+                pollStackPerformance();
+                if (stackPerfInterval) clearInterval(stackPerfInterval);
+                stackPerfInterval = setInterval(pollStackPerformance, 4000);
+            } else {
+                if (stackPerfInterval) {
+                    clearInterval(stackPerfInterval);
+                    stackPerfInterval = null;
+                }
+            }
+        }
+
+        async function executeContainerDirectAction(containerName, action) {
+            showToast(`Führe '${action}' auf Container '${containerName}' aus...`, "info");
+            try {
+                const r = await fetch(`/api/container/${encodeURIComponent(containerName)}/${action}`, { method: 'POST' });
+                const data = await r.json();
+                if (data.success) {
+                    showToast(`Container '${containerName}' erfolgreich ${action === 'start' ? 'gestartet' : action === 'stop' ? 'gestoppt' : 'neu gestartet'}.`);
+                    triggerManualRefresh();
+                } else {
+                    showToast(data.output || "Fehler bei der Ausführung.", "error");
+                }
+            } catch(e) {
+                showToast(e.message, "error");
+            }
         }
 
         function toggleComposeEnv(isEnv) {
@@ -2915,27 +3109,33 @@
 
             btn.disabled = true;
             btn.innerText = "Führe aus...";
-            outputEl.style.display = 'none';
+            if (outputEl) outputEl.style.display = 'none';
 
             try {
                 const r = await fetch(`/api/stack/${detailSelectedStack}/${action}`, { method: 'POST' });
                 const data = await r.json();
                 
-                outputEl.style.display = 'flex';
-                if (data.success) {
-                    outputEl.className = "badge success";
-                    outputEl.innerText = `Erfolgreich durchgeführt.`;
-                    showToast(`Aktion '${action}' erfolgreich abgeschlossen.`);
-                    triggerManualRefresh();
-                } else {
-                    outputEl.className = "badge danger";
-                    outputEl.innerText = "Ausführung fehlgeschlagen.";
-                    showToast(data.output || "Fehler bei der Ausführung.", "error");
+                if (outputEl) {
+                    outputEl.style.display = 'flex';
+                    if (data.success) {
+                        outputEl.className = "badge success";
+                        outputEl.innerText = `Erfolgreich durchgeführt.`;
+                        showToast(`Aktion '${action}' erfolgreich abgeschlossen.`);
+                        triggerManualRefresh();
+                        // Refetch details to reload container statuses
+                        setTimeout(() => showStackDetail(detailSelectedStack), 1000);
+                    } else {
+                        outputEl.className = "badge danger";
+                        outputEl.innerText = "Ausführung fehlgeschlagen.";
+                        showToast(data.output || "Fehler bei der Ausführung.", "error");
+                    }
                 }
             } catch(e) {
-                outputEl.style.display = 'flex';
-                outputEl.className = "badge danger";
-                outputEl.innerText = e.message;
+                if (outputEl) {
+                    outputEl.style.display = 'flex';
+                    outputEl.className = "badge danger";
+                    outputEl.innerText = e.message;
+                }
                 showToast(e.message, "error");
             } finally {
                 btn.disabled = false;
@@ -3359,8 +3559,13 @@
             const textarea = document.getElementById('fm-editor-textarea');
             const label = document.getElementById('fm-editor-filepath');
 
+            // Hide grid and toolbar for full-screen comfort
+            document.getElementById('fm-directory-items').style.display = 'none';
+            document.querySelector('#view-filemanager .fm-toolbar').style.display = 'none';
+
             label.innerText = path.split('/').pop();
             textarea.value = "Lade Inhalt...";
+            textarea.style.height = 'calc(100vh - 280px)';
             editorBox.style.display = 'flex';
             
             editorBox.scrollIntoView({ behavior: 'smooth' });
@@ -3380,6 +3585,9 @@
 
         function fmCloseEditor() {
             document.getElementById('fm-editor-box').style.display = 'none';
+            // Show grid and toolbar back
+            document.getElementById('fm-directory-items').style.display = 'grid';
+            document.querySelector('#view-filemanager .fm-toolbar').style.display = 'flex';
         }
 
         async function fmSaveEditor() {
@@ -3617,6 +3825,242 @@
                     window.location.reload();
                 }
             } catch(e) { console.error(e); }
+        }
+
+        // -----------------------------------------------------------
+        // 9b. REDIRECTS VIEW & DOCKER MANAGEMENT
+        // -----------------------------------------------------------
+        async function loadRedirectsView() {
+            const grid = document.getElementById('redirects-grid');
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted);">Lade Weiterleitungsserver...</div>';
+            
+            try {
+                const r = await fetch('/api/redirects');
+                const redirects = r.ok ? await r.json() : [];
+                
+                grid.innerHTML = '';
+                if (redirects.length === 0) {
+                    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted);">Keine Weiterleitungsserver konfiguriert. Erstelle einen mit dem Button oben!</div>';
+                    return;
+                }
+                
+                redirects.forEach(red => {
+                    const card = document.createElement('div');
+                    card.className = 'card interactive stack-card';
+                    
+                    const isRunning = red.state === 'running';
+                    const statusDotColor = isRunning ? 'var(--success)' : 'var(--danger)';
+                    
+                    let rulesHtml = '';
+                    red.rules.forEach(rule => {
+                        rulesHtml += `
+                            <div style="display:flex; justify-content:space-between; font-size:12.5px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.02);">
+                                <strong style="color:var(--primary); font-family:var(--font-mono);">${rule.path}</strong>
+                                <span style="color:var(--text-muted); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:210px;" title="${rule.url}">${rule.url}</span>
+                            </div>
+                        `;
+                    });
+                    
+                    // We escape the JSON object to pass it into editRedirectServer securely
+                    const escapedObj = JSON.stringify(red).replace(/"/g, '&quot;');
+                    
+                    card.innerHTML = `
+                        <div class="stack-headline">
+                            <div>
+                                <h4 class="card-title" style="color:var(--primary); font-size:19px;">Port :${red.port}</h4>
+                                <span style="font-size:11.5px; color:var(--text-muted); font-family:var(--font-mono); margin-top:2px; display:block;">Container: redirect-${red.port}</span>
+                            </div>
+                            
+                            <div class="stack-quick-actions" onclick="event.stopPropagation()">
+                                <button onclick="executeRedirectAction(${red.port}, 'start')" class="btn-quick play" title="Starten" ${isRunning ? 'disabled style="opacity:0.3;"' : ''}>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                </button>
+                                <button onclick="executeRedirectAction(${red.port}, 'restart')" class="btn-quick restart" title="Neustarten">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                                </button>
+                                <button onclick="executeRedirectAction(${red.port}, 'stop')" class="btn-quick stop" title="Stoppen" ${!isRunning ? 'disabled style="opacity:0.3;"' : ''}>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 10px; display:flex; flex-direction:column; gap:4px;">
+                            <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:5px;">Weiterleitungen</div>
+                            ${rulesHtml || '<div style="font-size:12px; color:var(--text-muted);">Keine Regeln definiert.</div>'}
+                        </div>
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px; border-top: 1px solid var(--border); padding-top:12px;">
+                            <span class="badge ${isRunning ? 'success' : 'danger'}" style="font-size:10px;">
+                                ${red.state.toUpperCase()}
+                            </span>
+                            <div style="display:flex; gap: 8px;">
+                                <button onclick="event.stopPropagation(); deleteRedirectServer(${red.port})" class="btn btn-danger btn-sm">Löschen</button>
+                                <button onclick="event.stopPropagation(); editRedirectServer(${escapedObj})" class="btn btn-primary btn-sm">Anpassen</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    card.onclick = () => editRedirectServer(red);
+                    grid.appendChild(card);
+                });
+                
+            } catch(e) {
+                console.error("Error loading redirects:", e);
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--danger);">Fehler beim Laden der Port-Umleitungen.</div>';
+            }
+        }
+
+        function openRedirectModal() {
+            document.getElementById('redirect-modal-title').innerText = "Weiterleitungsserver erstellen";
+            const portInput = document.getElementById('redirect-port');
+            portInput.value = '';
+            portInput.disabled = false;
+            
+            const container = document.getElementById('redirect-rules-container');
+            container.innerHTML = '';
+            
+            // Add default root redirect rule
+            addRedirectRuleRow('/', '');
+            
+            document.getElementById('redirect-modal').classList.add('active');
+        }
+
+        function closeRedirectModal() {
+            document.getElementById('redirect-modal').classList.remove('active');
+        }
+
+        function addRedirectRuleRow(path = '', url = '') {
+            const container = document.getElementById('redirect-rules-container');
+            const row = document.createElement('div');
+            row.className = 'redirect-rule-row';
+            row.style.display = 'flex';
+            row.style.gap = '8px';
+            row.style.alignItems = 'center';
+            row.style.marginBottom = '4px';
+            
+            row.innerHTML = `
+                <input type="text" class="input rule-path mono" placeholder="z.B. /test" value="${path}" style="flex: 1; padding: 8px 12px; font-size:13px;">
+                <span style="color: var(--text-muted); font-size:14px; font-weight:600;">→</span>
+                <input type="text" class="input rule-url mono" placeholder="z.B. https://xy.com" value="${url}" style="flex: 2; padding: 8px 12px; font-size:13px;">
+                <button onclick="this.parentElement.remove()" class="btn btn-danger btn-icon" style="height: 38px; width: 38px; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 14px; height: 14px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            `;
+            container.appendChild(row);
+        }
+
+        async function submitRedirectServer() {
+            const portInput = document.getElementById('redirect-port');
+            const port = parseInt(portInput.value.trim());
+            
+            if (isNaN(port) || port < 1 || port > 65535) {
+                showToast("Port muss eine gültige Zahl zwischen 1 und 65535 sein.", "error");
+                return;
+            }
+            
+            const ruleRows = document.querySelectorAll('.redirect-rule-row');
+            const rules = [];
+            
+            let hasInvalid = false;
+            ruleRows.forEach(row => {
+                const path = row.querySelector('.rule-path').value.trim();
+                const url = row.querySelector('.rule-url').value.trim();
+                if (!path || !url) {
+                    hasInvalid = true;
+                    return;
+                }
+                rules.push({ path, url });
+            });
+            
+            if (hasInvalid) {
+                showToast("Alle Regeln müssen einen Pfad und eine Ziel-URL besitzen.", "error");
+                return;
+            }
+            
+            if (rules.length === 0) {
+                showToast("Mindestens eine Weiterleitungsregel ist erforderlich.", "error");
+                return;
+            }
+            
+            const submitBtn = document.getElementById('redirect-submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Erstelle...";
+            
+            try {
+                const resp = await fetch('/api/redirects', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ port, rules })
+                });
+                
+                const data = await resp.json();
+                if (resp.ok) {
+                    closeRedirectModal();
+                    showToast(`Weiterleitungsserver auf Port ${port} erfolgreich gestartet!`);
+                    loadRedirectsView();
+                } else {
+                    throw new Error(data.error || "Fehler beim Erstellen.");
+                }
+            } catch (e) {
+                showToast(e.message, "error");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Erstellen & Starten";
+            }
+        }
+
+        async function deleteRedirectServer(port) {
+            if (!confirm(`Möchtest du den Weiterleitungsserver auf Port ${port} wirklich dauerhaft löschen?`)) return;
+            
+            showToast(`Lösche Weiterleitung auf Port ${port}...`, "info");
+            try {
+                const resp = await fetch(`/api/redirects/${port}`, { method: 'DELETE' });
+                if (resp.ok) {
+                    showToast(`Port-Weiterleitung ${port} gelöscht.`);
+                    loadRedirectsView();
+                } else {
+                    const data = await resp.json();
+                    throw new Error(data.error || "Fehler beim Löschen.");
+                }
+            } catch(e) {
+                showToast(e.message, "error");
+            }
+        }
+
+        function editRedirectServer(redirectObj) {
+            document.getElementById('redirect-modal-title').innerText = `Weiterleitungsserver Port :${redirectObj.port} anpassen`;
+            const portInput = document.getElementById('redirect-port');
+            portInput.value = redirectObj.port;
+            portInput.disabled = true;
+            
+            const container = document.getElementById('redirect-rules-container');
+            container.innerHTML = '';
+            
+            redirectObj.rules.forEach(rule => {
+                addRedirectRuleRow(rule.path, rule.url);
+            });
+            
+            if (redirectObj.rules.length === 0) {
+                addRedirectRuleRow('/', '');
+            }
+            
+            document.getElementById('redirect-modal').classList.add('active');
+        }
+
+        async function executeRedirectAction(port, action) {
+            showToast(`Führe '${action}' auf Weiterleitungsserver :${port} aus...`, "info");
+            try {
+                const r = await fetch(`/api/redirects/${port}/${action}`, { method: 'POST' });
+                const data = await r.json();
+                if (data.success) {
+                    showToast(`Weiterleitungsserver :${port} erfolgreich ${action === 'start' ? 'gestartet' : action === 'stop' ? 'gestoppt' : 'neu gestartet'}.`);
+                    loadRedirectsView();
+                } else {
+                    showToast(data.output || "Fehler bei der Ausführung.", "error");
+                }
+            } catch(e) {
+                showToast(e.message, "error");
+            }
         }
     </script>
 </body>
