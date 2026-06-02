@@ -2582,7 +2582,9 @@
 
                     const containers = data.stacks[stackName] || [];
                     totalContainers += containers.length;
-                    const maxSpread = Math.min(sliceAngle * 0.4, 0.35);
+                    // Mindestabstand 50px zwischen Containern auf dem Ring
+                    const minContStep = 50 / (STACK_R + CONT_EXTRA);
+                    const maxSpread = Math.min(sliceAngle * 0.42, Math.max(0.35, (containers.length - 1) * minContStep));
 
                     containers.forEach((cont, ci) => {
                         const spread = containers.length > 1
