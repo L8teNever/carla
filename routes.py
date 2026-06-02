@@ -111,16 +111,34 @@ def _fetch_and_cache_task():
         mapping = cf.get_tunnel_mapping()
         access_info = cf.get_access_info()
 
+        # Port-basierter Index: Port → CF-Einträge
+        # Nötig weil Tunnel-Einträge 10.7.0.1:PORT verwenden,
+        # docker local_url aber localhost:PORT liefert
+        port_index: dict = {}
+        for svc_url, entries in mapping.items():
+            try:
+                p = urlparse(svc_url)
+                if p.port:
+                    port_index.setdefault(p.port, []).extend(entries)
+            except Exception:
+                pass
+
         for stack in docker_data["stacks"].values():
             for container in stack:
                 l_url = container["local_url"].rstrip("/")
-                if l_url in mapping:
-                    for entry in mapping[l_url]:
-                        container["cloudflares"].append({
-                            "public_domain": entry["hostname"],
-                            "tunnel_name": entry["tunnel"],
-                            "allowed_emails": access_info.get(entry["hostname"], [])
-                        })
+                cf_entries = mapping.get(l_url, [])
+                if not cf_entries:
+                    try:
+                        port = urlparse(l_url).port
+                        cf_entries = port_index.get(port, [])
+                    except Exception:
+                        cf_entries = []
+                for entry in cf_entries:
+                    container["cloudflares"].append({
+                        "public_domain": entry["hostname"],
+                        "tunnel_name": entry["tunnel"],
+                        "allowed_emails": access_info.get(entry["hostname"], [])
+                    })
 
         docker_data["cf_graph"] = _build_cf_graph_data(cf)
         cache.save(CACHE_KEY, docker_data)
