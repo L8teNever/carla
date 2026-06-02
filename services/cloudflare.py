@@ -4,6 +4,7 @@
 # ==============================================================
 
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class CloudflareClient:
@@ -68,8 +69,8 @@ class CloudflareClient:
     def get_access_info(self) -> dict:
         """Gibt ein Dict zurück: domain -> [erlaubte E-Mails / Gruppen]"""
         access_apps = self.fetch("access/apps")
-        access_info = {}
-        for app in access_apps:
+
+        def _fetch_app_policies(app):
             policies = self.fetch(f"access/apps/{app['id']}/policies")
             entries = []
             for pol in policies:
@@ -87,7 +88,14 @@ class CloudflareClient:
                         entries.append(f"Gruppe: {group_id}")
                     elif "everyone" in inc:
                         entries.append("Jeder")
-            access_info[app["domain"]] = list(set(entries))
+            return app["domain"], list(set(entries))
+
+        access_info = {}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(_fetch_app_policies, app): app for app in access_apps}
+            for future in as_completed(futures):
+                domain, entries = future.result()
+                access_info[domain] = entries
         return access_info
 
     def list_tunnels(self) -> list:
