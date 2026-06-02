@@ -21,17 +21,55 @@ class CloudflareClient:
     def fetch(self, endpoint: str) -> list:
         if endpoint in self._cache:
             return self._cache[endpoint]
-        try:
-            res = requests.get(
-                f"{self.base_url}/accounts/{self.account_id}/{endpoint}",
-                headers=self.headers,
-                timeout=5,
-            )
-            data = res.json().get("result", [])
-            self._cache[endpoint] = data
-            return data
-        except Exception:
-            return []
+
+        # Wenn cfd_tunnel abgefragt wird, standardmäßig gelöschte Tunnel ausschließen
+        if "cfd_tunnel" in endpoint and "is_deleted" not in endpoint:
+            separator = "&" if "?" in endpoint else "?"
+            actual_endpoint = f"{endpoint}{separator}is_deleted=false"
+        else:
+            actual_endpoint = endpoint
+
+        all_results = []
+        page = 1
+        per_page = 50
+
+        while True:
+            try:
+                separator = "&" if "?" in actual_endpoint else "?"
+                url = f"{self.base_url}/accounts/{self.account_id}/{actual_endpoint}{separator}page={page}&per_page={per_page}"
+                res = requests.get(
+                    url,
+                    headers=self.headers,
+                    timeout=5,
+                )
+                if res.status_code != 200:
+                    print(f"❌ [Cloudflare] API Error GET {endpoint} (Page {page}): {res.status_code} - {res.text}")
+                    break
+                
+                resp_json = res.json()
+                results = resp_json.get("result", [])
+                
+                if not isinstance(results, list):
+                    # Manche Endpunkte liefern ein einzelnes Objekt statt einer Liste
+                    if isinstance(results, dict):
+                        return results
+                    all_results = results
+                    break
+                
+                all_results.extend(results)
+                
+                # Pagination-Metadaten prüfen
+                result_info = resp_json.get("result_info", {})
+                total_pages = result_info.get("total_pages", 1)
+                if page >= total_pages or len(results) < per_page:
+                    break
+                page += 1
+            except Exception as e:
+                print(f"❌ [Cloudflare] Exception in fetch({endpoint}) page {page}: {e}")
+                break
+
+        self._cache[endpoint] = all_results
+        return all_results
 
     def get_tunnel_config(self, tunnel_id: str) -> dict:
         key = f"t_cfg_{tunnel_id}"
@@ -43,10 +81,14 @@ class CloudflareClient:
                 headers=self.headers,
                 timeout=5,
             )
+            if res.status_code != 200:
+                print(f"❌ [Cloudflare] API Error GET cfd_tunnel/{tunnel_id}/configurations: {res.status_code} - {res.text}")
+                return {}
             data = res.json().get("result", {})
             self._cache[key] = data
             return data
-        except Exception:
+        except Exception as e:
+            print(f"❌ [Cloudflare] Exception in get_tunnel_config({tunnel_id}): {e}")
             return {}
 
     def get_tunnel_mapping(self) -> dict:
@@ -155,8 +197,10 @@ class CloudflareClient:
             self._cache.pop(f"t_cfg_{tunnel_id}", None)
             if resp.get("success"):
                 return {"success": True}
+            print(f"❌ [Cloudflare] API Error PUT configurations: {resp.get('errors')}")
             return {"success": False, "errors": resp.get("errors", [])}
         except Exception as e:
+            print(f"❌ [Cloudflare] Exception in update_tunnel_ingress({tunnel_id}): {e}")
             return {"success": False, "errors": [{"message": str(e)}]}
 
     def list_zones(self) -> list:
@@ -164,17 +208,38 @@ class CloudflareClient:
         key = "cf_zones"
         if key in self._cache:
             return self._cache[key]
-        try:
-            res = requests.get(
-                f"{self.base_url}/zones",
-                headers=self.headers,
-                timeout=5,
-            )
-            data = res.json().get("result", [])
-            self._cache[key] = data
-            return data
-        except Exception:
-            return []
+        
+        all_zones = []
+        page = 1
+        per_page = 50
+        
+        while True:
+            try:
+                res = requests.get(
+                    f"{self.base_url}/zones",
+                    headers=self.headers,
+                    params={"page": page, "per_page": per_page},
+                    timeout=5,
+                )
+                if res.status_code != 200:
+                    print(f"❌ [Cloudflare] API Error GET /zones (Page {page}): {res.status_code} - {res.text}")
+                    break
+                
+                resp_json = res.json()
+                zones = resp_json.get("result", [])
+                all_zones.extend(zones)
+                
+                result_info = resp_json.get("result_info", {})
+                total_pages = result_info.get("total_pages", 1)
+                if page >= total_pages or len(zones) < per_page:
+                    break
+                page += 1
+            except Exception as e:
+                print(f"❌ [Cloudflare] Exception in list_zones page {page}: {e}")
+                break
+                
+        self._cache[key] = all_zones
+        return all_zones
 
     def find_zone_id(self, hostname: str) -> str:
         """Findet die passende Zone-ID für einen gegebenen Hostname."""
@@ -189,6 +254,10 @@ class CloudflareClient:
 
     def create_cname_record(self, zone_id: str, hostname: str, target: str) -> dict:
         """Erstellt einen CNAME-Eintrag in der Zone."""
+        if not zone_id:
+            print(f"❌ [Cloudflare] Cannot create CNAME record: zone_id is empty for hostname {hostname}")
+            return {"success": False, "errors": [{"message": "Zone ID is empty"}]}
+            
         url = f"{self.base_url}/zones/{zone_id}/dns_records"
         payload = {
             "type": "CNAME",
@@ -207,12 +276,18 @@ class CloudflareClient:
             resp = res.json()
             if resp.get("success"):
                 return {"success": True, "id": resp.get("result", {}).get("id")}
+            print(f"❌ [Cloudflare] API Error POST dns_records: {resp.get('errors')}")
             return {"success": False, "errors": resp.get("errors", [])}
         except Exception as e:
+            print(f"❌ [Cloudflare] Exception in create_cname_record({hostname}): {e}")
             return {"success": False, "errors": [{"message": str(e)}]}
 
     def delete_cname_record(self, zone_id: str, hostname: str) -> bool:
         """Sucht nach CNAME-Einträgen für den Hostname in der Zone und löscht sie."""
+        if not zone_id:
+            print(f"❌ [Cloudflare] Cannot delete CNAME record: zone_id is empty for hostname {hostname}")
+            return False
+            
         url = f"{self.base_url}/zones/{zone_id}/dns_records"
         try:
             # 1. Datensatz suchen
@@ -222,6 +297,10 @@ class CloudflareClient:
                 params={"name": hostname, "type": "CNAME"},
                 timeout=5
             )
+            if res.status_code != 200:
+                print(f"❌ [Cloudflare] API Error GET dns_records for deletion: {res.status_code} - {res.text}")
+                return False
+                
             records = res.json().get("result", [])
             
             # 2. Alle passenden Datensätze löschen
@@ -234,7 +313,9 @@ class CloudflareClient:
                     timeout=5
                 )
                 if not del_res.json().get("success"):
+                    print(f"❌ [Cloudflare] API Error DELETE dns_record {rec_id}: {del_res.json().get('errors')}")
                     success = False
             return success
-        except Exception:
+        except Exception as e:
+            print(f"❌ [Cloudflare] Exception in delete_cname_record({hostname}): {e}")
             return False
