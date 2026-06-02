@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server
+from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server
 import config
 
 bp = Blueprint("main", __name__)
@@ -976,3 +976,58 @@ def api_errorserver_ensure():
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ---------------------------------------------------------------
+# Static Server Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/sites", methods=["GET"])
+def api_sites_list():
+    return jsonify(static_server.list_sites())
+
+
+@bp.route("/api/sites", methods=["POST"])
+def api_sites_create():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    port_val = data.get("port")
+    if not name:
+        return jsonify({"ok": False, "error": "Name ist erforderlich."}), 400
+    try:
+        port = int(port_val)
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Port muss eine Zahl sein."}), 400
+    if port < 1 or port > 65535:
+        return jsonify({"ok": False, "error": "Port muss zwischen 1 und 65535 liegen."}), 400
+    result = static_server.create_site(
+        name=name, port=port,
+        spa=bool(data.get("spa", False)),
+        cloudflare_data=data.get("cloudflare")
+    )
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/sites/<name>", methods=["DELETE"])
+def api_sites_delete(name):
+    result = static_server.delete_site(name)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/sites/<name>/<action>", methods=["POST"])
+def api_sites_action(name, action):
+    result = static_server.execute_action(name, action)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 500
+
+
+@bp.route("/api/sites/<name>/config", methods=["PUT"])
+def api_sites_config(name):
+    data = request.json or {}
+    result = static_server.update_config(name, spa=bool(data.get("spa", False)))
+    return jsonify(result), 200 if result["ok"] else 400
