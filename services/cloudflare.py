@@ -218,7 +218,7 @@ class CloudflareClient:
                 res = requests.get(
                     f"{self.base_url}/zones",
                     headers=self.headers,
-                    params={"page": page, "per_page": per_page},
+                    params={"page": page, "per_page": per_page, "account.id": self.account_id},
                     timeout=5,
                 )
                 if res.status_code != 200:

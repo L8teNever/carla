@@ -126,41 +126,44 @@ def _fetch_and_cache_task():
         print("✅ [CARLA] Docker-Daten gecacht – Container sind jetzt sichtbar.")
 
         # Stufe 2: Cloudflare-Daten nachladen und Cache aktualisieren
-        cf = cloudflare.CloudflareClient(config.CF_API_TOKEN, config.CF_ACCOUNT_ID)
-        mapping = cf.get_tunnel_mapping()
-        access_info = cf.get_access_info()
+        cf = _get_cf_client()
+        if cf:
+            mapping = cf.get_tunnel_mapping()
+            access_info = cf.get_access_info()
 
-        # Port-basierter Index: Port → CF-Einträge
-        # Nötig weil Tunnel-Einträge 10.7.0.1:PORT verwenden,
-        # docker local_url aber localhost:PORT liefert
-        port_index: dict = {}
-        for svc_url, entries in mapping.items():
-            try:
-                p = urlparse(svc_url)
-                if p.port:
-                    port_index.setdefault(p.port, []).extend(entries)
-            except Exception:
-                pass
+            # Port-basierter Index: Port → CF-Einträge
+            # Nötig weil Tunnel-Einträge 10.7.0.1:PORT verwenden,
+            # docker local_url aber localhost:PORT liefert
+            port_index: dict = {}
+            for svc_url, entries in mapping.items():
+                try:
+                    p = urlparse(svc_url)
+                    if p.port:
+                        port_index.setdefault(p.port, []).extend(entries)
+                except Exception:
+                    pass
 
-        for stack in docker_data["stacks"].values():
-            for container in stack:
-                l_url = container["local_url"].rstrip("/")
-                cf_entries = mapping.get(l_url, [])
-                if not cf_entries:
-                    try:
-                        port = urlparse(l_url).port
-                        cf_entries = port_index.get(port, [])
-                    except Exception:
-                        cf_entries = []
-                for entry in cf_entries:
-                    container["cloudflares"].append({
-                        "public_domain": entry["hostname"],
-                        "tunnel_name": entry["tunnel"],
-                        "allowed_emails": access_info.get(entry["hostname"], [])
-                    })
+            for stack in docker_data["stacks"].values():
+                for container in stack:
+                    l_url = container["local_url"].rstrip("/")
+                    cf_entries = mapping.get(l_url, [])
+                    if not cf_entries:
+                        try:
+                            port = urlparse(l_url).port
+                            cf_entries = port_index.get(port, [])
+                        except Exception:
+                            cf_entries = []
+                    for entry in cf_entries:
+                        container["cloudflares"].append({
+                            "public_domain": entry["hostname"],
+                            "tunnel_name": entry["tunnel"],
+                            "allowed_emails": access_info.get(entry["hostname"], [])
+                        })
 
-        docker_data["cf_graph"] = _build_cf_graph_data(cf)
-        cache.save(CACHE_KEY, docker_data)
+            docker_data["cf_graph"] = _build_cf_graph_data(cf)
+            cache.save(CACHE_KEY, docker_data)
+        else:
+            print("⚠️ [CARLA] Cloudflare nicht konfiguriert. Überspringe Cloudflare-Datenabfrage.")
 
         try:
             discovery.force_reset_baseline()
@@ -951,10 +954,10 @@ def api_redirect_action(port, action):
 
 @bp.route("/api/cloudflare/tunnels", methods=["GET"])
 def api_cloudflare_tunnels():
-    if not config.CF_API_TOKEN or not config.CF_ACCOUNT_ID:
+    cf = _get_cf_client()
+    if not cf:
         return jsonify({"error": "Cloudflare ist nicht konfiguriert."}), 400
     try:
-        cf = cloudflare.CloudflareClient(config.CF_API_TOKEN, config.CF_ACCOUNT_ID)
         tunnels = cf.list_tunnels()
         return jsonify(tunnels)
     except Exception as e:
