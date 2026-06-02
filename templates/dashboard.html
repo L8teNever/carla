@@ -2546,9 +2546,11 @@
 
             function resizeTopo() {
                 if(!topoCanvas) return;
-                topoWidth=topoCanvas.parentElement.clientWidth||window.innerWidth;
-                topoHeight=topoCanvas.parentElement.clientHeight||window.innerHeight;
+                const p = topoCanvas.parentElement;
+                topoWidth  = (p && p.clientWidth  > 10) ? p.clientWidth  : window.innerWidth;
+                topoHeight = (p && p.clientHeight > 10) ? p.clientHeight : window.innerHeight;
                 topoCanvas.width=topoWidth; topoCanvas.height=topoHeight;
+                topoCanvas.style.width=topoWidth+'px'; topoCanvas.style.height=topoHeight+'px';
             }
 
             function initTopology() {
@@ -2835,7 +2837,16 @@
 
             window.initInfrastructure = function() {
                 if(!fullInfrastructureData||!fullInfrastructureData.stacks) return;
+
+                // Sektion muss explizite Höhe haben bevor Canvas gezeichnet werden kann
+                const section = document.getElementById('view-infrastructure');
+                if(section) {
+                    const top = section.getBoundingClientRect().top;
+                    section.style.height = (window.innerHeight - top) + 'px';
+                }
+
                 if(!topoCanvas) setupTopoCanvas();
+                else resizeTopo();
                 if(!topoCtx) return;
                 initTopology();
                 if(!topoAnimId) topoLoop();
