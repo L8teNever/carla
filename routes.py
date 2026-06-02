@@ -172,7 +172,8 @@ def _fetch_and_cache_task():
                     port_index: dict = {}
                     for svc_url, entries in mapping.items():
                         try:
-                            p = urlparse(svc_url)
+                            svc_url_parsed = svc_url if "://" in svc_url else "http://" + svc_url
+                            p = urlparse(svc_url_parsed)
                             if p.port:
                                 port_index.setdefault(p.port, []).extend(entries)
                         except Exception as ex:
@@ -192,7 +193,8 @@ def _fetch_and_cache_task():
                             if l_url:
                                 matched_entries.extend(mapping.get(l_url, []))
                                 try:
-                                    port = urlparse(l_url).port
+                                    l_url_parsed = l_url if "://" in l_url else "http://" + l_url
+                                    port = urlparse(l_url_parsed).port
                                     if port:
                                         matched_entries.extend(port_index.get(port, []))
                                 except Exception as ex:
@@ -201,7 +203,8 @@ def _fetch_and_cache_task():
                             # 2. Match by internal IPs / Container Names in the Cloudflare service URLs
                             for svc_url, entries in mapping.items():
                                 try:
-                                    p = urlparse(svc_url)
+                                    svc_url_parsed = svc_url if "://" in svc_url else "http://" + svc_url
+                                    p = urlparse(svc_url_parsed)
                                     svc_host = p.hostname
                                     if svc_host:
                                         # Remove port if it is in the hostname string
