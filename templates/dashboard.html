@@ -2865,53 +2865,12 @@
                 const r = await fetch('/api/metrics/network');
                 const data = r.ok ? await r.json() : [];
                 if (!Array.isArray(data)) return;
-                
                 let totalRx = 0, totalTx = 0;
                 data.forEach(c => {
                     infraNetData[c.name] = c;
                     totalRx += Number(c.net_rx) || 0;
                     totalTx += Number(c.net_tx) || 0;
-                    
-                    const activity = Number(c.activity) || 0;
-                    if (activity > 0 && infraParticles.length < 300) {
-                        const contId = `c-${c.name}`;
-                        const edges = edgesView.get({ filter: e => {
-                            // Direct domain-to-container edge
-                            if (e.to === contId && e.from.startsWith('domain-')) return true;
-                            // Site-to-container edge
-                            if (e.to === contId && e.from.startsWith('vhost-site-')) return true;
-                            // Redirect rule edge
-                            if (e.from === contId && e.to.startsWith('redirect-rule-')) return true;
-                            // Domain-to-site or domain-to-zt or zt-to-site
-                            if (e.to.startsWith('vhost-site-') && (e.from.startsWith('domain-') || e.from.startsWith('zt-'))) return true;
-                            if (e.to.startsWith('zt-') && e.from.startsWith('domain-')) return true;
-                            return false;
-                        }});
-                        edges.forEach(e => {
-                            const count = Math.min(Math.ceil(activity / 0.5), 3);
-                            let pColor = '#f38020'; // default orange
-                            if (e.from.startsWith('vhost-site-') || e.to.startsWith('vhost-site-')) {
-                                pColor = '#8b5cf6'; // purple
-                            } else if (e.from.startsWith('zt-') || e.to.startsWith('zt-')) {
-                                pColor = '#059669'; // green
-                            } else if (e.to.startsWith('redirect-rule-') || e.from.startsWith('redirect-rule-')) {
-                                pColor = '#db2777'; // pink
-                            }
-
-                            for (let i = 0; i < count; i++) {
-                                infraParticles.push({
-                                    edgeId: e.id,
-                                    from: e.from,
-                                    to: e.to,
-                                    t: Math.random() * 0.2,
-                                    speed: 0.006 + Math.random() * 0.008,
-                                    color: pColor
-                                });
-                            }
-                        });
-                    }
                 });
-
                 document.getElementById('lm-stat-rx').textContent = formatBytes(totalRx * 1024 * 1024) + '/s';
                 document.getElementById('lm-stat-tx').textContent = formatBytes(totalTx * 1024 * 1024) + '/s';
             } catch (e) { console.error(e); }
