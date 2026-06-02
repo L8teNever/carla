@@ -3,14 +3,44 @@
 # Verwaltet kleine Webserver für URL-Weiterleitungen auf Ports.
 # ==============================================================
 
-import os
 import re
 import json
 import config
-from services import system_executor
+from urllib.parse import urlparse
+from services import system_executor, error_server
 from services.cloudflare import CloudflareClient
 
 BASE_DIR = "/opt/stacks"
+
+def _get_base_domain(hostname: str) -> str:
+    parts = hostname.split(".")
+    return ".".join(parts[-2:]) if len(parts) >= 2 else hostname
+
+def _ensure_error_server(cf_client, tunnel_id: str, host_ip: str, hostname: str) -> str | None:
+    """Stellt den Error-Server sicher und richtet Cloudflare ein. Gibt die Error-Domain zurück."""
+    base_domain = _get_base_domain(hostname)
+    error_domain = f"error.{base_domain}"
+
+    # Error-Server starten (error_server.py übernimmt Duplikat-Prüfung)
+    error_server.ensure_server()
+
+    # Cloudflare-Eintrag prüfen und ggf. anlegen
+    if cf_client and tunnel_id:
+        rules = cf_client.get_tunnel_ingress(tunnel_id)
+        has_error_entry = any(r.get("hostname") == error_domain for r in rules)
+        if not has_error_entry:
+            non_catchall = [r for r in rules if not r.get("is_catchall") and r.get("hostname")]
+            non_catchall.append({"hostname": error_domain, "service": f"http://{host_ip}:{error_server.ERROR_SERVER_PORT}"})
+            non_catchall.append({"service": "http_status:404"})
+            cf_client.update_tunnel_ingress(tunnel_id, non_catchall)
+
+        zone_id = cf_client.find_zone_id(error_domain)
+        if zone_id:
+            dns_target = f"{tunnel_id}.cfargotunnel.com"
+            cf_client.delete_cname_record(zone_id, error_domain)
+            cf_client.create_cname_record(zone_id, error_domain, dns_target)
+
+    return error_domain
 
 def _get_cf_client():
     if config.CF_API_TOKEN and config.CF_ACCOUNT_ID:
@@ -60,7 +90,7 @@ def parse_nginx_config(content: str) -> list:
         rules.append({"path": path, "url": url})
     return rules
 
-def generate_nginx_config(rules: list, port: int = 80) -> str:
+def generate_nginx_config(rules: list, port: int = 80, error_domain: str = None) -> str:
     """Generiert den Inhalt der nginx.conf aus den Regeln."""
     config_lines = [
         "server {",
@@ -68,23 +98,26 @@ def generate_nginx_config(rules: list, port: int = 80) -> str:
         "    server_name localhost;",
         ""
     ]
-    # Regeln nach Pfadlänge absteigend sortieren, damit spezifischere Pfade zuerst deklariert werden
     sorted_rules = sorted(rules, key=lambda x: len(x.get('path', '')), reverse=True)
-    
+
     for rule in sorted_rules:
         path = rule.get('path', '').strip()
         url = rule.get('url', '').strip()
         if not path or not url:
             continue
-        # Protokoll erzwingen
         if not (url.startswith("http://") or url.startswith("https://")):
             url = "https://" + url
-            
         config_lines.append(f"    location {path} {{")
         config_lines.append(f"        return 301 {url};")
         config_lines.append("    }")
         config_lines.append("")
-        
+
+    if error_domain:
+        config_lines.append("    location / {")
+        config_lines.append(f"        return 302 https://{error_domain}/404;")
+        config_lines.append("    }")
+        config_lines.append("")
+
     config_lines.append("}")
     return "\n".join(config_lines)
 
@@ -202,7 +235,6 @@ def create_redirect(port: int, rules: list, cloudflare_data: dict = None) -> dic
             return {"ok": False, "error": f"Keine passende Cloudflare DNS-Zone für den Hostname '{hostname}' gefunden."}
             
         # Host-IP aus bestehenden Ingress-Regeln ableiten
-        from urllib.parse import urlparse
         existing_rules = cf_client.get_tunnel_ingress(tunnel_id)
         host_ip = "localhost"
         for r in existing_rules:
@@ -252,7 +284,7 @@ def create_redirect(port: int, rules: list, cloudflare_data: dict = None) -> dic
         up_res = cf_client.update_tunnel_ingress(tunnel_id, new_ingress)
         if not up_res.get("success"):
             return {"ok": False, "error": f"Cloudflare-Tunnel konnte nicht aktualisiert werden: {up_res.get('errors')}"}
-            
+
         # CNAME erstellen
         dns_target = f"{tunnel_id}.cfargotunnel.com"
         cf_client.delete_cname_record(zone_id, hostname)
@@ -260,13 +292,18 @@ def create_redirect(port: int, rules: list, cloudflare_data: dict = None) -> dic
         if not dns_res.get("success"):
             return {"ok": False, "error": f"Cloudflare DNS-Eintrag konnte nicht erstellt werden: {dns_res.get('errors')}"}
 
+        # Error-Server sicherstellen (einmalig, kein Duplikat)
+        error_domain = _ensure_error_server(cf_client, tunnel_id, host_ip, hostname)
+    else:
+        error_domain = None
+
     # 3. Verzeichnis auf dem Host anlegen
     mkdir_res = system_executor.execute_command(f"mkdir -p {workdir}")
     if mkdir_res and "Error" in mkdir_res:
         return {"ok": False, "error": f"Verzeichnis konnte nicht erstellt werden: {mkdir_res}"}
         
     # Konfigurationen erzeugen
-    nginx_content = generate_nginx_config(rules, port)
+    nginx_content = generate_nginx_config(rules, port, error_domain)
     compose_content = generate_compose_config(port)
     
     # Dateien via heredoc schreiben

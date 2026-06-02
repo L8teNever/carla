@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service
+from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server
 import config
 
 bp = Blueprint("main", __name__)
@@ -917,3 +917,62 @@ def api_cloudflare_tunnels():
         return jsonify(tunnels)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------
+# Error Server Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/errorserver/status", methods=["GET"])
+def api_errorserver_status():
+    return jsonify(error_server.get_status())
+
+
+@bp.route("/api/errorserver/pages", methods=["GET"])
+def api_errorserver_list():
+    return jsonify(error_server.list_pages())
+
+
+@bp.route("/api/errorserver/pages", methods=["POST"])
+def api_errorserver_add():
+    data = request.json or {}
+    path = data.get("path", "").strip()
+    title = data.get("title", "").strip()
+    message = data.get("message", "").strip()
+    if not path or not title:
+        return jsonify({"ok": False, "error": "Pfad und Titel sind erforderlich."}), 400
+    result = error_server.add_page(
+        path=path, title=title, message=message,
+        code=data.get("code", ""), color=data.get("color", "#7c3aed")
+    )
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/errorserver/pages/<path:page_path>", methods=["PUT"])
+def api_errorserver_update(page_path):
+    data = request.json or {}
+    title = data.get("title", "").strip()
+    if not title:
+        return jsonify({"ok": False, "error": "Titel ist erforderlich."}), 400
+    result = error_server.update_page(
+        path=page_path, title=title,
+        message=data.get("message", "").strip(),
+        code=data.get("code", ""), color=data.get("color", "#7c3aed")
+    )
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/errorserver/pages/<path:page_path>", methods=["DELETE"])
+def api_errorserver_delete(page_path):
+    result = error_server.delete_page(page_path)
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/errorserver/ensure", methods=["POST"])
+def api_errorserver_ensure():
+    """Startet den Error-Server falls er nicht läuft."""
+    try:
+        error_server.ensure_server()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
