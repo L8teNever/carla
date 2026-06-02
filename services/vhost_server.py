@@ -255,7 +255,16 @@ def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
     if not name or not domain_input or not tunnel_id:
         return {"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}
 
+    # Bereinige extra_hostnames vorab
+    extra_hostnames_clean = [h.strip() for h in (extra_hostnames or []) if h.strip()]
+
     hostname, path = _parse_domain(domain_input)
+    if not hostname and extra_hostnames_clean:
+        hostname = extra_hostnames_clean[0]
+        extra_hostnames = extra_hostnames_clean[1:]
+    else:
+        extra_hostnames = extra_hostnames_clean
+
     if not hostname:
         return {"ok": False, "error": "Ungültige Domain: Hostname darf nicht leer sein."}
 

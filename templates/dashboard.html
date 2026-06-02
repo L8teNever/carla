@@ -1999,7 +1999,7 @@
                             </div>
                             <div class="form-group" style="margin-bottom:0;">
                                 <label class="form-label" style="font-size:10px;">Weitere Domains <span style="color:var(--text-muted);font-weight:400;">(optional, eine pro Zeile)</span></label>
-                                <textarea id="site-extra-domains" class="input mono" rows="2" placeholder="alias.domain.de&#10;www.domain.de" style="resize:vertical;padding:8px 12px;font-size:12px;line-height:1.5;"></textarea>
+                                <textarea id="site-extra-domains" class="input mono" rows="2" placeholder="alias.domain.de&#10;www.domain.de" style="resize:vertical;padding:8px 12px;font-size:12px;line-height:1.5;" oninput="updateSitePreview()"></textarea>
                             </div>
                             <div style="font-size:11px;color:var(--text-muted);background:rgba(255,255,255,0.02);border-radius:var(--r-md);padding:8px 12px;">
                                 ⚡ Geteilter Container — alle Domains zeigen auf dieselben Dateien
@@ -4558,6 +4558,15 @@
             const val = document.getElementById('site-cf-hostname').value.trim().replace(/^https?:\/\//, '');
             const preview = document.getElementById('site-domain-preview');
             if (!val) { preview.textContent = ''; return; }
+            if (val.startsWith('/')) {
+                const extraVal = document.getElementById('site-extra-domains').value.trim().split('\n')[0].trim();
+                if (extraVal) {
+                    preview.textContent = `→ Pfad-Routing: ${extraVal}${val}`;
+                } else {
+                    preview.textContent = `→ Pfad: ${val} (Hauptdomain in 'Weitere Domains' eintragen!)`;
+                }
+                return;
+            }
             const slashIdx = val.indexOf('/');
             if (slashIdx > 0) {
                 const host = val.slice(0, slashIdx);
