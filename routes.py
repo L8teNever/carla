@@ -188,7 +188,7 @@ def _fetch_and_cache_task():
                             internal_ips = container.get("internal_ips", [])
                             matched_entries = []
 
-                            # 1. Match by local_url directly
+                            # 1. Match by local_url / host port
                             l_url = container.get("local_url", "").rstrip("/")
                             if l_url:
                                 matched_entries.extend(mapping.get(l_url, []))
@@ -199,6 +199,11 @@ def _fetch_and_cache_task():
                                         matched_entries.extend(port_index.get(port, []))
                                 except Exception as ex:
                                     log_f.write(f"  Container {c_name} port parse error: {ex}\n")
+
+                            # 1b. Also try internal container port (CF tunnels often use container_name:container_port)
+                            c_port = container.get("container_port")
+                            if c_port and c_port != container.get("host_port"):
+                                matched_entries.extend(port_index.get(c_port, []))
 
                             # 2. Match by internal IPs / Container Names in the Cloudflare service URLs
                             for svc_url, entries in mapping.items():
@@ -364,6 +369,10 @@ def api_cf_debug_log():
                             matched.extend(port_index.get(port, []))
                     except Exception:
                         pass
+
+                c_port = container.get("container_port")
+                if c_port and c_port != container.get("host_port"):
+                    matched.extend(port_index.get(c_port, []))
                         
                 for svc_url, entries in mapping.items():
                     try:

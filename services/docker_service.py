@@ -29,7 +29,6 @@ def get_github_url(image_full_name: str, github_token: str) -> str | None:
 def fetch_docker_data(github_token: str) -> dict:
     """Holt lokale Container-Daten."""
     result = {"stacks": {}, "os": "Unbekannt", "error": None}
-    target_ip = system_executor.get_host_ip()
 
     try:
         # OS-Info
@@ -73,11 +72,18 @@ def fetch_docker_data(github_token: str) -> dict:
                 state = parts[5].strip()
 
                 local_url = ""
+                host_port = None
+                container_port = None
                 if "->" in ports:
                     try:
-                        host_side = ports.split(",")[0].split("->")[0].strip()
-                        ip, port = host_side.rsplit(":", 1) if ":" in host_side else (target_ip, host_side)
-                        local_url = f"http://{target_ip if ip in ['0.0.0.0', '::', ''] else ip}:{port}"
+                        first_mapping = ports.split(",")[0].strip()
+                        host_side, container_side = first_mapping.split("->")
+                        host_side = host_side.strip()
+                        _, host_port_str = host_side.rsplit(":", 1) if ":" in host_side else ("", host_side)
+                        container_port_str = container_side.strip().split("/")[0]
+                        host_port = int(host_port_str)
+                        container_port = int(container_port_str)
+                        local_url = f"http://localhost:{host_port}"
                     except Exception:
                         pass
 
@@ -86,6 +92,8 @@ def fetch_docker_data(github_token: str) -> dict:
                     "name": name,
                     "image": img,
                     "local_url": local_url,
+                    "host_port": host_port,
+                    "container_port": container_port,
                     "ports_raw": ports,
                     "status_text": status_text,
                     "state": state,
