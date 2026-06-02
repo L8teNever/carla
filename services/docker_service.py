@@ -50,7 +50,7 @@ def fetch_docker_data(github_token: str) -> dict:
             ids_out = system_executor.execute_command("docker ps -aq")
             ids = [i.strip() for i in ids_out.splitlines() if i.strip()]
             if ids:
-                inspect_cmd = f"docker inspect --format '{{{{.Name}}}}\t{{{{range .NetworkSettings.Networks}}}}{{{{.IPAddress}}}} {{{{end}}}}' {' '.join(ids)}"
+                inspect_cmd = f"docker inspect --format '{{{{.Name}}}}\\t{{{{range .NetworkSettings.Networks}}}}{{{{.IPAddress}}}} {{{{end}}}}' {' '.join(ids)}"
                 inspect_out = system_executor.execute_command(inspect_cmd)
                 for line in inspect_out.splitlines():
                     parts = line.split("\t")

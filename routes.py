@@ -158,71 +158,90 @@ def _fetch_and_cache_task():
 
         # Stufe 2: Cloudflare-Daten nachladen und Cache aktualisieren
         cf = _get_cf_client()
-        if cf:
-            mapping = cf.get_tunnel_mapping()
-            access_info = cf.get_access_info()
-
-            # Port-basierter Index: Port → CF-Einträge
-            # Nötig weil Tunnel-Einträge 10.7.0.1:PORT verwenden,
-            # docker local_url aber localhost:PORT liefert
-            port_index: dict = {}
-            for svc_url, entries in mapping.items():
+        
+        with open("data/cf_debug.log", "w", encoding="utf-8") as log_f:
+            log_f.write("Cloudflare Client: " + str(cf is not None) + "\n")
+            if cf:
                 try:
-                    p = urlparse(svc_url)
-                    if p.port:
-                        port_index.setdefault(p.port, []).extend(entries)
-                except Exception:
-                    pass
-
-            for stack in docker_data["stacks"].values():
-                for container in stack:
-                    c_name = container["name"]
-                    internal_ips = container.get("internal_ips", [])
-                    matched_entries = []
-
-                    # 1. Match by local_url directly
-                    l_url = container.get("local_url", "").rstrip("/")
-                    if l_url:
-                        matched_entries.extend(mapping.get(l_url, []))
-                        # Match by port index
-                        try:
-                            port = urlparse(l_url).port
-                            if port:
-                                matched_entries.extend(port_index.get(port, []))
-                        except Exception:
-                            pass
-
-                    # 2. Match by internal IPs / Container Names in the Cloudflare service URLs
+                    mapping = cf.get_tunnel_mapping()
+                    access_info = cf.get_access_info()
+                    log_f.write(f"Cloudflare Tunnel mapping keys count: {len(mapping)}\n")
+                    log_f.write(f"Cloudflare Access info keys count: {len(access_info)}\n")
+                    
+                    # Port-basierter Index
+                    port_index: dict = {}
                     for svc_url, entries in mapping.items():
                         try:
                             p = urlparse(svc_url)
-                            svc_host = p.hostname
-                            if svc_host:
-                                # Match by internal IP directly
-                                if svc_host in internal_ips:
-                                    matched_entries.extend(entries)
-                                # Match by container name (case-insensitive, normalize hyphens/underscores)
-                                elif svc_host.lower() == c_name.lower() or svc_host.replace("_", "-").lower() == c_name.replace("_", "-").lower():
-                                    matched_entries.extend(entries)
-                        except Exception:
-                            pass
+                            if p.port:
+                                port_index.setdefault(p.port, []).extend(entries)
+                        except Exception as ex:
+                            log_f.write(f"Error parsing service url {svc_url}: {ex}\n")
+                    
+                    log_f.write(f"Port index keys: {list(port_index.keys())}\n")
 
-                    # Deduplicate matched entries by public_domain (hostname)
-                    seen_domains = set()
-                    for entry in matched_entries:
-                        domain = entry["hostname"]
-                        if domain not in seen_domains:
-                            seen_domains.add(domain)
-                            container["cloudflares"].append({
-                                "public_domain": domain,
-                                "tunnel_name": entry["tunnel"],
-                                "allowed_emails": access_info.get(domain, [])
-                            })
+                    for stack_name, stack in docker_data["stacks"].items():
+                        log_f.write(f"Stack {stack_name}:\n")
+                        for container in stack:
+                            c_name = container["name"]
+                            internal_ips = container.get("internal_ips", [])
+                            matched_entries = []
 
-            docker_data["cf_graph"] = _build_cf_graph_data(cf)
-            cache.save(CACHE_KEY, docker_data)
-        else:
-            print("⚠️ [CARLA] Cloudflare nicht konfiguriert. Überspringe Cloudflare-Datenabfrage.")
+                            # 1. Match by local_url directly
+                            l_url = container.get("local_url", "").rstrip("/")
+                            if l_url:
+                                matched_entries.extend(mapping.get(l_url, []))
+                                try:
+                                    port = urlparse(l_url).port
+                                    if port:
+                                        matched_entries.extend(port_index.get(port, []))
+                                except Exception as ex:
+                                    log_f.write(f"  Container {c_name} port parse error: {ex}\n")
+
+                            # 2. Match by internal IPs / Container Names in the Cloudflare service URLs
+                            for svc_url, entries in mapping.items():
+                                try:
+                                    p = urlparse(svc_url)
+                                    svc_host = p.hostname
+                                    if svc_host:
+                                        # Remove port if it is in the hostname string
+                                        sh_clean = svc_host.split(":")[0].lower()
+                                        cn_clean = c_name.lower()
+                                        
+                                        is_match = False
+                                        if sh_clean in internal_ips:
+                                            is_match = True
+                                        elif sh_clean == cn_clean:
+                                            is_match = True
+                                        elif sh_clean.replace("_", "-") == cn_clean.replace("_", "-"):
+                                            is_match = True
+                                        elif len(sh_clean) > 3 and (sh_clean in cn_clean or cn_clean in sh_clean):
+                                            is_match = True
+                                            
+                                        if is_match:
+                                            matched_entries.extend(entries)
+                                except Exception as ex:
+                                    pass
+
+                            seen_domains = set()
+                            for entry in matched_entries:
+                                domain = entry["hostname"]
+                                if domain not in seen_domains:
+                                    seen_domains.add(domain)
+                                    container["cloudflares"].append({
+                                        "public_domain": domain,
+                                        "tunnel_name": entry["tunnel"],
+                                        "allowed_emails": access_info.get(domain, [])
+                                    })
+                            log_f.write(f"  Container {c_name}: local_url={l_url}, IPs={internal_ips}, matched domains={list(seen_domains)}\n")
+
+                    docker_data["cf_graph"] = _build_cf_graph_data(cf)
+                    cache.save(CACHE_KEY, docker_data)
+                except Exception as e:
+                    log_f.write(f"MATCHING EXCEPTION: {e}\n")
+                    print(f"❌ [CARLA] Matching error: {e}")
+            else:
+                log_f.write("Cloudflare not configured.\n")
 
         try:
             discovery.force_reset_baseline()
