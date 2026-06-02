@@ -2638,7 +2638,11 @@
                             }
 
                             // Spezialfall: vhosts (Virtual Host Sites) dazwischenschalten
-                            let connectedToVhost = false;
+                            let targetNodeId = contId;
+                            let edgeColor = 'rgba(167, 139, 250, 0.25)';
+                            let edgeWidth = 1;
+                            let isDashed = true;
+
                             if (c.name === 'carla-vhost' && fullInfrastructureData.vhosts) {
                                 const vhost = fullInfrastructureData.vhosts.find(v => 
                                     v.hostname === cf.public_domain || 
@@ -2658,21 +2662,43 @@
                                         });
                                         edges.add({ from: vNodeId, to: contId, color: '#8b5cf6', width: 2 });
                                     }
-                                    edges.add({
-                                        from: dId, to: vNodeId,
-                                        width: 1, color: 'rgba(139, 92, 246, 0.45)',
-                                        dashed: true,
-                                        arrows: { to: { enabled: true, scaleFactor: 0.5 } }
-                                    });
-                                    connectedToVhost = true;
+                                    targetNodeId = vNodeId;
+                                    edgeColor = 'rgba(139, 92, 246, 0.45)';
                                 }
                             }
 
-                            if (!connectedToVhost) {
+                            // Zero Trust Integration
+                            if (cf.allowed_emails && cf.allowed_emails.length > 0) {
+                                const ztId = `zt-${cf.public_domain}`;
+                                if (!nodes.get(ztId)) {
+                                    const allowedStr = cf.allowed_emails.join('\n');
+                                    nodes.add({
+                                        id: ztId,
+                                        label: `🛡️ Zero Trust\n${allowedStr}`,
+                                        shape: 'box',
+                                        color: '#059669',
+                                        font: { color: '#ffffff', face: 'Outfit', size: 10, bold: true },
+                                        group: 'access',
+                                        level: 4
+                                    });
+                                    edges.add({
+                                        from: ztId, to: targetNodeId,
+                                        width: 1.5, color: '#059669',
+                                        dashed: false,
+                                        arrows: { to: { enabled: true, scaleFactor: 0.5 } }
+                                    });
+                                }
                                 edges.add({
-                                    from: dId, to: contId,
-                                    width: 1, color: 'rgba(167, 139, 250, 0.25)',
+                                    from: dId, to: ztId,
+                                    width: 1, color: '#059669',
                                     dashed: true,
+                                    arrows: { to: { enabled: true, scaleFactor: 0.5 } }
+                                });
+                            } else {
+                                edges.add({
+                                    from: dId, to: targetNodeId,
+                                    width: edgeWidth, color: edgeColor,
+                                    dashed: isDashed,
                                     arrows: { to: { enabled: true, scaleFactor: 0.5 } }
                                 });
                             }
