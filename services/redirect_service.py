@@ -284,7 +284,8 @@ def create_redirect(port: int, rules: list, cloudflare_data: dict = None) -> dic
     system_executor.execute_command(metadata_cmd)
         
     # Container neu starten (down & up), um Konfiguration anzuwenden
-    up_res = system_executor.execute_command(f"cd {workdir} && docker compose down && docker compose up -d 2>&1")
+    # Timeout 120s wegen möglichem Image-Pull bei erstem Start
+    up_res = system_executor.execute_command(f"cd {workdir} && docker compose down && docker compose up -d 2>&1", timeout=120)
     if up_res and "Error" in up_res and "unsupported" not in up_res.lower():
         if "fatal" in up_res.lower() or "failed" in up_res.lower():
             return {"ok": False, "error": f"Container-Start fehlgeschlagen: {up_res}"}
