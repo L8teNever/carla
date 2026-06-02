@@ -71,28 +71,33 @@ def fetch_docker_data(github_token: str) -> dict:
                 status_text = parts[4].strip()
                 state = parts[5].strip()
 
-                local_url = ""
-                host_port = None
+                host_ports = []
                 container_port = None
+                local_url = ""
                 if "->" in ports:
-                    try:
-                        first_mapping = ports.split(",")[0].strip()
-                        host_side, container_side = first_mapping.split("->")
-                        host_side = host_side.strip()
-                        _, host_port_str = host_side.rsplit(":", 1) if ":" in host_side else ("", host_side)
-                        container_port_str = container_side.strip().split("/")[0]
-                        host_port = int(host_port_str)
-                        container_port = int(container_port_str)
-                        local_url = f"http://localhost:{host_port}"
-                    except Exception:
-                        pass
+                    for mapping in ports.split(","):
+                        mapping = mapping.strip()
+                        if "->" not in mapping:
+                            continue
+                        try:
+                            host_side, container_side = mapping.split("->")
+                            host_side = host_side.strip()
+                            _, hp_str = host_side.rsplit(":", 1) if ":" in host_side else ("", host_side)
+                            hp = int(hp_str)
+                            host_ports.append(hp)
+                            if container_port is None:
+                                container_port = int(container_side.strip().split("/")[0])
+                        except Exception:
+                            pass
+                    if host_ports:
+                        local_url = f"http://localhost:{host_ports[0]}"
 
                 containers.append({
                     "stack": stack,
                     "name": name,
                     "image": img,
                     "local_url": local_url,
-                    "host_port": host_port,
+                    "host_ports": host_ports,
                     "container_port": container_port,
                     "ports_raw": ports,
                     "status_text": status_text,

@@ -188,21 +188,18 @@ def _fetch_and_cache_task():
                             internal_ips = container.get("internal_ips", [])
                             matched_entries = []
 
-                            # 1. Match by local_url / host port
+                            # 1. Match by all host ports
                             l_url = container.get("local_url", "").rstrip("/")
                             if l_url:
                                 matched_entries.extend(mapping.get(l_url, []))
-                                try:
-                                    l_url_parsed = l_url if "://" in l_url else "http://" + l_url
-                                    port = urlparse(l_url_parsed).port
-                                    if port:
-                                        matched_entries.extend(port_index.get(port, []))
-                                except Exception as ex:
-                                    log_f.write(f"  Container {c_name} port parse error: {ex}\n")
+                            for hp in container.get("host_ports", []):
+                                matched_entries.extend(port_index.get(hp, []))
+                                matched_entries.extend(mapping.get(f"http://localhost:{hp}", []))
 
                             # 1b. Also try internal container port (CF tunnels often use container_name:container_port)
                             c_port = container.get("container_port")
-                            if c_port and c_port != container.get("host_port"):
+                            host_ports_set = set(container.get("host_ports", []))
+                            if c_port and c_port not in host_ports_set:
                                 matched_entries.extend(port_index.get(c_port, []))
 
                             # 2. Match by internal IPs / Container Names in the Cloudflare service URLs
@@ -362,16 +359,13 @@ def api_cf_debug_log():
                 # Perform the matching logic
                 if l_url:
                     matched.extend(mapping.get(l_url, []))
-                    try:
-                        l_url_parsed = l_url if "://" in l_url else "http://" + l_url
-                        port = urlparse(l_url_parsed).port
-                        if port:
-                            matched.extend(port_index.get(port, []))
-                    except Exception:
-                        pass
+                for hp in container.get("host_ports", []):
+                    matched.extend(port_index.get(hp, []))
+                    matched.extend(mapping.get(f"http://localhost:{hp}", []))
 
                 c_port = container.get("container_port")
-                if c_port and c_port != container.get("host_port"):
+                host_ports_set = set(container.get("host_ports", []))
+                if c_port and c_port not in host_ports_set:
                     matched.extend(port_index.get(c_port, []))
                         
                 for svc_url, entries in mapping.items():
