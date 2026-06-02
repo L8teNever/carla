@@ -201,18 +201,28 @@ def create_redirect(port: int, rules: list, cloudflare_data: dict = None) -> dic
         if not zone_id:
             return {"ok": False, "error": f"Keine passende Cloudflare DNS-Zone für den Hostname '{hostname}' gefunden."}
             
-        # Ingress aktualisieren (lokal auf http://localhost:<port>)
+        # Host-IP aus bestehenden Ingress-Regeln ableiten
+        from urllib.parse import urlparse
         existing_rules = cf_client.get_tunnel_ingress(tunnel_id)
+        host_ip = "localhost"
+        for r in existing_rules:
+            svc = r.get("service", "")
+            if svc.startswith("http://") and not r.get("is_catchall"):
+                parsed = urlparse(svc)
+                if parsed.hostname and parsed.hostname not in ("localhost", "127.0.0.1"):
+                    host_ip = parsed.hostname
+                    break
+
         new_ingress = []
         found_existing = False
-        
+
         for r in existing_rules:
             if r.get("is_catchall") or not r.get("hostname"):
                 continue
             if r.get("hostname") == hostname:
                 new_ingress.append({
                     "hostname": hostname,
-                    "service": f"http://localhost:{port}"
+                    "service": f"http://{host_ip}:{port}"
                 })
                 found_existing = True
             else:
@@ -220,11 +230,11 @@ def create_redirect(port: int, rules: list, cloudflare_data: dict = None) -> dic
                     "hostname": r["hostname"],
                     "service": r["service"]
                 })
-                
+
         if not found_existing:
             new_ingress.append({
                 "hostname": hostname,
-                "service": f"http://localhost:{port}"
+                "service": f"http://{host_ip}:{port}"
             })
             
         # Finde alte Catch-All-Regel
