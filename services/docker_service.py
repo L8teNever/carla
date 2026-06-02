@@ -1,3 +1,8 @@
+# ==============================================================
+# CARLA – Docker Service
+# Steuert und überwacht Docker-Container und Compose-Stacks lokal.
+# ==============================================================
+
 from . import system_executor
 import requests
 
@@ -11,6 +16,7 @@ def get_github_url(image_full_name: str, github_token: str) -> str | None:
                 "Authorization": f"Bearer {github_token}",
                 "Accept": "application/vnd.github.v3+json"
             }
+            # verify=False ist beibehalten wegen urllib3 Deaktivierung in main
             response = requests.get(api_url, headers=headers, timeout=2, verify=False)
             if response.status_code == 200:
                 return f"https://github.com/{repo_path}"
@@ -19,8 +25,8 @@ def get_github_url(image_full_name: str, github_token: str) -> str | None:
     return None
 
 
-def fetch_docker_data(unused_host, unused_user, unused_pass, github_token: str) -> dict:
-    """Holt Container-Daten via System-Executor."""
+def fetch_docker_data(github_token: str) -> dict:
+    """Holt lokale Container-Daten."""
     result = {"stacks": {}, "os": "Unbekannt", "error": None}
     target_ip = system_executor.get_host_ip()
 
@@ -74,12 +80,12 @@ def fetch_docker_data(unused_host, unused_user, unused_pass, github_token: str) 
     return result
 
 
-def fetch_container_logs(unused_host, unused_user, unused_pass, container_name, tail=100) -> str:
+def fetch_container_logs(container_name: str, tail=100) -> str:
     """Holt die letzten X Zeilen der Docker-Logs."""
     return system_executor.execute_command(f"docker logs --tail {tail} {container_name}")
 
 
-def execute_container_command(unused_host, unused_user, unused_pass, container_name, cmd) -> str:
+def execute_container_command(container_name: str, cmd: str) -> str:
     """Führt einen Befehl im Docker-Container aus."""
     return system_executor.execute_command(f"docker exec {container_name} {cmd}")
 
@@ -120,18 +126,12 @@ def stack_action(stack_name: str, action: str) -> str:
     else:
         return "Unbekannte Aktion"
 
-    # Update/Pull braucht laenger
     cmd_timeout = 120 if action == "update" else 60
     return system_executor.execute_command(cmd, timeout=cmd_timeout)
 
 
 def deploy_stack(stack_name: str, compose_content: str, env_content: str = "") -> dict:
-    """Erstellt einen neuen Stack aus einer docker-compose.yml.
-
-    Legt ein Verzeichnis unter /opt/stacks/<stack_name> an,
-    schreibt die Compose-Datei (und optional .env) und startet den Stack.
-    """
-    import shlex
+    """Erstellt einen neuen Stack aus einer docker-compose.yml."""
     base_dir = "/opt/stacks"
     workdir = f"{base_dir}/{stack_name}"
 
@@ -141,7 +141,6 @@ def deploy_stack(stack_name: str, compose_content: str, env_content: str = "") -
         return {"ok": False, "error": f"Verzeichnis konnte nicht erstellt werden: {result}"}
 
     # Compose-Datei schreiben (via heredoc)
-    escaped = compose_content.replace("'", "'\\''")
     write_cmd = f"cat > {workdir}/docker-compose.yml << 'CARLA_EOF'\n{compose_content}\nCARLA_EOF"
     result = system_executor.execute_command(write_cmd)
     if result and "Error" in result:
@@ -165,7 +164,7 @@ def deploy_stack(stack_name: str, compose_content: str, env_content: str = "") -
     }
 
 
-def fetch_container_logs_since_last_start(unused_host, unused_user, unused_pass, container_name) -> str:
+def fetch_container_logs_since_last_start(container_name: str) -> str:
     """Holt alle Logs seit dem letzten Start des Containers."""
     started_at = system_executor.execute_command(
         f"docker inspect --format '{{{{.State.StartedAt}}}}' {container_name}"
@@ -175,4 +174,3 @@ def fetch_container_logs_since_last_start(unused_host, unused_user, unused_pass,
         return "Konnte Startzeitpunkt nicht ermitteln."
 
     return system_executor.execute_command(f"docker logs --since {started_at} {container_name}")
-

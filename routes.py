@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager
+from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager
 import config
 
 bp = Blueprint("main", __name__)
@@ -97,10 +97,7 @@ def _fetch_and_cache_task():
     print("="*60)
 
     try:
-        docker_data = ssh_docker.fetch_docker_data(
-            config.SSH_HOST,
-            config.SSH_USER,
-            config.SSH_PASS,
+        docker_data = docker_service.fetch_docker_data(
             config.GITHUB_TOKEN,
         )
 
@@ -237,19 +234,19 @@ def api_stack_performance(stack_name):
 @bp.route("/api/container/<name>/logs", methods=["GET"])
 def api_container_logs(name):
     # Security: In Produktion sollte hier eine Validierung gegen den Cache erfolgen
-    logs = ssh_docker.fetch_container_logs(config.SSH_HOST, config.SSH_USER, config.SSH_PASS, name)
+    logs = docker_service.fetch_container_logs(name)
     return jsonify({"logs": logs})
 
 @bp.route("/api/container/<name>/logs-since-start", methods=["GET"])
 def api_container_logs_since_start(name):
-    logs = ssh_docker.fetch_container_logs_since_last_start(config.SSH_HOST, config.SSH_USER, config.SSH_PASS, name)
+    logs = docker_service.fetch_container_logs_since_last_start(name)
     return jsonify({"logs": logs})
 
 @bp.route("/api/container/<name>/exec", methods=["POST"])
 def api_container_exec(name):
     cmd = request.json.get("command")
     if not cmd: return jsonify({"error": "Kein Befehl gesendet"}), 400
-    output = ssh_docker.execute_container_command(config.SSH_HOST, config.SSH_USER, config.SSH_PASS, name, cmd)
+    output = docker_service.execute_container_command(name, cmd)
     return jsonify({"output": output})
 
 @bp.route("/api/container/<name>/<action>", methods=["POST"])
@@ -257,7 +254,7 @@ def api_container_action(name, action):
     allowed = ("start", "stop", "restart", "pause", "unpause")
     if action not in allowed:
         return jsonify({"error": f"Unerlaubte Aktion: {action}"}), 400
-    output = ssh_docker.container_action(name, action)
+    output = docker_service.container_action(name, action)
     has_error = output and ("Error" in output or "error" in output)
     return jsonify({"output": output, "action": action, "container": name, "success": not has_error})
 
@@ -266,7 +263,7 @@ def api_stack_action(name, action):
     allowed = ("start", "stop", "restart", "down", "update")
     if action not in allowed:
         return jsonify({"error": f"Unerlaubte Aktion: {action}"}), 400
-    output = ssh_docker.stack_action(name, action)
+    output = docker_service.stack_action(name, action)
     has_error = output and output.startswith("Fehler:")
     return jsonify({"output": output, "action": action, "stack": name, "success": not has_error})
 
@@ -291,7 +288,7 @@ def api_stack_deploy():
     if not re.match(r'^[a-zA-Z0-9_-]+$', stack_name):
         return jsonify({"error": "Stack-Name darf nur Buchstaben, Zahlen, - und _ enthalten."}), 400
 
-    result = ssh_docker.deploy_stack(stack_name, compose_content, env_content)
+    result = docker_service.deploy_stack(stack_name, compose_content, env_content)
     if result.get("ok"):
         start_background_fetch()
         return jsonify(result)
@@ -326,19 +323,11 @@ def api_setup_save():
     if not data:
         return jsonify({"error": "Keine Daten erhalten"}), 400
 
-    mode = data.get("mode")
-    if mode not in ("local", "ssh"):
-        return jsonify({"error": "Ungueltiger Modus"}), 400
-
-    if mode == "ssh" and not data.get("ssh_host"):
-        return jsonify({"error": "SSH Host ist erforderlich"}), 400
-
     setup.save_setup(data)
     config.reload()
 
     # Starte Hintergrund-Abfrage nach Setup
-    from services import metrics_worker, system_executor
-    system_executor.close_ssh()
+    from services import metrics_worker
     metrics_worker.start_daemon()
     updater.start_daemon()
     backup.start_scheduler()
@@ -376,7 +365,6 @@ def api_setup_keys_get():
         "gdrive_client_id": mask(data.get("gdrive_client_id", "")),
         "gdrive_client_secret": mask(data.get("gdrive_client_secret", "")),
         "gdrive_refresh_token": mask(data.get("gdrive_refresh_token", "")),
-        "mode": data.get("mode", "local"),
     })
 
 
@@ -405,8 +393,6 @@ def api_setup_keys_update():
 
     # Cache leeren damit neue Keys verwendet werden
     cache.clear(CACHE_KEY)
-    from services import system_executor
-    system_executor.close_ssh()
     start_background_fetch()
 
     return jsonify({"status": "ok", "message": "API-Keys aktualisiert."})

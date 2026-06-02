@@ -45,7 +45,7 @@ def _get_container_fingerprint() -> str:
         "--format '{{.Names}}\t{{.Image}}\t{{.State}}\t{{.Ports}}'"
     )
     out = system_executor.execute_command(cmd)
-    if not out or out.startswith("Error") or out.startswith("SSH-Error"):
+    if not out or out.startswith("Error"):
         # Bei Fehler bleiben wir beim alten Fingerprint → kein Trigger
         return _last_fingerprint or ""
 
@@ -66,9 +66,10 @@ def _get_port_fingerprint() -> str:
         "netstat -tlnH 2>/dev/null | awk '{print $4}' | sort -u",
     ]:
         out = system_executor.execute_command(cmd)
-        if out and not out.startswith("Error") and not out.startswith("SSH-Error"):
+        if out and not out.startswith("Error"):
             return hashlib.sha256(out.strip().encode()).hexdigest()
     return ""
+
 
 
 def _compute_fingerprint() -> str:
