@@ -74,10 +74,29 @@ def _build_cf_graph_data(client: cloudflare.CloudflareClient) -> dict:
             policies = client.fetch(f"access/apps/{app_id}/policies")
             for p_idx, policy in enumerate(policies):
                 for m_idx, member in enumerate(policy.get('include', [])):
-                    for key, val in member.items():
-                        m_id = f"m_{app_id}_{str(val)}"
+                    label = ""
+                    if "email" in member:
+                        val = member["email"]
+                        label = val.get("email", str(val)) if isinstance(val, dict) else str(val)
+                    elif "email_domain" in member:
+                        val = member["email_domain"]
+                        dom = val.get("domain", str(val)) if isinstance(val, dict) else str(val)
+                        label = f"@{dom}"
+                    elif "group" in member:
+                        group = member["group"]
+                        group_name = group.get("name", group.get("id", str(group))) if isinstance(group, dict) else str(group)
+                        label = f"Gruppe: {group_name}"
+                    elif "everyone" in member:
+                        label = "Jeder"
+                    else:
+                        for key, val in member.items():
+                            label = f"{key}: {val}"
+                            break
+                    
+                    if label:
+                        m_id = f"m_{app_id}_{label}"
                         if not any(n['id'] == m_id for n in nodes):
-                            nodes.append({"id": m_id, "label": str(val), "group": "member", "level": 5})
+                            nodes.append({"id": m_id, "label": label, "group": "member", "level": 5})
                         edges.append({"from": app_uid, "to": m_id})
 
     except Exception as e:
