@@ -5,6 +5,7 @@
 
 from . import system_executor
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def get_github_url(image_full_name: str, github_token: str) -> str | None:
@@ -42,7 +43,8 @@ def fetch_docker_data(github_token: str) -> dict:
         # Tab-sep: Project | Name | Image | Ports | Status | RunningState
         cmd = "docker ps -a --format '{{.Label \"com.docker.compose.project\"}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}\t{{.State}}'"
         out = system_executor.execute_command(cmd)
-        
+
+        containers = []
         for line in out.splitlines():
             parts = line.split("\t")
             if len(parts) >= 6:
@@ -51,7 +53,7 @@ def fetch_docker_data(github_token: str) -> dict:
                 img = parts[2].strip()
                 ports = parts[3].strip()
                 status_text = parts[4].strip()
-                state = parts[5].strip() # running, exited, paused, etc.
+                state = parts[5].strip()
 
                 local_url = ""
                 if "->" in ports:
@@ -62,18 +64,32 @@ def fetch_docker_data(github_token: str) -> dict:
                     except Exception:
                         pass
 
-                if stack not in result["stacks"]:
-                    result["stacks"][stack] = []
-
-                result["stacks"][stack].append({
+                containers.append({
+                    "stack": stack,
                     "name": name,
                     "image": img,
                     "local_url": local_url,
                     "ports_raw": ports,
                     "status_text": status_text,
                     "state": state,
-                    "github": get_github_url(img, github_token),
                 })
+
+        # GitHub-URLs parallel abrufen
+        unique_images = list({c["image"] for c in containers})
+        github_map = {}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(get_github_url, img, github_token): img for img in unique_images}
+            for future in as_completed(futures):
+                img = futures[future]
+                github_map[img] = future.result()
+
+        for c in containers:
+            stack = c.pop("stack")
+            c["github"] = github_map.get(c["image"])
+            if stack not in result["stacks"]:
+                result["stacks"][stack] = []
+            result["stacks"][stack].append(c)
+
     except Exception as e:
         result["error"] = str(e)
 
