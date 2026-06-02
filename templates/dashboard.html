@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de" class="dark">
 <head>
     <meta charset="UTF-8">
@@ -1439,82 +1439,35 @@
                 </div>
             </section>
 
-            <!-- 2. INFRASTRUCTURE VIEW (vis-network graph) -->
-            <section id="view-infrastructure" class="page-view">
-                <div class="infra-view-container">
-                    <div class="infra-canvas" id="infrastructure-canvas"></div>
-                    
-                    <!-- Stats overlay card -->
-                    <div class="floating-panel" style="top: 20px; right: 20px; min-width: 200px;">
-                        <div style="font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;">Graph Status</div>
-                        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12.5px;">
-                            <div style="display:flex; justify-content:space-between;"><span>Stacks:</span><strong id="lm-stat-stacks">-</strong></div>
-                            <div style="display:flex; justify-content:space-between;"><span>Container:</span><strong id="lm-stat-containers">-</strong></div>
-                            <div style="display:flex; justify-content:space-between;"><span>Tunnels:</span><strong id="lm-stat-tunnels">-</strong></div>
-                            <div style="display:flex; justify-content:space-between;"><span>Domains:</span><strong id="lm-stat-domains">-</strong></div>
-                            <div style="border-top: 1px solid var(--border); margin: 5px 0;"></div>
-                            <div style="display:flex; justify-content:space-between;"><span>Netzwerk RX:</span><strong id="lm-stat-rx" style="color: var(--success);">-</strong></div>
-                            <div style="display:flex; justify-content:space-between;"><span>Netzwerk TX:</span><strong id="lm-stat-tx" style="color: var(--primary);">-</strong></div>
-                        </div>
+            <!-- 2. INFRASTRUCTURE VIEW (canvas star topology) -->
+            <section id="view-infrastructure" class="page-view" style="padding:0; overflow:hidden; position:relative; background:#050507;">
+                <canvas id="topology-canvas" style="position:absolute;inset:0;width:100%;height:100%;display:block;"></canvas>
+
+                <!-- Stats overlay -->
+                <div class="floating-panel" style="top:16px;right:16px;min-width:190px;z-index:20;">
+                    <div style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Graph Status</div>
+                    <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;">
+                        <div style="display:flex;justify-content:space-between;"><span>Stacks:</span><strong id="lm-stat-stacks">-</strong></div>
+                        <div style="display:flex;justify-content:space-between;"><span>Container:</span><strong id="lm-stat-containers">-</strong></div>
+                        <div style="display:flex;justify-content:space-between;"><span>Domains:</span><strong id="lm-stat-domains">-</strong></div>
+                        <div style="border-top:1px solid var(--border);margin:5px 0;"></div>
+                        <div style="display:flex;justify-content:space-between;"><span>RX:</span><strong id="lm-stat-rx" style="color:var(--success);">-</strong></div>
+                        <div style="display:flex;justify-content:space-between;"><span>TX:</span><strong id="lm-stat-tx" style="color:var(--primary);">-</strong></div>
                     </div>
+                </div>
 
-                    <!-- Left bottom legend card -->
-                    <div class="floating-panel" style="bottom: 20px; left: 20px;">
-                        <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">Legende</div>
-                        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--text-muted);">
-                            <div style="display:flex; align-items:center; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--primary);"></span> Host-Server</div>
-                            <div style="display:flex; align-items:center; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: #4a4a5a;"></span> Compose Stacks</div>
-                            <div style="display:flex; align-items:center; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--success);"></span> Container (Laufend)</div>
-                            <div style="display:flex; align-items:center; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--cf);"></span> Cloudflare Domain</div>
-                        </div>
+                <!-- Legend -->
+                <div class="floating-panel" style="bottom:20px;left:20px;z-index:20;width:265px;">
+                    <h3 style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--text-muted);text-transform:uppercase;margin-bottom:12px;">Legende</h3>
+                    <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+                        <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#8b5cf6;box-shadow:0 0 6px #8b5cf660;flex-shrink:0;"></span><span>Host-Server (Zentrum)</span></div>
+                        <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#52525b;flex-shrink:0;"></span><span>Compose Stacks</span></div>
+                        <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b98160;flex-shrink:0;"></span><span>Öffentliche Domain</span></div>
+                        <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#f97316;box-shadow:0 0 6px #f9731660;flex-shrink:0;"></span><span>Cloudflare Zero Trust</span></div>
                     </div>
-
-                    <!-- Sidebar configuration filter drawer -->
-                    <div class="graph-sidebar" id="graph-sidebar">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 25px;">
-                            <h4 style="font-size: 18px; font-weight: 600;">Netzwerk-Filter</h4>
-                            <button onclick="toggleGraphSidebar()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px; height:20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Suche</label>
-                            <input type="text" id="graph-search" oninput="filterGraphNodes()" class="input" placeholder="Name / Domain eintippen...">
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 10px;">
-                            <label class="form-label">Filterebenen</label>
-                            <div style="display: flex; flex-direction: column; gap: 10px;">
-                                <label style="display:flex; align-items:center; gap: 10px; font-size:13px; cursor:pointer;"><input type="checkbox" checked onchange="toggleLayer('stack', this.checked)"> Compose Stacks</label>
-                                <label style="display:flex; align-items:center; gap: 10px; font-size:13px; cursor:pointer;"><input type="checkbox" checked onchange="toggleLayer('container', this.checked)"> Containers</label>
-                                <label style="display:flex; align-items:center; gap: 10px; font-size:13px; cursor:pointer;"><input type="checkbox" checked onchange="toggleLayer('tunnel', this.checked)"> Cloudflare Tunnels</label>
-                                <label style="display:flex; align-items:center; gap: 10px; font-size:13px; cursor:pointer;"><input type="checkbox" checked onchange="toggleLayer('hostname', this.checked)"> Domains / Hostnames</label>
-                                <label style="display:flex; align-items:center; gap: 10px; font-size:13px; cursor:pointer;"><input type="checkbox" checked onchange="toggleLayer('access', this.checked)"> Access Policies</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Float trigger filter sidebar button -->
-                    <button onclick="toggleGraphSidebar()" class="btn btn-primary" style="position: absolute; bottom: 20px; right: 20px; z-index: 50; width: 46px; height: 46px; border-radius: 50%;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 18px; height: 18px;"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="2" y1="14" x2="6" y2="14"></line><line x1="10" y1="8" x2="14" y2="8"></line><line x1="18" y1="16" x2="22" y2="16"></line></svg>
-                    </button>
-
-                    <!-- Left bottom tooltip element -->
-                    <div id="infra-tooltip" class="floating-panel" style="display:none; pointer-events:none; z-index: 120;"></div>
-
-                    <!-- Right panel detailed preview drawer -->
-                    <div class="preview-drawer" id="infra-drawer">
-                        <div class="drawer-header">
-                            <div style="display:flex; align-items:center; gap: 8px;">
-                                <div id="drawer-status-dot" class="status-dot"></div>
-                                <h3 id="drawer-title" style="font-size: 16px; font-weight: 600;">Vorschau</h3>
-                            </div>
-                            <button onclick="closeInfraDrawer()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px; height:20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                        <div class="drawer-content" id="drawer-body">
-                            <!-- Injected by Javascript -->
-                        </div>
+                    <div style="border-top:1px solid rgba(255,255,255,.05);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:10px;color:var(--text-muted);">Scrollen=Zoom · Ziehen=Pan</span>
+                        <button onclick="topoResetCamera()" style="font-size:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;">Zentrieren</button>
                     </div>
                 </div>
             </section>
@@ -2572,373 +2525,340 @@
         let infraParticles = [];
         let infraNetData = {};
 
-        function toggleGraphSidebar() {
-            document.getElementById('graph-sidebar').classList.toggle('open');
-        }
+        function topoResetCamera() { window.topoPan.x=0; window.topoPan.y=0; window.topoZoom=0.65; }
 
-        function initInfrastructure() {
-            if (!fullInfrastructureData || !fullInfrastructureData.stacks) return;
-            const container = document.getElementById('infrastructure-canvas');
-            if (!container) return;
+        // ── Canvas Topology (Star Map) ──────────────────────────────────────
+        (function() {
+            const ICON_TYPES = ['circle-cyan','diamond-orange','sphere-cyan','slice-orange-blue','triangle-gold','branch-green','cube-cyan','shield-orange','down-triangle-blue','arrow-orange-cyan','square-blue-orange'];
+            const colorPalette = { orange:'#f97316',cyan:'#06b6d4',blue:'#3b82f6',yellow:'#eab308',emerald:'#10b981',violet:'#8b5cf6' };
 
-            const nodes = new vis.DataSet([
-                { id: 'server', label: 'SERVER HOST', shape: 'box', color: '#a78bfa', font: { color: '#110924', face: 'Outfit', size: 15, bold: true }, group: 'root', level: 0 },
-                { id: 'cf_root', label: 'CLOUDFLARE EDGE', shape: 'diamond', color: '#f38020', font: { color: '#ffffff', face: 'Outfit', size: 14, bold: true }, group: 'root', level: 0 }
-            ]);
+            function getIconType(name) {
+                let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))&0xFFFF; return ICON_TYPES[h%ICON_TYPES.length];
+            }
 
-            const edges = new vis.DataSet([]);
-            let totalContainers = 0;
-            const allTunnels = new Set();
-            const allDomains = new Set();
-            const domainCfMap = {};
+            let topoCanvas, topoCtx, topoWidth, topoHeight;
+            window.topoPan = {x:0,y:0};
+            window.topoZoom = 0.65;
+            let topoNodes=[], topoLinks=[];
+            let topoHovered=null, topoDragged=null, topoIsPanning=false;
+            let topoPanStart={x:0,y:0}, topoDragOffset={x:0,y:0};
+            let topoAnimId=null;
 
-            // Pre-scan all containers to build domainCfMap and collect initial domains/tunnels
-            Object.values(fullInfrastructureData.stacks).forEach(containers => {
-                containers.forEach(c => {
-                    if (c.cloudflares) {
-                        c.cloudflares.forEach(cf => {
-                            domainCfMap[cf.public_domain] = {
-                                tunnel_name: cf.tunnel_name,
-                                allowed_emails: cf.allowed_emails || []
-                            };
-                            if (cf.tunnel_name) allTunnels.add(cf.tunnel_name);
-                            allDomains.add(cf.public_domain);
+            function resizeTopo() {
+                if(!topoCanvas) return;
+                topoWidth=topoCanvas.parentElement.clientWidth||window.innerWidth;
+                topoHeight=topoCanvas.parentElement.clientHeight||window.innerHeight;
+                topoCanvas.width=topoWidth; topoCanvas.height=topoHeight;
+            }
+
+            function initTopology() {
+                const data = fullInfrastructureData;
+                if(!data||!data.stacks) return;
+                topoNodes=[]; topoLinks=[];
+
+                topoNodes.push({id:'root',name:'SERVER HOST',type:'host',x:0,y:0,radius:20,targetX:0,targetY:0});
+
+                const stackNames = Object.keys(data.stacks);
+                const STACK_R=300, CONT_EXTRA=190, DOM_EXTRA=150;
+
+                let totalDomains=0, totalContainers=0;
+
+                stackNames.forEach((stackName,si) => {
+                    const angle=(si/stackNames.length)*2*Math.PI;
+                    const sx=Math.cos(angle)*STACK_R, sy=Math.sin(angle)*STACK_R;
+                    const stackId='s'+si;
+                    topoNodes.push({id:stackId,name:stackName,type:'stack',angle,branchBaseAngle:angle,x:sx,y:sy,radius:12,targetX:sx,targetY:sy});
+                    topoLinks.push({source:'root',target:stackId,particles:[]});
+
+                    const containers=data.stacks[stackName]||[];
+                    totalContainers+=containers.length;
+                    containers.forEach((cont,ci) => {
+                        const spread=containers.length>1?(ci-(containers.length-1)/2)*0.28:0;
+                        const ca=angle+spread;
+                        const cr=STACK_R+CONT_EXTRA;
+                        const cx=Math.cos(ca)*cr, cy=Math.sin(ca)*cr;
+                        const contId='c'+si+'_'+ci;
+                        const cfs=cont.cloudflares||[];
+                        const hasZT=cfs.some(cf=>cf.allowed_emails&&cf.allowed_emails.length>0);
+                        topoNodes.push({id:contId,name:cont.name,type:'container',iconType:getIconType(cont.name),
+                            security:hasZT?'zerotrust':'public',isRunning:cont.state==='running',
+                            cloudflares:cfs,parentStackId:stackId,subAngle:ca,branchBaseAngle:angle,
+                            x:cx,y:cy,radius:22,targetX:cx,targetY:cy});
+                        topoLinks.push({source:stackId,target:contId,particles:[]});
+
+                        cfs.forEach((cf,di) => {
+                            totalDomains++;
+                            const spread2=cfs.length>1?(di-(cfs.length-1)/2)*0.38:0;
+                            const da=ca+spread2;
+                            const dr=cr+DOM_EXTRA;
+                            const dx=Math.cos(da)*dr, dy=Math.sin(da)*dr;
+                            const domId='d'+si+'_'+ci+'_'+di;
+                            const isZT=cf.allowed_emails&&cf.allowed_emails.length>0;
+                            topoNodes.push({id:domId,name:cf.public_domain,type:'domain',security:isZT?'zerotrust':'public',
+                                tunnelName:cf.tunnel_name,parentContainerId:contId,subAngle:da,branchBaseAngle:angle,
+                                x:dx,y:dy,radius:7,targetX:dx,targetY:dy});
+                            topoLinks.push({source:contId,target:domId,particles:[]});
                         });
-                    }
+                    });
                 });
-            });
 
-            // Add configured vhost tunnels/domains
-            if (fullInfrastructureData.vhosts) {
-                fullInfrastructureData.vhosts.forEach(v => {
-                    if (v.tunnel_id) allTunnels.add(v.tunnel_id);
-                    if (v.hostname) allDomains.add(v.hostname);
-                    if (v.extra_hostnames) {
-                        v.extra_hostnames.forEach(eh => allDomains.add(eh));
-                    }
-                });
+                document.getElementById('lm-stat-stacks').textContent=stackNames.length;
+                document.getElementById('lm-stat-containers').textContent=totalContainers;
+                document.getElementById('lm-stat-domains').textContent=totalDomains;
             }
 
-            // Add configured redirect tunnels/domains
-            if (fullInfrastructureData.redirects) {
-                fullInfrastructureData.redirects.forEach(r => {
-                    if (r.cloudflare && r.cloudflare.enabled) {
-                        if (r.cloudflare.tunnel_id) allTunnels.add(r.cloudflare.tunnel_id);
-                        if (r.cloudflare.hostname) allDomains.add(r.cloudflare.hostname);
-                    }
-                });
-            }
-
-            // Helper to prevent duplicate edges
-            const addedEdges = new Set();
-            function addEdge(edge) {
-                const key = `${edge.from}->${edge.to}`;
-                if (!addedEdges.has(key)) {
-                    edges.add(edge);
-                    addedEdges.add(key);
+            function drawContainerIcon(ctx,x,y,radius,iconType,security,isRunning) {
+                const ztColor=security==='zerotrust'?'#f97316':'#10b981';
+                ctx.save();
+                ctx.beginPath(); ctx.arc(x,y,radius,0,2*Math.PI);
+                ctx.fillStyle='#0f1015';
+                ctx.strokeStyle=isRunning===false?'#71717a':ztColor;
+                ctx.lineWidth=2.5;
+                ctx.shadowColor=ztColor; ctx.shadowBlur=isRunning===false?0:10;
+                ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
+                switch(iconType) {
+                    case 'circle-cyan': ctx.beginPath();ctx.arc(x,y,9,0,2*Math.PI);ctx.fillStyle='#06b6d4';ctx.fill();break;
+                    case 'diamond-orange': ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+10,y);ctx.lineTo(x,y+10);ctx.lineTo(x-10,y);ctx.closePath();ctx.fillStyle='#f97316';ctx.fill();break;
+                    case 'sphere-cyan': ctx.beginPath();ctx.arc(x,y,10,0,2*Math.PI);let sg=ctx.createRadialGradient(x-3,y-3,2,x,y,10);sg.addColorStop(0,'#fff');sg.addColorStop(.4,'#22d3ee');sg.addColorStop(1,'#0891b2');ctx.fillStyle=sg;ctx.fill();break;
+                    case 'slice-orange-blue': ctx.beginPath();ctx.arc(x,y,10,Math.PI*.25,Math.PI*1.25);ctx.fillStyle='#f97316';ctx.fill();ctx.beginPath();ctx.arc(x,y,10,Math.PI*1.25,Math.PI*.25);ctx.fillStyle='#3b82f6';ctx.fill();break;
+                    case 'triangle-gold': ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+11,y+9);ctx.lineTo(x-11,y+9);ctx.closePath();ctx.strokeStyle='#eab308';ctx.lineWidth=3;ctx.stroke();break;
+                    case 'branch-green': ctx.beginPath();ctx.moveTo(x-7,y+7);ctx.lineTo(x+7,y-7);ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();ctx.beginPath();ctx.arc(x+3,y-3,5,0,2*Math.PI);ctx.fillStyle='#10b981';ctx.fill();break;
+                    case 'cube-cyan': ctx.strokeStyle='#06b6d4';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+9,y-5);ctx.lineTo(x+9,y+5);ctx.lineTo(x,y+10);ctx.lineTo(x-9,y+5);ctx.lineTo(x-9,y-5);ctx.closePath();ctx.stroke();ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x,y+1);ctx.moveTo(x,y+1);ctx.lineTo(x-9,y-5);ctx.moveTo(x,y+1);ctx.lineTo(x+9,y-5);ctx.stroke();break;
+                    case 'shield-orange': ctx.beginPath();ctx.moveTo(x,y-11);ctx.lineTo(x+9,y-6);ctx.lineTo(x+9,y+3);ctx.quadraticCurveTo(x+9,y+10,x,y+12);ctx.quadraticCurveTo(x-9,y+10,x-9,y+3);ctx.lineTo(x-9,y-6);ctx.closePath();ctx.fillStyle='#f97316';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();break;
+                    case 'down-triangle-blue': ctx.beginPath();ctx.moveTo(x-10,y-8);ctx.lineTo(x+10,y-8);ctx.lineTo(x,y+10);ctx.closePath();ctx.fillStyle='#06b6d4';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();break;
+                    case 'arrow-orange-cyan': ctx.beginPath();ctx.arc(x,y,9,0,2*Math.PI);ctx.fillStyle='#f97316';ctx.fill();ctx.beginPath();ctx.moveTo(x+5,y);ctx.lineTo(x-5,y);ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();ctx.beginPath();ctx.moveTo(x-2,y-4);ctx.lineTo(x-6,y);ctx.lineTo(x-2,y+4);ctx.stroke();break;
+                    case 'square-blue-orange': ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI/4);ctx.beginPath();ctx.rect(-8,-8,16,16);ctx.fillStyle='#06b6d4';ctx.fill();ctx.beginPath();ctx.arc(4,4,3.5,0,2*Math.PI);ctx.fillStyle='#f97316';ctx.fill();ctx.restore();break;
                 }
+                ctx.restore();
             }
 
-            // Helper to draw a domain node, its tunnel, and its Zero Trust connection
-            function drawDomainNode(domain, targetNodeId, defaultTunnelId) {
-                const cfInfo = domainCfMap[domain] || {};
-                const tunnelName = cfInfo.tunnel_name;
-                const allowed_emails = cfInfo.allowed_emails || [];
-                const tunnelRef = tunnelName || defaultTunnelId;
+            function drawLabel(ctx, node) {
+                const parent = node.type==='domain'
+                    ? topoNodes.find(n=>n.id===node.parentContainerId)
+                    : node.type==='container'
+                    ? topoNodes.find(n=>n.id===node.parentStackId)
+                    : topoNodes.find(n=>n.id==='root');
+                const angle = parent ? Math.atan2(node.y-parent.y, node.x-parent.x) : (node.angle||0);
+                const dist = node.radius+14;
+                const tx = node.x+Math.cos(angle)*dist;
+                const ty = node.y+Math.sin(angle)*dist;
+                const cos=Math.cos(angle);
+                ctx.textAlign = cos>0.3?'left':cos<-0.3?'right':'center';
+                ctx.textBaseline = Math.sin(angle)>0.4?'top':Math.sin(angle)<-0.4?'bottom':'middle';
 
-                // 1. Draw Tunnel
-                let tunnelNodeId = null;
-                if (tunnelRef) {
-                    tunnelNodeId = `tunnel-${tunnelRef}`;
-                    if (!nodes.get(tunnelNodeId)) {
-                        nodes.add({
-                            id: tunnelNodeId,
-                            label: tunnelName || (tunnelRef.length > 8 ? tunnelRef.substring(0, 8) + '...' : tunnelRef),
-                            shape: 'box',
-                            color: '#18181b',
-                            font: { color: 'var(--primary)', face: 'Outfit' },
-                            group: 'tunnel',
-                            level: 1
-                        });
-                        addEdge({ from: 'cf_root', to: tunnelNodeId, color: '#f38020', width: 2 });
-                    }
+                const label = node.name.length>22 ? node.name.slice(0,20)+'…' : node.name;
+                let sub = null;
+                if(node.type==='container') {
+                    sub = node.security==='zerotrust' ? '🔒 Zero Trust' : '🌐 Öffentlich';
+                } else if(node.type==='domain') {
+                    sub = node.tunnelName ? '⚡ '+node.tunnelName : null;
                 }
 
-                // 2. Draw Domain
-                const dId = `domain-${domain}`;
-                if (!nodes.get(dId)) {
-                    nodes.add({
-                        id: dId,
-                        label: domain,
-                        shape: 'dot',
-                        size: 12,
-                        color: '#f38020',
-                        font: { color: '#fff', size: 11, face: 'Outfit' },
-                        group: 'hostname',
-                        level: 3,
-                        tunnel: tunnelName || ''
-                    });
-                    if (tunnelNodeId) {
-                        addEdge({ from: tunnelNodeId, to: dId, color: '#27272a' });
-                    } else {
-                        // Unconnected to a tunnel directly: link directly to cf_root with a dashed grey line
-                        addEdge({ from: 'cf_root', to: dId, color: '#4b5563', width: 1, dashed: true });
+                ctx.font = 'bold 11px Roboto,sans-serif';
+                const mw = ctx.measureText(label).width;
+                let sw=0; if(sub){ctx.font='9px Roboto,sans-serif';sw=ctx.measureText(sub).width;}
+                const boxW = Math.max(mw,sw)+12;
+                const boxH = sub?26:16;
+                let rx = tx, ry = ty;
+                if(ctx.textAlign==='left') rx=tx-4;
+                else if(ctx.textAlign==='right') rx=tx-boxW+4;
+                else rx=tx-boxW/2;
+                if(ctx.textBaseline==='top') ry=ty-4;
+                else if(ctx.textBaseline==='bottom') ry=ty-boxH-4;
+                else ry=ty-boxH/2;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(rx,ry,boxW,boxH+8,5);
+                ctx.fillStyle='rgba(5,5,7,0.88)';ctx.fill();
+                ctx.strokeStyle='rgba(255,255,255,0.10)';ctx.lineWidth=1;ctx.stroke();
+                ctx.font='bold 11px Roboto,sans-serif';
+                ctx.fillStyle=node===topoHovered?'#fff':'#d4d4d8';
+                if(sub) {
+                    if(ctx.textBaseline==='bottom'){ctx.fillStyle=node.security==='zerotrust'?'#f97316':'#10b981';ctx.font='9px Roboto,sans-serif';ctx.fillText(sub,tx,ty);ctx.fillStyle=node===topoHovered?'#fff':'#d4d4d8';ctx.font='bold 11px Roboto,sans-serif';ctx.fillText(label,tx,ty-12);}
+                    else if(ctx.textBaseline==='top'){ctx.fillText(label,tx,ty);ctx.fillStyle=node.security==='zerotrust'?'#f97316':'#10b981';ctx.font='9px Roboto,sans-serif';ctx.fillText(sub,tx,ty+13);}
+                    else{ctx.fillText(label,tx,ty-6);ctx.fillStyle=node.security==='zerotrust'?'#f97316':'#10b981';ctx.font='9px Roboto,sans-serif';ctx.fillText(sub,tx,ty+6);}
+                } else { ctx.fillText(label,tx,ty); }
+                ctx.restore();
+            }
+
+            function updateTopology() {
+                // Physics spring-back
+                topoNodes.forEach(n => {
+                    if(n===topoDragged||n.id==='root') return;
+                    n.x+=(n.targetX-n.x)*0.10;
+                    n.y+=(n.targetY-n.y)*0.10;
+                });
+                // Particle traffic
+                topoLinks.forEach(link => {
+                    const s=topoNodes.find(n=>n.id===link.source);
+                    const t=topoNodes.find(n=>n.id===link.target);
+                    if(!s||!t) return;
+                    if(Math.random()<0.012) {
+                        let col='#10b981';
+                        if(t.type==='stack') col='#8b5cf6';
+                        else if(t.type==='domain') col=t.security==='zerotrust'?'#f97316':'#10b981';
+                        else if(t.type==='container'&&!t.isRunning) col='#71717a';
+                        link.particles.push({progress:0,speed:0.007+Math.random()*0.01,color:col});
                     }
+                    for(let i=link.particles.length-1;i>=0;i--) {
+                        link.particles[i].progress+=link.particles[i].speed;
+                        if(link.particles[i].progress>=1) link.particles.splice(i,1);
+                    }
+                });
+            }
+
+            function drawTopology() {
+                if(!topoCtx) return;
+                topoCtx.clearRect(0,0,topoWidth,topoHeight);
+                topoCtx.save();
+                topoCtx.translate(topoWidth/2+window.topoPan.x, topoHeight/2+window.topoPan.y);
+                topoCtx.scale(window.topoZoom,window.topoZoom);
+
+                // Links
+                topoLinks.forEach(link => {
+                    const s=topoNodes.find(n=>n.id===link.source);
+                    const t=topoNodes.find(n=>n.id===link.target);
+                    if(!s||!t) return;
+                    const isHov = topoHovered && (link.source===topoHovered.id||link.target===topoHovered.id||
+                        s.branchBaseAngle===topoHovered.branchBaseAngle||t.branchBaseAngle===topoHovered.branchBaseAngle);
+                    topoCtx.beginPath();
+                    topoCtx.moveTo(s.x,s.y); topoCtx.lineTo(t.x,t.y);
+                    topoCtx.strokeStyle=isHov?'rgba(139,92,246,0.85)':'rgba(255,255,255,0.20)';
+                    topoCtx.lineWidth=isHov?2.0:0.9;
+                    topoCtx.stroke();
+                    link.particles.forEach(p => {
+                        const px=s.x+(t.x-s.x)*p.progress, py=s.y+(t.y-s.y)*p.progress;
+                        topoCtx.beginPath();topoCtx.arc(px,py,2.5,0,2*Math.PI);
+                        topoCtx.fillStyle=p.color;
+                        topoCtx.shadowColor=p.color;topoCtx.shadowBlur=8;
+                        topoCtx.fill();topoCtx.shadowBlur=0;
+                    });
+                });
+
+                // Nodes
+                topoNodes.forEach(node => {
+                    const isHov=node===topoHovered;
+                    const sc=isHov?1.2:1.0;
+                    topoCtx.save();
+                    if(node.type==='host') {
+                        const lbl=node.name;
+                        topoCtx.font='bold 10px Roboto,sans-serif';
+                        const tw=topoCtx.measureText(lbl).width;
+                        const rw=(tw+32)*sc,rh=26*sc;
+                        topoCtx.shadowColor='#8b5cf6';topoCtx.shadowBlur=isHov?28:12;
+                        topoCtx.beginPath();topoCtx.roundRect(node.x-rw/2,node.y-rh/2,rw,rh,8);
+                        topoCtx.fillStyle='#8b5cf6';topoCtx.fill();topoCtx.shadowBlur=0;
+                        topoCtx.fillStyle='#fff';topoCtx.textAlign='center';topoCtx.textBaseline='middle';
+                        topoCtx.fillText(lbl,node.x,node.y+1);
+                    } else if(node.type==='stack') {
+                        topoCtx.shadowColor=isHov?'#fff':'transparent';topoCtx.shadowBlur=isHov?16:0;
+                        topoCtx.beginPath();topoCtx.arc(node.x,node.y,node.radius*sc,0,2*Math.PI);
+                        topoCtx.fillStyle='#3f3f46';topoCtx.strokeStyle='#1e293b';topoCtx.lineWidth=2;
+                        topoCtx.fill();topoCtx.stroke();topoCtx.shadowBlur=0;
+                        drawLabel(topoCtx,node);
+                    } else if(node.type==='container') {
+                        if(isHov){topoCtx.shadowColor=node.security==='zerotrust'?'#f97316':'#10b981';topoCtx.shadowBlur=20;}
+                        drawContainerIcon(topoCtx,node.x,node.y,node.radius*sc,node.iconType,node.security,node.isRunning);
+                        topoCtx.shadowBlur=0;
+                        drawLabel(topoCtx,node);
+                    } else if(node.type==='domain') {
+                        const col=node.security==='zerotrust'?'#f97316':'#10b981';
+                        topoCtx.shadowColor=col;topoCtx.shadowBlur=isHov?14:6;
+                        topoCtx.beginPath();topoCtx.arc(node.x,node.y,node.radius*sc,0,2*Math.PI);
+                        topoCtx.fillStyle=col+'33';topoCtx.strokeStyle=col;topoCtx.lineWidth=1.5;
+                        topoCtx.fill();topoCtx.stroke();topoCtx.shadowBlur=0;
+                        topoCtx.beginPath();topoCtx.arc(node.x,node.y,3*sc,0,2*Math.PI);
+                        topoCtx.fillStyle=col;topoCtx.fill();
+                        drawLabel(topoCtx,node);
+                    }
+                    topoCtx.restore();
+                });
+
+                topoCtx.restore();
+            }
+
+            function topoLoop() {
+                updateTopology();
+                drawTopology();
+                topoAnimId=requestAnimationFrame(topoLoop);
+            }
+
+            function screenToWorld(sx,sy) {
+                return { x:(sx-topoWidth/2-window.topoPan.x)/window.topoZoom, y:(sy-topoHeight/2-window.topoPan.y)/window.topoZoom };
+            }
+
+            function findNode(wx,wy) {
+                for(let i=topoNodes.length-1;i>=0;i--) {
+                    const n=topoNodes[i];
+                    const cr=n.type==='host'?40:n.radius+12;
+                    if(Math.hypot(wx-n.x,wy-n.y)<cr) return n;
                 }
-
-                // 3. Draw Zero Trust or direct edge
-                if (allowed_emails.length > 0) {
-                    const ztId = `zt-${domain}`;
-                    if (!nodes.get(ztId)) {
-                        const allowedStr = allowed_emails.join('\n');
-                        nodes.add({
-                            id: ztId,
-                            label: `🛡️ Zero Trust\n${allowedStr}`,
-                            shape: 'box',
-                            color: '#059669', // green
-                            font: { color: '#ffffff', face: 'Outfit', size: 10, bold: true },
-                            group: 'access',
-                            level: 4
-                        });
-                        addEdge({
-                            from: ztId, to: targetNodeId,
-                            width: 1.5, color: '#059669',
-                            dashed: false,
-                            arrows: { to: { enabled: true, scaleFactor: 0.5 } }
-                        });
-                    }
-                    addEdge({
-                        from: dId, to: ztId,
-                        width: 1, color: '#059669',
-                        dashed: true,
-                        arrows: { to: { enabled: true, scaleFactor: 0.5 } }
-                    });
-                } else {
-                    addEdge({
-                        from: dId, to: targetNodeId,
-                        width: 1,
-                        color: targetNodeId.startsWith('vhost-site-') ? 'rgba(139, 92, 246, 0.45)' : 'rgba(167, 139, 250, 0.25)',
-                        dashed: true,
-                        arrows: { to: { enabled: true, scaleFactor: 0.5 } }
-                    });
-                }
+                return null;
             }
 
-            // Draw Stacks & Containers
-            Object.entries(fullInfrastructureData.stacks).forEach(([stackName, containers]) => {
-                nodes.add({ id: stackName, label: stackName, shape: 'dot', color: '#3f3f46', font: { color: '#e4e4e7', face: 'Outfit', bold: true }, group: 'stack', level: 1 });
-                addEdge({ from: 'server', to: stackName, color: '#3f3f46', width: 2 });
+            function setupTopoCanvas() {
+                topoCanvas=document.getElementById('topology-canvas');
+                if(!topoCanvas) return;
+                topoCtx=topoCanvas.getContext('2d');
+                resizeTopo();
+                window.addEventListener('resize',resizeTopo);
 
-                totalContainers += containers.length;
-                containers.forEach(c => {
-                    const contId = `c-${c.name}`;
-                    const isRunning = c.state === 'running';
-                    nodes.add({
-                        id: contId,
-                        label: c.name,
-                        shape: 'circularImage',
-                        image: 'https://api.dicebear.com/7.x/shapes/svg?seed=' + c.name,
-                        group: 'container',
-                        level: 2,
-                        color: { border: isRunning ? 'var(--success)' : 'var(--danger)', background: '#18181b' },
-                        borderWidth: 3,
-                        state: c.state,
-                        stack: stackName,
-                        image_name: c.image
-                    });
-                    addEdge({ from: stackName, to: contId, color: '#27272a' });
+                topoCanvas.addEventListener('mousedown',e=>{
+                    const wp=screenToWorld(e.offsetX,e.offsetY);
+                    const n=findNode(wp.x,wp.y);
+                    if(n) { topoDragged=n; topoDragOffset={x:wp.x-n.x,y:wp.y-n.y}; }
+                    else { topoIsPanning=true; topoPanStart={x:e.clientX-window.topoPan.x,y:e.clientY-window.topoPan.y}; }
                 });
-            });
-
-            // 1. Proactive Vhost site rendering
-            if (fullInfrastructureData.vhosts) {
-                fullInfrastructureData.vhosts.forEach(vhost => {
-                    const vNodeId = `vhost-site-${vhost.name}`;
-                    if (!nodes.get(vNodeId)) {
-                        nodes.add({
-                            id: vNodeId,
-                            label: `Site: ${vhost.name}`,
-                            shape: 'box',
-                            color: '#8b5cf6', // purple
-                            font: { color: '#ffffff', face: 'Outfit', size: 12, bold: true },
-                            group: 'vhost',
-                            level: 4
-                        });
-                        const carlaVhostId = 'c-carla-vhost';
-                        if (nodes.get(carlaVhostId)) {
-                            addEdge({ from: vNodeId, to: carlaVhostId, color: '#8b5cf6', width: 2 });
-                        }
+                topoCanvas.addEventListener('mousemove',e=>{
+                    const wp=screenToWorld(e.offsetX,e.offsetY);
+                    topoHovered=findNode(wp.x,wp.y);
+                    topoCanvas.style.cursor=topoHovered?'pointer':topoIsPanning?'grabbing':'grab';
+                    if(topoDragged&&topoDragged.id!=='root') {
+                        topoDragged.x=wp.x-topoDragOffset.x;
+                        topoDragged.y=wp.y-topoDragOffset.y;
+                        topoDragged.targetX=topoDragged.x;
+                        topoDragged.targetY=topoDragged.y;
+                    } else if(topoIsPanning) {
+                        window.topoPan.x=e.clientX-topoPanStart.x;
+                        window.topoPan.y=e.clientY-topoPanStart.y;
                     }
-
-                    const domains = [vhost.hostname, ...(vhost.extra_hostnames || [])].filter(Boolean);
-                    domains.forEach(domain => {
-                        drawDomainNode(domain, vNodeId, vhost.tunnel_id);
-                    });
                 });
+                topoCanvas.addEventListener('mouseup',()=>{ topoDragged=null; topoIsPanning=false; });
+                topoCanvas.addEventListener('mouseleave',()=>{ topoDragged=null; topoIsPanning=false; topoHovered=null; });
+                topoCanvas.addEventListener('wheel',e=>{
+                    e.preventDefault();
+                    const factor=e.deltaY<0?1.1:1/1.1;
+                    window.topoZoom=Math.max(0.12,Math.min(3,window.topoZoom*factor));
+                },{passive:false});
             }
 
-            // 2. Proactive Redirect rendering
-            if (fullInfrastructureData.redirects) {
-                fullInfrastructureData.redirects.forEach(red => {
-                    const contId = `c-redirect-${red.port}`;
-                    
-                    if (nodes.get(contId) && red.rules) {
-                        red.rules.forEach((rule, rIdx) => {
-                            const ruleNodeId = `redirect-rule-${red.port}-${rIdx}`;
-                            if (!nodes.get(ruleNodeId)) {
-                                nodes.add({
-                                    id: ruleNodeId,
-                                    label: `${rule.path} ➔ ${rule.url}`,
-                                    shape: 'ellipse',
-                                    color: '#db2777', // pink
-                                    font: { color: '#ffffff', face: 'Outfit', size: 10 },
-                                    group: 'redirect-rule',
-                                    level: 3
-                                });
-                                addEdge({ from: contId, to: ruleNodeId, color: '#db2777', width: 1.5 });
-                            }
-                        });
-                    }
-
-                    if (red.cloudflare && red.cloudflare.enabled && red.cloudflare.hostname) {
-                        const domain = red.cloudflare.hostname;
-                        drawDomainNode(domain, contId, red.cloudflare.tunnel_id);
-                    }
-                });
-            }
-
-            // 3. Draw remaining container cloudflares (for other types of containers)
-            Object.values(fullInfrastructureData.stacks).forEach(containers => {
-                containers.forEach(c => {
-                    const contId = `c-${c.name}`;
-                    if (c.name === 'carla-vhost' || c.name.startsWith('redirect-')) {
-                        return;
-                    }
-                    if (c.cloudflares) {
-                        c.cloudflares.forEach(cf => {
-                            drawDomainNode(cf.public_domain, contId, cf.tunnel_name);
-                        });
-                    }
-                });
-            });
-
-            document.getElementById('lm-stat-stacks').textContent = Object.keys(fullInfrastructureData.stacks).length;
-            document.getElementById('lm-stat-containers').textContent = totalContainers;
-            document.getElementById('lm-stat-tunnels').textContent = allTunnels.size;
-            document.getElementById('lm-stat-domains').textContent = allDomains.size;
-
-            nodesView = new vis.DataView(nodes, {
-                filter: (n) => activeLayers[n.group] !== false && (!graphSearchTerm || n.label.toLowerCase().includes(graphSearchTerm))
-            });
-            edgesView = new vis.DataView(edges);
-
-            const options = {
-                layout: { hierarchical: { enabled: true, direction: 'LR', sortMethod: 'directed', levelSeparation: 260, nodeSpacing: 120 } },
-                physics: { enabled: false },
-                interaction: { hover: true, tooltipDelay: 150 },
-                nodes: { font: { face: 'Outfit', size: 12 } }
+            window.initInfrastructure = function() {
+                if(!fullInfrastructureData||!fullInfrastructureData.stacks) return;
+                if(!topoCanvas) setupTopoCanvas();
+                if(!topoCtx) return;
+                initTopology();
+                if(!topoAnimId) topoLoop();
+                fetchInfraNetworkData();
+                infraInterval=setInterval(fetchInfraNetworkData,5000);
             };
 
-            network = new vis.Network(container, { nodes: nodesView, edges: edgesView }, options);
+            window.stopInfrastructure = function() {
+                if(infraInterval){clearInterval(infraInterval);infraInterval=null;}
+                if(topoAnimId){cancelAnimationFrame(topoAnimId);topoAnimId=null;}
+            };
 
-            network.on("afterDrawing", (ctx) => renderInfraParticles(ctx));
-            network.on("hoverNode", (params) => {
-                const node = nodes.get(params.node);
-                if (node) showInfraTooltip(node, params.event.center);
-            });
-            network.on("blurNode", () => {
-                document.getElementById('infra-tooltip').style.display = 'none';
-            });
-            network.on("selectNode", (params) => {
-                const node = nodes.get(params.nodes[0]);
-                if (node) openInfraDrawer(node);
-            });
-            network.on("deselectNode", () => closeInfraDrawer());
+        })();
 
-            fetchInfraNetworkData();
-            infraInterval = setInterval(fetchInfraNetworkData, 5000);
-            infraAnimate();
-        }
+        function toggleGraphSidebar() {}
 
-        function stopInfrastructure() {
-            if (infraInterval) { clearInterval(infraInterval); infraInterval = null; }
-            if (infraAnimId) { cancelAnimationFrame(infraAnimId); infraAnimId = null; }
-            infraParticles = [];
-            closeInfraDrawer();
-            if (network) { network.destroy(); network = null; }
-        }
 
-        function toggleLayer(layer, isChecked) {
-            activeLayers[layer] = isChecked;
-            if (nodesView) nodesView.refresh();
-        }
+        function toggleLayer() {}
+        function filterGraphNodes() {}
 
-        function filterGraphNodes() {
-            graphSearchTerm = document.getElementById('graph-search').value.toLowerCase().trim();
-            if (nodesView) nodesView.refresh();
-        }
-
-        function showInfraTooltip(node, pos) {
-            const tip = document.getElementById('infra-tooltip');
-            let html = `<strong>${node.label}</strong><br><span style="opacity:0.7;">Typ: ${node.group}</span>`;
-            if (node.group === 'container') {
-                html += `<br><span style="opacity:0.7;">Status: ${node.state}</span>`;
-            }
-            tip.innerHTML = html;
-            tip.style.display = 'block';
-            tip.style.left = (pos.x + 10) + 'px';
-            tip.style.top = (pos.y + 10) + 'px';
-        }
-
-        function openInfraDrawer(node) {
-            const drawer = document.getElementById('infra-drawer');
-            const title = document.getElementById('drawer-title');
-            const body = document.getElementById('drawer-body');
-            const nd = infraNetData[node.label] || {};
-
-            title.innerText = node.label;
-            drawer.classList.add('open');
-
-            let html = '';
-            if (node.group === 'container') {
-                const isRunning = node.state === 'running';
-                html = `
-                    <div class="drawer-section">
-                        <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">Allgemein</div>
-                        <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;"><span>Stack:</span><strong>${node.stack}</strong></div>
-                        <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;"><span>Status:</span><strong style="color:${isRunning ? 'var(--success)' : 'var(--danger)'}">${node.state}</strong></div>
-                        <div style="font-size:11px; color:var(--text-muted); word-break:break-all; font-family:var(--font-mono); margin-top:10px;">${node.image_name}</div>
-                    </div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                        <div class="drawer-section text-center">
-                            <span style="font-size:10px; color:var(--text-muted);">CPU</span>
-                            <div style="font-size:20px; font-weight:700; color:#fff; margin-top:5px;">${nd.cpu ? Number(nd.cpu).toFixed(1) + '%' : '0.0%'}</div>
-                        </div>
-                        <div class="drawer-section text-center">
-                            <span style="font-size:10px; color:var(--text-muted);">RAM</span>
-                            <div style="font-size:20px; font-weight:700; color:#fff; margin-top:5px;">${nd.ram ? Number(nd.ram).toFixed(0) + ' MB' : '0 MB'}</div>
-                        </div>
-                    </div>
-                    <button onclick="showTerminal('${node.label}')" class="btn btn-primary btn-block" style="padding:12px 0; width: 100%;">Terminal öffnen</button>
-                    <button onclick="showStackDetail('${node.stack}')" class="btn btn-block" style="padding:12px 0; width: 100%;">Stack Details</button>
-                `;
-            } else if (node.group === 'stack') {
-                html = `
-                    <div class="drawer-section">
-                        <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">Compose Stack</div>
-                        <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;"><span>Name:</span><strong>${node.label}</strong></div>
-                    </div>
-                    <button onclick="showStackDetail('${node.label}')" class="btn btn-primary btn-block" style="padding:12px 0; width: 100%;">Stack verwalten</button>
-                `;
-            } else {
-                html = `<div style="text-align:center; padding: 40px 0; color:var(--text-muted);">Keine Live-Aktionen verfügbar.</div>`;
-            }
-            body.innerHTML = html;
-        }
-
-        function closeInfraDrawer() {
-            document.getElementById('infra-drawer').classList.remove('open');
-        }
+        function showInfraTooltip() {}
+        function openInfraDrawer() {}
+        function closeInfraDrawer() {}
 
         async function fetchInfraNetworkData() {
             try {
@@ -2997,24 +2917,7 @@
             } catch (e) { console.error(e); }
         }
 
-        function renderInfraParticles(ctx) {
-            if (!network) return;
-            infraParticles = infraParticles.filter(p => p.t <= 1);
-            infraParticles.forEach(p => {
-                p.t += p.speed;
-                const posFrom = network.getPositions([p.from])[p.from];
-                const posTo = network.getPositions([p.to])[p.to];
-                if (!posFrom || !posTo) return;
-
-                const x = posFrom.x + (posTo.x - posFrom.x) * p.t;
-                const y = posFrom.y + (posTo.y - posFrom.y) * p.t;
-
-                ctx.beginPath();
-                ctx.fillStyle = p.color;
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        }
+        function renderInfraParticles(ctx) {}
 
         function infraAnimate() {
             if (!infraInterval) return;
