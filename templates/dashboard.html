@@ -2747,34 +2747,6 @@
                     n.x+=(n.targetX-n.x)*0.10;
                     n.y+=(n.targetY-n.y)*0.10;
                 });
-                // Partikel NUR auf Container→Domain Links mit echtem Traffic
-                topoLinks.forEach(link => {
-                    const s=topoNodes.find(n=>n.id===link.source);
-                    const t=topoNodes.find(n=>n.id===link.target);
-                    if(!s||!t) return;
-
-                    // Nur Container→Domain Links; alle anderen: existierende Partikel ablaufen lassen
-                    if(s.type!=='container'||t.type!=='domain') {
-                        for(let i=link.particles.length-1;i>=0;i--){
-                            link.particles[i].progress+=link.particles[i].speed;
-                            if(link.particles[i].progress>=1) link.particles.splice(i,1);
-                        }
-                        return;
-                    }
-
-                    const net=infraNetData[s.name];
-                    const totalMB=(net?(Number(net.net_rx)||0)+(Number(net.net_tx)||0):0);
-                    if(totalMB>0.05 && link.particles.length<5) {
-                        const rate=Math.min(0.033, totalMB*0.005);
-                        if(Math.random()<rate)
-                            link.particles.push({progress:0,speed:0.008+Math.random()*0.008,
-                                color:t.security==='zerotrust'?'#f97316':'#10b981'});
-                    }
-                    for(let i=link.particles.length-1;i>=0;i--){
-                        link.particles[i].progress+=link.particles[i].speed;
-                        if(link.particles[i].progress>=1) link.particles.splice(i,1);
-                    }
-                });
             }
 
 
@@ -2804,17 +2776,6 @@
                         topoCtx.strokeStyle = 'rgba(255,255,255,0.28)';
                     }
                     topoCtx.stroke();
-
-                    link.particles.forEach(p => {
-                        const px=s.x+(t.x-s.x)*p.progress, py=s.y+(t.y-s.y)*p.progress;
-                        topoCtx.save();
-                        topoCtx.globalAlpha = (active && !inPath) ? 0.05 : 1.0;
-                        topoCtx.beginPath(); topoCtx.arc(px,py,3,0,2*Math.PI);
-                        topoCtx.fillStyle=p.color;
-                        topoCtx.shadowColor=p.color; topoCtx.shadowBlur=(active&&inPath)?12:5;
-                        topoCtx.fill();
-                        topoCtx.restore();
-                    });
                 });
 
                 // Nodes
