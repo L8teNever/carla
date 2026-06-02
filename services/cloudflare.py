@@ -230,3 +230,21 @@ class CloudflareClient:
             return success
         except Exception:
             return False
+
+    def test_connection(self) -> dict:
+        """Testet die Cloudflare-Verbindung."""
+        try:
+            res = requests.get(
+                f"{self.base_url}/accounts/{self.account_id}/cfd_tunnel",
+                headers=self.headers,
+                timeout=5,
+            )
+            resp = res.json()
+            if resp.get("success"):
+                return {"ok": True, "message": "Verbindung erfolgreich."}
+            errors = resp.get("errors", [])
+            msg = errors[0].get("message", "Authentifizierungsfehler") if errors else "Authentifizierungsfehler"
+            return {"ok": False, "error": msg}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
