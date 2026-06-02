@@ -3338,6 +3338,25 @@
                         } else {
                             portsHtml = '<span style="color:var(--text-muted);">-</span>';
                         }
+
+                        let cfHtml = '';
+                        if (c.cloudflares && c.cloudflares.length > 0) {
+                            cfHtml = c.cloudflares.map(cf => {
+                                const isZt = cf.allowed_emails && cf.allowed_emails.length > 0;
+                                const ztBadge = isZt 
+                                    ? `<span class="badge success" style="font-size:10px; padding:2px 6px; margin-left:6px;" title="Abgesichert über Zero Trust: ${cf.allowed_emails.join(', ')}">🛡️ Zero Trust</span>`
+                                    : `<span class="badge danger" style="font-size:10px; padding:2px 6px; margin-left:6px;" title="Achtung: Diese Route ist öffentlich erreichbar!">⚠️ Öffentlich</span>`;
+                                return `
+                                    <div style="margin-top: 6px; display:flex; align-items:center; flex-wrap:wrap; gap:4px; font-size:11.5px;">
+                                        <span style="color:var(--cf); font-weight:600; font-size:9px; letter-spacing:0.5px; text-transform:uppercase;">CF Route:</span>
+                                        <a href="https://${cf.public_domain}" target="_blank" style="color:var(--text); font-family:var(--font-mono); text-decoration:none; font-weight:600;">
+                                            ${cf.public_domain} ↗
+                                        </a>
+                                        ${ztBadge}
+                                    </div>
+                                `;
+                            }).join('');
+                        }
                         
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
@@ -3349,7 +3368,10 @@
                                     <span>${c.status_text}</span>
                                 </div>
                             </td>
-                            <td>${portsHtml}</td>
+                            <td>
+                                ${portsHtml}
+                                ${cfHtml}
+                            </td>
                             <td style="text-align:right;">
                                 <div style="display:flex; gap:6px; justify-content:flex-end;">
                                     <button onclick="executeContainerDirectAction('${c.name}', 'start')" class="btn btn-sm btn-success" title="Container starten" ${isRunning ? 'disabled style="opacity:0.3;"' : ''}>Start</button>
