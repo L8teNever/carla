@@ -150,3 +150,83 @@ class CloudflareClient:
             return {"success": False, "errors": resp.get("errors", [])}
         except Exception as e:
             return {"success": False, "errors": [{"message": str(e)}]}
+
+    def list_zones(self) -> list:
+        """Gibt eine Liste aller Zonen (Domains) zurück."""
+        key = "cf_zones"
+        if key in self._cache:
+            return self._cache[key]
+        try:
+            res = requests.get(
+                f"{self.base_url}/zones",
+                headers=self.headers,
+                timeout=5,
+            )
+            data = res.json().get("result", [])
+            self._cache[key] = data
+            return data
+        except Exception:
+            return []
+
+    def find_zone_id(self, hostname: str) -> str:
+        """Findet die passende Zone-ID für einen gegebenen Hostname."""
+        zones = self.list_zones()
+        # Sortiere Zonen nach Namenslänge absteigend, um das spezifischste Suffix zuerst zu finden
+        sorted_zones = sorted(zones, key=lambda z: len(z.get("name", "")), reverse=True)
+        for zone in sorted_zones:
+            name = zone.get("name", "")
+            if hostname == name or hostname.endswith(f".{name}"):
+                return zone.get("id")
+        return ""
+
+    def create_cname_record(self, zone_id: str, hostname: str, target: str) -> dict:
+        """Erstellt einen CNAME-Eintrag in der Zone."""
+        url = f"{self.base_url}/zones/{zone_id}/dns_records"
+        payload = {
+            "type": "CNAME",
+            "name": hostname,
+            "content": target,
+            "ttl": 1,          # 1 = Automatic
+            "proxied": True
+        }
+        try:
+            res = requests.post(
+                url,
+                headers=self.headers,
+                json=payload,
+                timeout=5
+            )
+            resp = res.json()
+            if resp.get("success"):
+                return {"success": True, "id": resp.get("result", {}).get("id")}
+            return {"success": False, "errors": resp.get("errors", [])}
+        except Exception as e:
+            return {"success": False, "errors": [{"message": str(e)}]}
+
+    def delete_cname_record(self, zone_id: str, hostname: str) -> bool:
+        """Sucht nach CNAME-Einträgen für den Hostname in der Zone und löscht sie."""
+        url = f"{self.base_url}/zones/{zone_id}/dns_records"
+        try:
+            # 1. Datensatz suchen
+            res = requests.get(
+                url,
+                headers=self.headers,
+                params={"name": hostname, "type": "CNAME"},
+                timeout=5
+            )
+            records = res.json().get("result", [])
+            
+            # 2. Alle passenden Datensätze löschen
+            success = True
+            for record in records:
+                rec_id = record.get("id")
+                del_res = requests.delete(
+                    f"{url}/{rec_id}",
+                    headers=self.headers,
+                    timeout=5
+                )
+                if not del_res.json().get("success"):
+                    success = False
+            return success
+        except Exception:
+            return False

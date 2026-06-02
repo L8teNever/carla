@@ -870,6 +870,7 @@ def api_create_redirect():
         
     port_val = data.get("port")
     rules = data.get("rules", [])
+    cloudflare_data = data.get("cloudflare", None)
     
     try:
         port = int(port_val)
@@ -882,7 +883,7 @@ def api_create_redirect():
     if not rules:
         return jsonify({"error": "Mindestens eine Weiterleitungsregel ist erforderlich."}), 400
         
-    res = redirect_service.create_redirect(port, rules)
+    res = redirect_service.create_redirect(port, rules, cloudflare_data)
     if res.get("ok"):
         start_background_fetch()
         return jsonify({"success": True, "port": port})
@@ -908,3 +909,15 @@ def api_redirect_action(port, action):
         return jsonify({"success": True, "output": res.get("output", "")})
     else:
         return jsonify({"error": res.get("error", "Fehler bei der Ausführung."), "output": res.get("output", "")}), 500
+
+
+@bp.route("/api/cloudflare/tunnels", methods=["GET"])
+def api_cloudflare_tunnels():
+    if not config.CF_API_TOKEN or not config.CF_ACCOUNT_ID:
+        return jsonify({"error": "Cloudflare ist nicht konfiguriert."}), 400
+    try:
+        cf = cloudflare.CloudflareClient(config.CF_API_TOKEN, config.CF_ACCOUNT_ID)
+        tunnels = cf.list_tunnels()
+        return jsonify(tunnels)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

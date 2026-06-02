@@ -964,6 +964,249 @@
         .invisible {
             visibility: hidden;
         }
+
+        /* --- DYNAMIC ADDED PREMIUM STYLES --- */
+
+        /* 1. Dashboard Overview Stats & Svg layout fixes */
+        .overview-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--r-xl);
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(20px);
+            transition: var(--transition);
+        }
+
+        .stat-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .stat-content {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--r-lg);
+            background: rgba(167, 139, 250, 0.08);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .stat-icon svg {
+            width: 22px;
+            height: 22px;
+            stroke-width: 2.2px;
+        }
+
+        /* 2. Timeline view structure */
+        .timeline-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 25px;
+            height: calc(100vh - 190px);
+            align-items: stretch;
+        }
+
+        .timeline-sidebar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--r-xl);
+            padding: 18px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            backdrop-filter: blur(20px);
+        }
+
+        .timeline-sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .timeline-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--r-full);
+        }
+        .timeline-sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-item {
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            background: rgba(255, 255, 255, 0.01);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .timeline-item:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: var(--border-hover);
+            transform: translateX(2px);
+        }
+
+        .timeline-item.active {
+            background: rgba(167, 139, 250, 0.08);
+            border-color: rgba(167, 139, 250, 0.3);
+            box-shadow: 0 0 15px rgba(167, 139, 250, 0.08);
+        }
+
+        .timeline-main {
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            gap: 20px;
+        }
+
+        .timeline-main::-webkit-scrollbar {
+            width: 6px;
+        }
+        .timeline-main::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--r-full);
+        }
+        .timeline-main::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* 3. Infrastructure Vis.js Canvas & panels */
+        .infra-view-container {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 190px);
+            border: 1px solid var(--border);
+            border-radius: var(--r-xl);
+            background: rgba(4, 4, 7, 0.6);
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+        }
+
+        .infra-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .floating-panel {
+            position: absolute;
+            background: rgba(18, 17, 24, 0.85);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: 16px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(20px);
+            z-index: 10;
+        }
+
+        .graph-sidebar {
+            position: absolute;
+            top: 0;
+            right: -320px;
+            width: 320px;
+            height: 100%;
+            background: rgba(18, 17, 24, 0.95);
+            border-left: 1px solid var(--border);
+            padding: 25px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(30px);
+            transition: var(--transition);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .graph-sidebar.open {
+            right: 0;
+        }
+
+        .preview-drawer {
+            position: absolute;
+            top: 0;
+            right: -340px;
+            width: 340px;
+            height: 100%;
+            background: rgba(18, 17, 24, 0.95);
+            border-left: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(30px);
+            transition: var(--transition);
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preview-drawer.open {
+            right: 0;
+        }
+
+        .drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .drawer-content {
+            padding: 25px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .drawer-section {
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        /* 4. File Manager container wrapper */
+        .fm-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: calc(100vh - 190px);
+        }
     </style>
 </head>
 <body>
@@ -1666,12 +1909,31 @@
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label class="form-label">Weiterleitungsregeln</label>
-                                <div id="redirect-rules-container" style="display:flex; flex-direction:column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                                <div id="redirect-rules-container" style="display:flex; flex-direction:column; gap: 10px; max-height: 200px; overflow-y: auto; padding-right: 5px;">
                                     <!-- Dynamic rule rows -->
                                 </div>
                                 <button onclick="addRedirectRuleRow()" class="btn btn-sm" style="margin-top: 10px; width: 100%;">
                                     ➕ Regel hinzufügen
                                 </button>
+                            </div>
+                            
+                            <!-- Cloudflare Exposition -->
+                            <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 15px;">
+                                <label style="display:flex; align-items:center; gap: 10px; font-size:13px; cursor:pointer; font-weight:600; user-select:none;">
+                                    <input type="checkbox" id="redirect-cf-enabled" onchange="toggleRedirectCloudflareFields(this.checked)">
+                                    Über Cloudflare Tunnel freigeben
+                                </label>
+                                
+                                <div id="redirect-cf-fields" style="display:none; flex-direction:column; gap: 12px; margin-top: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: var(--r-md);">
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label class="form-label" style="font-size:10px;">Cloudflare Tunnel</label>
+                                        <select id="redirect-cf-tunnel" class="select" style="padding: 8px 12px; font-size:13px;"></select>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label class="form-label" style="font-size:10px;">Öffentlicher Hostname</label>
+                                        <input type="text" id="redirect-cf-hostname" class="input mono" placeholder="z.B. app.meinedomain.de" style="padding: 8px 12px; font-size:13px;">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="modal-actions">
@@ -3860,6 +4122,21 @@
                             </div>
                         `;
                     });
+
+                    let cfHtml = '';
+                    if (red.cloudflare && red.cloudflare.enabled) {
+                        cfHtml = `
+                            <div style="margin-top: 10px; padding: 10px; background: rgba(167, 139, 250, 0.04); border: 1px solid rgba(167, 139, 250, 0.15); border-radius: var(--r-md); display: flex; flex-direction: column; gap: 4px;" onclick="event.stopPropagation()">
+                                <div style="font-size:10px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Cloudflare Tunnel</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <a href="https://${red.cloudflare.hostname}" target="_blank" style="color:#fff; font-size:13px; font-weight:600; text-decoration:none; display:flex; align-items:center; gap: 4px;">
+                                        🌐 ${red.cloudflare.hostname}
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px; height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    }
                     
                     // We escape the JSON object to pass it into editRedirectServer securely
                     const escapedObj = JSON.stringify(red).replace(/"/g, '&quot;');
@@ -3889,6 +4166,8 @@
                             ${rulesHtml || '<div style="font-size:12px; color:var(--text-muted);">Keine Regeln definiert.</div>'}
                         </div>
                         
+                        ${cfHtml}
+                        
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px; border-top: 1px solid var(--border); padding-top:12px;">
                             <span class="badge ${isRunning ? 'success' : 'danger'}" style="font-size:10px;">
                                 ${red.state.toUpperCase()}
@@ -3910,6 +4189,50 @@
             }
         }
 
+        function toggleRedirectCloudflareFields(enabled) {
+            const fields = document.getElementById('redirect-cf-fields');
+            fields.style.display = enabled ? 'flex' : 'none';
+        }
+
+        async function loadCloudflareTunnelsDropdown(selectedTunnelId = null) {
+            const select = document.getElementById('redirect-cf-tunnel');
+            const checkbox = document.getElementById('redirect-cf-enabled');
+            select.innerHTML = '<option value="">Lade Tunnels...</option>';
+            
+            try {
+                const r = await fetch('/api/cloudflare/tunnels');
+                if (!r.ok) {
+                    throw new Error("Nicht konfiguriert");
+                }
+                const tunnels = await r.json();
+                
+                select.innerHTML = '';
+                if (!tunnels || tunnels.length === 0) {
+                    select.innerHTML = '<option value="">Keine aktiven Tunnels gefunden</option>';
+                    checkbox.disabled = true;
+                    checkbox.checked = false;
+                    toggleRedirectCloudflareFields(false);
+                    return;
+                }
+                
+                checkbox.disabled = false;
+                tunnels.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.innerText = `${t.name} (${t.status})`;
+                    if (selectedTunnelId && t.id === selectedTunnelId) {
+                        opt.selected = true;
+                    }
+                    select.appendChild(opt);
+                });
+            } catch(e) {
+                select.innerHTML = '<option value="">Cloudflare nicht konfiguriert oder Fehler</option>';
+                checkbox.disabled = true;
+                checkbox.checked = false;
+                toggleRedirectCloudflareFields(false);
+            }
+        }
+
         function openRedirectModal() {
             document.getElementById('redirect-modal-title').innerText = "Weiterleitungsserver erstellen";
             const portInput = document.getElementById('redirect-port');
@@ -3921,6 +4244,11 @@
             
             // Add default root redirect rule
             addRedirectRuleRow('/', '');
+            
+            // Reset Cloudflare fields
+            document.getElementById('redirect-cf-enabled').checked = false;
+            toggleRedirectCloudflareFields(false);
+            loadCloudflareTunnelsDropdown();
             
             document.getElementById('redirect-modal').classList.add('active');
         }
@@ -3982,6 +4310,30 @@
                 return;
             }
             
+            // Cloudflare configuration validation
+            const cfEnabled = document.getElementById('redirect-cf-enabled').checked;
+            let cloudflare = { enabled: false };
+            
+            if (cfEnabled) {
+                const tunnelId = document.getElementById('redirect-cf-tunnel').value;
+                const hostname = document.getElementById('redirect-cf-hostname').value.trim();
+                
+                if (!tunnelId) {
+                    showToast("Bitte wähle einen Cloudflare Tunnel aus.", "error");
+                    return;
+                }
+                if (!hostname) {
+                    showToast("Bitte gib einen öffentlichen Hostname ein.", "error");
+                    return;
+                }
+                
+                cloudflare = {
+                    enabled: true,
+                    tunnel_id: tunnelId,
+                    hostname: hostname
+                };
+            }
+            
             const submitBtn = document.getElementById('redirect-submit-btn');
             submitBtn.disabled = true;
             submitBtn.innerText = "Erstelle...";
@@ -3990,7 +4342,7 @@
                 const resp = await fetch('/api/redirects', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ port, rules })
+                    body: JSON.stringify({ port, rules, cloudflare })
                 });
                 
                 const data = await resp.json();
@@ -4042,6 +4394,21 @@
             
             if (redirectObj.rules.length === 0) {
                 addRedirectRuleRow('/', '');
+            }
+            
+            // Populate Cloudflare settings if enabled
+            const cf = redirectObj.cloudflare || { enabled: false };
+            const checkbox = document.getElementById('redirect-cf-enabled');
+            checkbox.checked = cf.enabled;
+            
+            if (cf.enabled) {
+                toggleRedirectCloudflareFields(true);
+                document.getElementById('redirect-cf-hostname').value = cf.hostname || '';
+                loadCloudflareTunnelsDropdown(cf.tunnel_id);
+            } else {
+                toggleRedirectCloudflareFields(false);
+                document.getElementById('redirect-cf-hostname').value = '';
+                loadCloudflareTunnelsDropdown();
             }
             
             document.getElementById('redirect-modal').classList.add('active');
