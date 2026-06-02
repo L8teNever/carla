@@ -256,6 +256,8 @@ def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
         return {"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}
 
     hostname, path = _parse_domain(domain_input)
+    if not hostname:
+        return {"ok": False, "error": "Ungültige Domain: Hostname darf nicht leer sein."}
 
     sites = _load_meta()
     if any(s.get("name") == name for s in sites):
