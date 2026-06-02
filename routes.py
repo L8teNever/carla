@@ -891,44 +891,6 @@ def api_create_redirect():
         return jsonify({"error": res.get("error", "Fehler beim Erstellen der Weiterleitung.")}), 500
 
 
-# ---------------------------------------------------------------
-# Redirect Server Endpoints
-# ---------------------------------------------------------------
-
-@bp.route("/api/redirects", methods=["GET"])
-def api_list_redirects():
-    return jsonify(redirect_service.list_redirects())
-
-
-@bp.route("/api/redirects", methods=["POST"])
-def api_create_redirect():
-    data = request.json
-    if not data:
-        return jsonify({"error": "Keine Daten empfangen"}), 400
-        
-    port_val = data.get("port")
-    rules = data.get("rules", [])
-    cloudflare_data = data.get("cloudflare", None)
-    
-    try:
-        port = int(port_val)
-    except (ValueError, TypeError):
-        return jsonify({"error": "Ungültiger Port. Port muss eine Zahl sein."}), 400
-        
-    if port < 1 or port > 65535:
-        return jsonify({"error": "Port muss zwischen 1 und 65535 liegen."}), 400
-        
-    if not rules:
-        return jsonify({"error": "Mindestens eine Weiterleitungsregel ist erforderlich."}), 400
-        
-    res = redirect_service.create_redirect(port, rules, cloudflare_data)
-    if res.get("ok"):
-        start_background_fetch()
-        return jsonify({"success": True, "port": port})
-    else:
-        return jsonify({"error": res.get("error", "Fehler beim Erstellen der Weiterleitung.")}), 500
-
-
 @bp.route("/api/redirects/<int:port>", methods=["DELETE"])
 def api_delete_redirect(port):
     res = redirect_service.delete_redirect(port)
@@ -959,58 +921,3 @@ def api_cloudflare_tunnels():
         return jsonify(tunnels)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/api/cloudflare/test", methods=["POST"])
-def api_cloudflare_test():
-    data = request.json or {}
-    token = data.get("cf_api_token", "").strip()
-    account_id = data.get("cf_account_id", "").strip()
-
-    current_setup = setup.load_setup()
-    
-    # Fallback to existing config if masked/omitted
-    test_token = token
-    if not test_token or test_token == "••••••••":
-        test_token = current_setup.get("cf_api_token", "")
-    
-    test_account = account_id
-    if not test_account:
-        test_account = current_setup.get("cf_account_id", "")
-
-    if not test_token or not test_account:
-        return jsonify({"ok": False, "error": "Bitte geben Sie Token und Account-ID an."}), 400
-
-    # Test connection
-    cf = cloudflare.CloudflareClient(test_token, test_account)
-    test_res = cf.test_connection()
-    if not test_res.get("ok"):
-        return jsonify({"ok": False, "error": test_res.get("error", "Authentifizierungsfehler")}), 400
-
-    # Save to setup if keys changed and are not masked placeholder
-    save_needed = False
-    if token and token != "••••••••" and token != current_setup.get("cf_api_token"):
-        current_setup["cf_api_token"] = token
-        save_needed = True
-    if account_id and account_id != current_setup.get("cf_account_id"):
-        current_setup["cf_account_id"] = account_id
-        save_needed = True
-
-    if save_needed:
-        setup.save_setup(current_setup)
-        config.reload()
-
-    # Clear cache
-    cache.clear(CACHE_KEY)
-    
-    # Start background fetch with new config
-    start_background_fetch()
-
-    # Retrieve tunnels list to verify it works fully
-    tunnels = cf.list_tunnels()
-    
-    return jsonify({
-        "ok": True,
-        "message": "Cloudflare-Verbindung erfolgreich hergestellt und Konfiguration aktualisiert.",
-        "tunnels": tunnels
-    })

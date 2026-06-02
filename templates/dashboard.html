@@ -412,17 +412,6 @@
             border-color: rgba(16, 185, 129, 0.3);
         }
 
-        .btn-cf {
-            background: rgba(243, 128, 32, 0.08);
-            border-color: rgba(243, 128, 32, 0.2);
-            color: var(--cf);
-        }
-
-        .btn-cf:hover:not(:disabled) {
-            background: rgba(243, 128, 32, 0.18);
-            border-color: rgba(243, 128, 32, 0.3);
-        }
-
         .btn-sm {
             padding: 6px 12px;
             font-size: 11.5px;
@@ -2076,10 +2065,9 @@
                                     </div>
                                 </div>
                             </div>
-                            <div style="display:flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-                                <button class="btn btn-success" onclick="testGDriveConnection()" style="flex:1; min-width: 150px;">Drive Verbindung testen</button>
-                                <button class="btn btn-cf" onclick="testCloudflareConnection()" style="flex:1; min-width: 150px;">Cloudflare testen</button>
-                                <button class="btn btn-primary" onclick="saveSettingsKeys()" style="flex:1; min-width: 150px;">API-Keys speichern</button>
+                            <div style="display:flex; gap: 10px; margin-top: 10px;">
+                                <button class="btn btn-success" onclick="testGDriveConnection()" style="flex:1;">Drive Verbindung testen</button>
+                                <button class="btn btn-primary" onclick="saveSettingsKeys()" style="flex:1;">API-Keys speichern</button>
                             </div>
                             <div class="badge info" id="settings-keys-output" style="display:none; justify-content:center; font-size:12px;"></div>
                         </div>
@@ -4073,47 +4061,6 @@
                 }
             } catch(e) {
                 showToast(`Verbindungsfehler: ${e.message}`, "error");
-            }
-        }
-
-        async function testCloudflareConnection() {
-            const cfTokenInput = document.getElementById('settings-cf-token');
-            const cfAccountInput = document.getElementById('settings-cf-account');
-            
-            const cfToken = cfTokenInput.value.trim();
-            const cfAccount = cfAccountInput.value.trim();
-            
-            showToast("Verbinde mit Cloudflare...", "info");
-            
-            try {
-                const r = await fetch('/api/cloudflare/test', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        cf_api_token: cfToken,
-                        cf_account_id: cfAccount
-                    })
-                });
-                
-                const data = await r.json();
-                if (data.ok) {
-                    showToast(data.message || "Cloudflare-Verbindung erfolgreich!");
-                    
-                    // Update masked tokens in view if a new one was entered
-                    if (cfToken && cfToken !== "••••••••") {
-                        cfTokenInput.value = "••••••••";
-                    }
-                    
-                    // Reload settings view to display updated info
-                    loadSettingsView();
-                    
-                    // Refresh redirect tunnels dropdown immediately
-                    loadCloudflareTunnelsDropdown();
-                } else {
-                    throw new Error(data.error || "Unbekannter Fehler beim Cloudflare-Test");
-                }
-            } catch(e) {
-                showToast(`Cloudflare-Fehler: ${e.message}`, "error");
             }
         }
 
