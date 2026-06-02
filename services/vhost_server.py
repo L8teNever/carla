@@ -83,7 +83,13 @@ def _generate_nginx_conf(sites: list) -> str:
         host_sites_sorted = sorted(host_sites, key=lambda s: len(s.get("path", "/")), reverse=True)
         root_site = next((s for s in host_sites_sorted if s.get("path", "/") == "/"), None)
 
-        lines += [f"server {{", f"    listen {VHOST_PORT};", f"    server_name {hostname};", "    charset utf-8;", ""]
+        # Sammle alle extra_hostnames der Sites unter diesem Host
+        all_names = {hostname}
+        for s in host_sites:
+            for eh in s.get("extra_hostnames", []):
+                all_names.add(eh)
+        server_name_line = " ".join(sorted(all_names))
+        lines += [f"server {{", f"    listen {VHOST_PORT};", f"    server_name {server_name_line};", "    charset utf-8;", ""]
 
         # Zuerst alle Unterpfad-Sites (alias-basiert)
         for site in host_sites_sorted:
@@ -215,7 +221,33 @@ def list_sites() -> list:
     return _load_meta()
 
 
-def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False) -> dict:
+def _setup_cf_hostname(cf, tunnel_id: str, hostname: str, host_ip: str) -> dict | None:
+    """Richtet Tunnel-Eintrag + CNAME für einen Hostname ein. None = schon vorhanden."""
+    rules = cf.get_tunnel_ingress(tunnel_id)
+    non_catchall = [r for r in rules if not r.get("is_catchall") and r.get("hostname")]
+    existing = next((r for r in non_catchall if r["hostname"] == hostname), None)
+    if existing and f":{VHOST_PORT}" in existing.get("service", ""):
+        return None  # bereits korrekt eingerichtet
+    if existing:
+        return {"ok": False, "error": f"'{hostname}' zeigt bereits auf einen anderen Service ({existing['service']})."}
+    non_catchall.append({"hostname": hostname, "service": f"http://{host_ip}:{VHOST_PORT}"})
+    catchall = next((r for r in rules if r.get("is_catchall")), {"service": "http_status:404"})
+    non_catchall.append(catchall)
+    res = cf.update_tunnel_ingress(tunnel_id, non_catchall)
+    if not res.get("success"):
+        return {"ok": False, "error": f"Tunnel-Update fehlgeschlagen: {res.get('errors')}"}
+    zone_id = cf.find_zone_id(hostname)
+    if not zone_id:
+        return {"ok": False, "error": f"Keine CF-Zone für '{hostname}'."}
+    cf.delete_cname_record(zone_id, hostname)
+    dns = cf.create_cname_record(zone_id, hostname, f"{tunnel_id}.cfargotunnel.com")
+    if not dns.get("success"):
+        return {"ok": False, "error": f"CNAME fehlgeschlagen: {dns.get('errors')}"}
+    return {"ok": True}
+
+
+def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
+             extra_hostnames: list = None) -> dict:
     """domain_input kann 'host.de' oder 'host.de/pfad/xy' sein."""
     if not name or not domain_input or not tunnel_id:
         return {"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}
@@ -264,6 +296,13 @@ def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False) ->
             if not dns_res.get("success"):
                 return {"ok": False, "error": f"DNS-Eintrag konnte nicht erstellt werden: {dns_res.get('errors')}"}
 
+    # Extra-Hostnames einrichten (zusätzliche Cloudflare-Domains)
+    extra_hostnames = [h.strip() for h in (extra_hostnames or []) if h.strip()]
+    for eh in extra_hostnames:
+        result = _setup_cf_hostname(cf, tunnel_id, eh, host_ip)
+        if result and not result.get("ok"):
+            return result  # Abbruch bei Fehler
+
     # Site-Verzeichnis + Standard-index.html
     site_dir = f"{SITES_DIR}/{name}"
     system_executor.execute_command(f"mkdir -p {site_dir}")
@@ -272,15 +311,19 @@ def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False) ->
     system_executor.execute_command(f"echo '{encoded}' | base64 -d > {site_dir}/index.html")
 
     # Metadata speichern
-    site_entry = {"name": name, "hostname": hostname, "path": path, "tunnel_id": tunnel_id, "spa": spa}
+    site_entry = {
+        "name": name, "hostname": hostname, "path": path,
+        "tunnel_id": tunnel_id, "spa": spa,
+        "extra_hostnames": extra_hostnames,
+    }
     sites.append(site_entry)
     _save_meta(sites)
 
-    # nginx neu laden (kein neuer Container)
     ensure_server(sites)
 
+    all_urls = [f"https://{hostname}{path}"] + [f"https://{eh}" for eh in extra_hostnames]
     return {"ok": True, "name": name, "hostname": hostname, "path": path,
-            "url": f"https://{hostname}{path}", "www_path": site_dir}
+            "urls": all_urls, "www_path": site_dir}
 
 
 def remove_site(name: str) -> dict:

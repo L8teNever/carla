@@ -163,6 +163,10 @@ def start_background_fetch():
 def index(stack_name=None, name=None):
     return render_template("dashboard.html")
 
+@bp.route("/editor")
+def editor_view():
+    return render_template("editor.html")
+
 @bp.route("/api/timeline/snapshots", methods=["GET"])
 def api_timeline_list():
     limit = request.args.get("limit", 100, type=int)
@@ -1054,7 +1058,8 @@ def api_vhosts_add():
     spa = bool(data.get("spa", False))
     if not name or not domain_input or not tunnel_id:
         return jsonify({"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}), 400
-    result = vhost_server.add_site(name=name, domain_input=domain_input, tunnel_id=tunnel_id, spa=spa)
+    extra = [h.strip() for h in data.get("extra_hostnames", []) if h.strip()]
+    result = vhost_server.add_site(name=name, domain_input=domain_input, tunnel_id=tunnel_id, spa=spa, extra_hostnames=extra)
     if result.get("ok"):
         start_background_fetch()
     return jsonify(result), 200 if result["ok"] else 400
