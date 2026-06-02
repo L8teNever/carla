@@ -126,7 +126,7 @@ class CloudflareClient:
         has_catchall = any("hostname" not in r or r.get("is_catchall") for r in ingress_rules)
         cleaned = []
         for r in ingress_rules:
-            if r.get("is_catchall") or "hostname" not in r:
+            if r.get("is_catchall") or not r.get("hostname"):
                 continue
             entry = {"hostname": r["hostname"], "service": r["service"]}
             if r.get("path"):
