@@ -79,12 +79,13 @@ class CloudflareClient:
             res = requests.get(
                 f"{self.base_url}/accounts/{self.account_id}/cfd_tunnel/{tunnel_id}/configurations",
                 headers=self.headers,
-                timeout=5,
+                timeout=10,
             )
             if res.status_code != 200:
-                print(f"❌ [Cloudflare] API Error GET cfd_tunnel/{tunnel_id}/configurations: {res.status_code} - {res.text}")
+                print(f"❌ [Cloudflare] API Error GET tunnel config {tunnel_id}: {res.status_code} - {res.text[:200]}")
                 return {}
-            data = res.json().get("result", {})
+            # .get("result", {}) liefert None wenn "result": null → or {} stellt sicher es ist immer ein dict
+            data = res.json().get("result") or {}
             self._cache[key] = data
             return data
         except Exception as e:
@@ -92,20 +93,29 @@ class CloudflareClient:
             return {}
 
     def get_tunnel_mapping(self) -> dict:
-        """Gibt ein Dict zurück: local_service_url -> [{'hostname': ..., 'tunnel': ...}, ...]"""
+        """Gibt ein Dict zurück: service_url -> [{'hostname': ..., 'tunnel': ...}, ...]"""
         tunnels = self.fetch("cfd_tunnel")
+        print(f"☁️  [Cloudflare] {len(tunnels)} Tunnel gefunden.")
         mapping = {}
         for tun in tunnels:
-            config = self.get_tunnel_config(tun["id"])
-            for ingress in config.get("config", {}).get("ingress", []):
-                if "hostname" in ingress:
-                    svc = ingress["service"].rstrip("/")
-                    if svc not in mapping:
-                        mapping[svc] = []
-                    mapping[svc].append({
+            try:
+                cfg = self.get_tunnel_config(tun["id"])
+                ingress_rules = cfg.get("config", {}).get("ingress", [])
+                count = 0
+                for ingress in ingress_rules:
+                    if "hostname" not in ingress:
+                        continue
+                    svc = ingress.get("service", "").rstrip("/")
+                    if not svc:
+                        continue
+                    mapping.setdefault(svc, []).append({
                         "hostname": ingress["hostname"],
                         "tunnel": tun["name"],
                     })
+                    count += 1
+                print(f"  Tunnel '{tun['name']}': {count} Ingress-Regeln geladen.")
+            except Exception as e:
+                print(f"❌ [Cloudflare] Fehler bei Tunnel '{tun.get('name', tun.get('id'))}': {e}")
         return mapping
 
     def get_access_info(self) -> dict:
