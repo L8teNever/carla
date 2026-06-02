@@ -218,7 +218,10 @@ def ensure_server(sites: list = None):
 
 
 def list_sites() -> list:
-    return _load_meta()
+    sites = _load_meta()
+    for s in sites:
+        s["www_path"] = f"{SITES_DIR}/{s['name']}"
+    return sites
 
 
 def _setup_cf_hostname(cf, tunnel_id: str, hostname: str, host_ip: str) -> dict | None:
