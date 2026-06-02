@@ -44,6 +44,23 @@ def fetch_docker_data(github_token: str) -> dict:
         cmd = "docker ps -a --format '{{.Label \"com.docker.compose.project\"}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}\t{{.State}}'"
         out = system_executor.execute_command(cmd)
 
+        # Container network IPs holen
+        ip_map = {}
+        try:
+            ids_out = system_executor.execute_command("docker ps -aq")
+            ids = [i.strip() for i in ids_out.splitlines() if i.strip()]
+            if ids:
+                inspect_cmd = f"docker inspect --format '{{{{.Name}}}}\t{{{{range .NetworkSettings.Networks}}}}{{{{.IPAddress}}}} {{{{end}}}}' {' '.join(ids)}"
+                inspect_out = system_executor.execute_command(inspect_cmd)
+                for line in inspect_out.splitlines():
+                    parts = line.split("\t")
+                    if len(parts) >= 2:
+                        c_name = parts[0].strip().lstrip("/")
+                        ips = [ip.strip() for ip in parts[1].split() if ip.strip()]
+                        ip_map[c_name] = ips
+        except Exception as e:
+            print(f"[Docker Service] Fehler beim Holen der IPs: {e}")
+
         containers = []
         for line in out.splitlines():
             parts = line.split("\t")
@@ -72,6 +89,7 @@ def fetch_docker_data(github_token: str) -> dict:
                     "ports_raw": ports,
                     "status_text": status_text,
                     "state": state,
+                    "internal_ips": ip_map.get(name, [])
                 })
 
         # GitHub-URLs parallel abrufen

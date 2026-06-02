@@ -176,20 +176,48 @@ def _fetch_and_cache_task():
 
             for stack in docker_data["stacks"].values():
                 for container in stack:
-                    l_url = container["local_url"].rstrip("/")
-                    cf_entries = mapping.get(l_url, [])
-                    if not cf_entries:
+                    c_name = container["name"]
+                    internal_ips = container.get("internal_ips", [])
+                    matched_entries = []
+
+                    # 1. Match by local_url directly
+                    l_url = container.get("local_url", "").rstrip("/")
+                    if l_url:
+                        matched_entries.extend(mapping.get(l_url, []))
+                        # Match by port index
                         try:
                             port = urlparse(l_url).port
-                            cf_entries = port_index.get(port, [])
+                            if port:
+                                matched_entries.extend(port_index.get(port, []))
                         except Exception:
-                            cf_entries = []
-                    for entry in cf_entries:
-                        container["cloudflares"].append({
-                            "public_domain": entry["hostname"],
-                            "tunnel_name": entry["tunnel"],
-                            "allowed_emails": access_info.get(entry["hostname"], [])
-                        })
+                            pass
+
+                    # 2. Match by internal IPs / Container Names in the Cloudflare service URLs
+                    for svc_url, entries in mapping.items():
+                        try:
+                            p = urlparse(svc_url)
+                            svc_host = p.hostname
+                            if svc_host:
+                                # Match by internal IP directly
+                                if svc_host in internal_ips:
+                                    matched_entries.extend(entries)
+                                # Match by container name (case-insensitive, normalize hyphens/underscores)
+                                elif svc_host.lower() == c_name.lower() or svc_host.replace("_", "-").lower() == c_name.replace("_", "-").lower():
+                                    matched_entries.extend(entries)
+                        except Exception:
+                            pass
+
+                    # Deduplicate matched entries by public_domain (hostname)
+                    seen_domains = set()
+                    for entry in matched_entries:
+                        domain = entry["hostname"]
+                        if domain not in seen_domains:
+                            seen_domains.add(domain)
+                            container["cloudflares"].append({
+                                "public_domain": domain,
+                                "tunnel_name": entry["tunnel"],
+                                "allowed_emails": access_info.get(domain, [])
+                            })
 
             docker_data["cf_graph"] = _build_cf_graph_data(cf)
             cache.save(CACHE_KEY, docker_data)

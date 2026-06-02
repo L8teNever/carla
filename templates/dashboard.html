@@ -1450,7 +1450,8 @@
                         <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12.5px;">
                             <div style="display:flex; justify-content:space-between;"><span>Stacks:</span><strong id="lm-stat-stacks">-</strong></div>
                             <div style="display:flex; justify-content:space-between;"><span>Container:</span><strong id="lm-stat-containers">-</strong></div>
-                            <div style="display:flex; justify-content:space-between;"><span>Tunnels:</span><strong id="lm-stat-domains">-</strong></div>
+                            <div style="display:flex; justify-content:space-between;"><span>Tunnels:</span><strong id="lm-stat-tunnels">-</strong></div>
+                            <div style="display:flex; justify-content:space-between;"><span>Domains:</span><strong id="lm-stat-domains">-</strong></div>
                             <div style="border-top: 1px solid var(--border); margin: 5px 0;"></div>
                             <div style="display:flex; justify-content:space-between;"><span>Netzwerk RX:</span><strong id="lm-stat-rx" style="color: var(--success);">-</strong></div>
                             <div style="display:flex; justify-content:space-between;"><span>Netzwerk TX:</span><strong id="lm-stat-tx" style="color: var(--primary);">-</strong></div>
@@ -2587,11 +2588,146 @@
 
             const edges = new vis.DataSet([]);
             let totalContainers = 0;
-            let allDomains = new Set();
+            const allTunnels = new Set();
+            const allDomains = new Set();
+            const domainCfMap = {};
 
+            // Pre-scan all containers to build domainCfMap and collect initial domains/tunnels
+            Object.values(fullInfrastructureData.stacks).forEach(containers => {
+                containers.forEach(c => {
+                    if (c.cloudflares) {
+                        c.cloudflares.forEach(cf => {
+                            domainCfMap[cf.public_domain] = {
+                                tunnel_name: cf.tunnel_name,
+                                allowed_emails: cf.allowed_emails || []
+                            };
+                            if (cf.tunnel_name) allTunnels.add(cf.tunnel_name);
+                            allDomains.add(cf.public_domain);
+                        });
+                    }
+                });
+            });
+
+            // Add configured vhost tunnels/domains
+            if (fullInfrastructureData.vhosts) {
+                fullInfrastructureData.vhosts.forEach(v => {
+                    if (v.tunnel_id) allTunnels.add(v.tunnel_id);
+                    if (v.hostname) allDomains.add(v.hostname);
+                    if (v.extra_hostnames) {
+                        v.extra_hostnames.forEach(eh => allDomains.add(eh));
+                    }
+                });
+            }
+
+            // Add configured redirect tunnels/domains
+            if (fullInfrastructureData.redirects) {
+                fullInfrastructureData.redirects.forEach(r => {
+                    if (r.cloudflare && r.cloudflare.enabled) {
+                        if (r.cloudflare.tunnel_id) allTunnels.add(r.cloudflare.tunnel_id);
+                        if (r.cloudflare.hostname) allDomains.add(r.cloudflare.hostname);
+                    }
+                });
+            }
+
+            // Helper to prevent duplicate edges
+            const addedEdges = new Set();
+            function addEdge(edge) {
+                const key = `${edge.from}->${edge.to}`;
+                if (!addedEdges.has(key)) {
+                    edges.add(edge);
+                    addedEdges.add(key);
+                }
+            }
+
+            // Helper to draw a domain node, its tunnel, and its Zero Trust connection
+            function drawDomainNode(domain, targetNodeId, defaultTunnelId) {
+                const cfInfo = domainCfMap[domain] || {};
+                const tunnelName = cfInfo.tunnel_name;
+                const allowed_emails = cfInfo.allowed_emails || [];
+                const tunnelRef = tunnelName || defaultTunnelId;
+
+                // 1. Draw Tunnel
+                let tunnelNodeId = null;
+                if (tunnelRef) {
+                    tunnelNodeId = `tunnel-${tunnelRef}`;
+                    if (!nodes.get(tunnelNodeId)) {
+                        nodes.add({
+                            id: tunnelNodeId,
+                            label: tunnelName || (tunnelRef.length > 8 ? tunnelRef.substring(0, 8) + '...' : tunnelRef),
+                            shape: 'box',
+                            color: '#18181b',
+                            font: { color: 'var(--primary)', face: 'Outfit' },
+                            group: 'tunnel',
+                            level: 1
+                        });
+                        addEdge({ from: 'cf_root', to: tunnelNodeId, color: '#f38020', width: 2 });
+                    }
+                }
+
+                // 2. Draw Domain
+                const dId = `domain-${domain}`;
+                if (!nodes.get(dId)) {
+                    nodes.add({
+                        id: dId,
+                        label: domain,
+                        shape: 'dot',
+                        size: 12,
+                        color: '#f38020',
+                        font: { color: '#fff', size: 11, face: 'Outfit' },
+                        group: 'hostname',
+                        level: 3,
+                        tunnel: tunnelName || ''
+                    });
+                    if (tunnelNodeId) {
+                        addEdge({ from: tunnelNodeId, to: dId, color: '#27272a' });
+                    } else {
+                        // Unconnected to a tunnel directly: link directly to cf_root with a dashed grey line
+                        addEdge({ from: 'cf_root', to: dId, color: '#4b5563', width: 1, dashed: true });
+                    }
+                }
+
+                // 3. Draw Zero Trust or direct edge
+                if (allowed_emails.length > 0) {
+                    const ztId = `zt-${domain}`;
+                    if (!nodes.get(ztId)) {
+                        const allowedStr = allowed_emails.join('\n');
+                        nodes.add({
+                            id: ztId,
+                            label: `🛡️ Zero Trust\n${allowedStr}`,
+                            shape: 'box',
+                            color: '#059669', // green
+                            font: { color: '#ffffff', face: 'Outfit', size: 10, bold: true },
+                            group: 'access',
+                            level: 4
+                        });
+                        addEdge({
+                            from: ztId, to: targetNodeId,
+                            width: 1.5, color: '#059669',
+                            dashed: false,
+                            arrows: { to: { enabled: true, scaleFactor: 0.5 } }
+                        });
+                    }
+                    addEdge({
+                        from: dId, to: ztId,
+                        width: 1, color: '#059669',
+                        dashed: true,
+                        arrows: { to: { enabled: true, scaleFactor: 0.5 } }
+                    });
+                } else {
+                    addEdge({
+                        from: dId, to: targetNodeId,
+                        width: 1,
+                        color: targetNodeId.startsWith('vhost-site-') ? 'rgba(139, 92, 246, 0.45)' : 'rgba(167, 139, 250, 0.25)',
+                        dashed: true,
+                        arrows: { to: { enabled: true, scaleFactor: 0.5 } }
+                    });
+                }
+            }
+
+            // Draw Stacks & Containers
             Object.entries(fullInfrastructureData.stacks).forEach(([stackName, containers]) => {
                 nodes.add({ id: stackName, label: stackName, shape: 'dot', color: '#3f3f46', font: { color: '#e4e4e7', face: 'Outfit', bold: true }, group: 'stack', level: 1 });
-                edges.add({ from: 'server', to: stackName, color: '#3f3f46', width: 2 });
+                addEdge({ from: 'server', to: stackName, color: '#3f3f46', width: 2 });
 
                 totalContainers += containers.length;
                 containers.forEach(c => {
@@ -2610,128 +2746,85 @@
                         stack: stackName,
                         image_name: c.image
                     });
-                    edges.add({ from: stackName, to: contId, color: '#27272a' });
+                    addEdge({ from: stackName, to: contId, color: '#27272a' });
+                });
+            });
 
-                    if (c.cloudflares && c.cloudflares.length > 0) {
-                        c.cloudflares.forEach(cf => {
-                            const tunnelId = `tunnel-${cf.tunnel_name}`;
-                            if (!nodes.get(tunnelId)) {
-                                nodes.add({ id: tunnelId, label: cf.tunnel_name, shape: 'box', color: '#18181b', font: { color: 'var(--primary)', face: 'Outfit' }, group: 'tunnel', level: 1 });
-                                edges.add({ from: 'cf_root', to: tunnelId, color: '#f38020', width: 2 });
-                            }
+            // 1. Proactive Vhost site rendering
+            if (fullInfrastructureData.vhosts) {
+                fullInfrastructureData.vhosts.forEach(vhost => {
+                    const vNodeId = `vhost-site-${vhost.name}`;
+                    if (!nodes.get(vNodeId)) {
+                        nodes.add({
+                            id: vNodeId,
+                            label: `Site: ${vhost.name}`,
+                            shape: 'box',
+                            color: '#8b5cf6', // purple
+                            font: { color: '#ffffff', face: 'Outfit', size: 12, bold: true },
+                            group: 'vhost',
+                            level: 4
+                        });
+                        const carlaVhostId = 'c-carla-vhost';
+                        if (nodes.get(carlaVhostId)) {
+                            addEdge({ from: vNodeId, to: carlaVhostId, color: '#8b5cf6', width: 2 });
+                        }
+                    }
 
-                            const dId = `domain-${cf.public_domain}`;
-                            if (!nodes.get(dId)) {
-                                allDomains.add(cf.public_domain);
+                    const domains = [vhost.hostname, ...(vhost.extra_hostnames || [])].filter(Boolean);
+                    domains.forEach(domain => {
+                        drawDomainNode(domain, vNodeId, vhost.tunnel_id);
+                    });
+                });
+            }
+
+            // 2. Proactive Redirect rendering
+            if (fullInfrastructureData.redirects) {
+                fullInfrastructureData.redirects.forEach(red => {
+                    const contId = `c-redirect-${red.port}`;
+                    
+                    if (nodes.get(contId) && red.rules) {
+                        red.rules.forEach((rule, rIdx) => {
+                            const ruleNodeId = `redirect-rule-${red.port}-${rIdx}`;
+                            if (!nodes.get(ruleNodeId)) {
                                 nodes.add({
-                                    id: dId,
-                                    label: cf.public_domain,
-                                    shape: 'dot',
-                                    size: 12,
-                                    color: '#f38020',
-                                    font: { color: '#fff', size: 11, face: 'Outfit' },
-                                    group: 'hostname',
-                                    level: 3,
-                                    tunnel: cf.tunnel_name
+                                    id: ruleNodeId,
+                                    label: `${rule.path} ➔ ${rule.url}`,
+                                    shape: 'ellipse',
+                                    color: '#db2777', // pink
+                                    font: { color: '#ffffff', face: 'Outfit', size: 10 },
+                                    group: 'redirect-rule',
+                                    level: 3
                                 });
-                                edges.add({ from: tunnelId, to: dId, color: '#27272a' });
-                            }
-
-                            // Spezialfall: vhosts (Virtual Host Sites) dazwischenschalten
-                            let targetNodeId = contId;
-                            let edgeColor = 'rgba(167, 139, 250, 0.25)';
-                            let edgeWidth = 1;
-                            let isDashed = true;
-
-                            if (c.name === 'carla-vhost' && fullInfrastructureData.vhosts) {
-                                const vhost = fullInfrastructureData.vhosts.find(v => 
-                                    v.hostname === cf.public_domain || 
-                                    (v.extra_hostnames && v.extra_hostnames.includes(cf.public_domain))
-                                );
-                                if (vhost) {
-                                    const vNodeId = `vhost-site-${vhost.name}`;
-                                    if (!nodes.get(vNodeId)) {
-                                        nodes.add({
-                                            id: vNodeId,
-                                            label: `Site: ${vhost.name}`,
-                                            shape: 'box',
-                                            color: '#8b5cf6',
-                                            font: { color: '#ffffff', face: 'Outfit', size: 12, bold: true },
-                                            group: 'vhost',
-                                            level: 4
-                                        });
-                                        edges.add({ from: vNodeId, to: contId, color: '#8b5cf6', width: 2 });
-                                    }
-                                    targetNodeId = vNodeId;
-                                    edgeColor = 'rgba(139, 92, 246, 0.45)';
-                                }
-                            }
-
-                            // Zero Trust Integration
-                            if (cf.allowed_emails && cf.allowed_emails.length > 0) {
-                                const ztId = `zt-${cf.public_domain}`;
-                                if (!nodes.get(ztId)) {
-                                    const allowedStr = cf.allowed_emails.join('\n');
-                                    nodes.add({
-                                        id: ztId,
-                                        label: `🛡️ Zero Trust\n${allowedStr}`,
-                                        shape: 'box',
-                                        color: '#059669',
-                                        font: { color: '#ffffff', face: 'Outfit', size: 10, bold: true },
-                                        group: 'access',
-                                        level: 4
-                                    });
-                                    edges.add({
-                                        from: ztId, to: targetNodeId,
-                                        width: 1.5, color: '#059669',
-                                        dashed: false,
-                                        arrows: { to: { enabled: true, scaleFactor: 0.5 } }
-                                    });
-                                }
-                                edges.add({
-                                    from: dId, to: ztId,
-                                    width: 1, color: '#059669',
-                                    dashed: true,
-                                    arrows: { to: { enabled: true, scaleFactor: 0.5 } }
-                                });
-                            } else {
-                                edges.add({
-                                    from: dId, to: targetNodeId,
-                                    width: edgeWidth, color: edgeColor,
-                                    dashed: isDashed,
-                                    arrows: { to: { enabled: true, scaleFactor: 0.5 } }
-                                });
+                                addEdge({ from: contId, to: ruleNodeId, color: '#db2777', width: 1.5 });
                             }
                         });
                     }
 
-                    // Spezialfall: Redirect-Regeln unterhalb des Containers zeichnen
-                    if (c.name.startsWith('redirect-') && fullInfrastructureData.redirects) {
-                        try {
-                            const port = parseInt(c.name.split('-')[1]);
-                            const red = fullInfrastructureData.redirects.find(r => r.port === port);
-                            if (red && red.rules) {
-                                red.rules.forEach((rule, rIdx) => {
-                                    const ruleNodeId = `redirect-rule-${port}-${rIdx}`;
-                                    nodes.add({
-                                        id: ruleNodeId,
-                                        label: `${rule.path} ➔ ${rule.url}`,
-                                        shape: 'ellipse',
-                                        color: '#db2777',
-                                        font: { color: '#ffffff', face: 'Outfit', size: 10 },
-                                        group: 'redirect-rule',
-                                        level: 3
-                                    });
-                                    edges.add({ from: contId, to: ruleNodeId, color: '#db2777', width: 1.5 });
-                                });
-                            }
-                        } catch(e) { console.error("Error drawing redirect rules in graph", e); }
+                    if (red.cloudflare && red.cloudflare.enabled && red.cloudflare.hostname) {
+                        const domain = red.cloudflare.hostname;
+                        drawDomainNode(domain, contId, red.cloudflare.tunnel_id);
+                    }
+                });
+            }
+
+            // 3. Draw remaining container cloudflares (for other types of containers)
+            Object.values(fullInfrastructureData.stacks).forEach(containers => {
+                containers.forEach(c => {
+                    const contId = `c-${c.name}`;
+                    if (c.name === 'carla-vhost' || c.name.startsWith('redirect-')) {
+                        return;
+                    }
+                    if (c.cloudflares) {
+                        c.cloudflares.forEach(cf => {
+                            drawDomainNode(cf.public_domain, contId, cf.tunnel_name);
+                        });
                     }
                 });
             });
 
             document.getElementById('lm-stat-stacks').textContent = Object.keys(fullInfrastructureData.stacks).length;
             document.getElementById('lm-stat-containers').textContent = totalContainers;
+            document.getElementById('lm-stat-tunnels').textContent = allTunnels.size;
             document.getElementById('lm-stat-domains').textContent = allDomains.size;
 
             nodesView = new vis.DataView(nodes, {
@@ -2862,9 +2955,29 @@
                     const activity = Number(c.activity) || 0;
                     if (activity > 0 && infraParticles.length < 300) {
                         const contId = `c-${c.name}`;
-                        const edges = edgesView.get({ filter: e => e.to === contId && e.from.startsWith('domain-') });
+                        const edges = edgesView.get({ filter: e => {
+                            // Direct domain-to-container edge
+                            if (e.to === contId && e.from.startsWith('domain-')) return true;
+                            // Site-to-container edge
+                            if (e.to === contId && e.from.startsWith('vhost-site-')) return true;
+                            // Redirect rule edge
+                            if (e.from === contId && e.to.startsWith('redirect-rule-')) return true;
+                            // Domain-to-site or domain-to-zt or zt-to-site
+                            if (e.to.startsWith('vhost-site-') && (e.from.startsWith('domain-') || e.from.startsWith('zt-'))) return true;
+                            if (e.to.startsWith('zt-') && e.from.startsWith('domain-')) return true;
+                            return false;
+                        }});
                         edges.forEach(e => {
                             const count = Math.min(Math.ceil(activity / 0.5), 3);
+                            let pColor = '#f38020'; // default orange
+                            if (e.from.startsWith('vhost-site-') || e.to.startsWith('vhost-site-')) {
+                                pColor = '#8b5cf6'; // purple
+                            } else if (e.from.startsWith('zt-') || e.to.startsWith('zt-')) {
+                                pColor = '#059669'; // green
+                            } else if (e.to.startsWith('redirect-rule-') || e.from.startsWith('redirect-rule-')) {
+                                pColor = '#db2777'; // pink
+                            }
+
                             for (let i = 0; i < count; i++) {
                                 infraParticles.push({
                                     edgeId: e.id,
@@ -2872,7 +2985,7 @@
                                     to: e.to,
                                     t: Math.random() * 0.2,
                                     speed: 0.006 + Math.random() * 0.008,
-                                    color: '#f38020'
+                                    color: pColor
                                 });
                             }
                         });
