@@ -2561,11 +2561,12 @@
 
                 const stackNames = Object.keys(data.stacks);
                 const n = stackNames.length;
-                // Scale rings so nodes don't collide regardless of stack count
-                const STACK_R   = Math.max(280, n * 38);
-                const CONT_EXTRA = Math.max(160, n * 8);
-                const DOM_EXTRA  = 130;
-                // Max angular slice per stack (to keep spread tight)
+                // Radien so dass Nodes nicht überlappen, aber kompakt bleiben
+                // Annäherung: min. Bogenabstand ~55px zwischen benachbarten Stack-Knoten
+                const minCircumferenceStep = 55;
+                const STACK_R    = Math.max(180, Math.ceil(n * minCircumferenceStep / (2 * Math.PI)));
+                const CONT_EXTRA = Math.max(110, Math.min(200, STACK_R * 0.55));
+                const DOM_EXTRA  = Math.max(90,  Math.min(150, CONT_EXTRA * 0.7));
                 const sliceAngle = (2 * Math.PI) / n;
 
                 let totalDomains=0, totalContainers=0;
@@ -2936,6 +2937,19 @@
                 else resizeTopo();
                 if(!topoCtx) return;
                 initTopology();
+
+                // Auto-Zoom: alle Nodes in den sichtbaren Bereich einpassen
+                if(topoNodes.length > 1) {
+                    let maxR = 0;
+                    topoNodes.forEach(n => {
+                        const r = Math.sqrt(n.x*n.x + n.y*n.y) + (n.radius||10) + 60;
+                        if(r > maxR) maxR = r;
+                    });
+                    const fitZoom = Math.min(topoWidth, topoHeight) / 2 / maxR;
+                    window.topoZoom = Math.max(0.15, Math.min(1.2, fitZoom * 0.92));
+                    window.topoPan = {x: 0, y: 0};
+                }
+
                 if(!topoAnimId) topoLoop();
                 fetchInfraNetworkData();
                 infraInterval=setInterval(fetchInfraNetworkData,5000);
