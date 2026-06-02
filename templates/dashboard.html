@@ -1985,29 +1985,19 @@
                                 <input type="text" id="site-name" class="input mono" placeholder="z.B. meine-website">
                             </div>
                             <div class="form-group" style="margin-bottom:0;">
-                                <label class="form-label">Host-Port</label>
-                                <input type="number" id="site-port" class="input mono" placeholder="z.B. 8100" min="1" max="65535">
+                                <label class="form-label">Hostname <span style="color:var(--text-muted);font-weight:400;">(Cloudflare-Domain)</span></label>
+                                <input type="text" id="site-cf-hostname" class="input mono" placeholder="z.B. blog.meinedomain.de">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:10px;">Cloudflare Tunnel</label>
+                                <select id="site-cf-tunnel" class="select" style="padding:8px 12px;font-size:13px;"></select>
                             </div>
                             <div style="display:flex;align-items:center;gap:10px;">
                                 <input type="checkbox" id="site-spa" style="width:16px;height:16px;">
                                 <label for="site-spa" style="font-size:13px;cursor:pointer;">SPA-Modus (React/Vue/etc. — alle Routen → index.html)</label>
                             </div>
-
-                            <div style="border-top:1px solid var(--border);padding-top:15px;">
-                                <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;font-weight:600;user-select:none;">
-                                    <input type="checkbox" id="site-cf-enabled" onchange="toggleSiteCfFields(this.checked)">
-                                    Über Cloudflare Tunnel freigeben
-                                </label>
-                                <div id="site-cf-fields" style="display:none;flex-direction:column;gap:12px;margin-top:12px;background:rgba(255,255,255,0.01);border:1px solid var(--border);padding:12px;border-radius:var(--r-md);">
-                                    <div class="form-group" style="margin-bottom:0;">
-                                        <label class="form-label" style="font-size:10px;">Cloudflare Tunnel</label>
-                                        <select id="site-cf-tunnel" class="select" style="padding:8px 12px;font-size:13px;"></select>
-                                    </div>
-                                    <div class="form-group" style="margin-bottom:0;">
-                                        <label class="form-label" style="font-size:10px;">Öffentlicher Hostname</label>
-                                        <input type="text" id="site-cf-hostname" class="input mono" placeholder="z.B. blog.meinedomain.de" style="padding:8px 12px;font-size:13px;">
-                                    </div>
-                                </div>
+                            <div style="font-size:11px;color:var(--text-muted);background:rgba(255,255,255,0.02);border-radius:var(--r-md);padding:8px 12px;">
+                                ⚡ Läuft auf einem geteilten Container — kein eigener Port nötig
                             </div>
                         </div>
                         <div class="modal-actions">
@@ -4515,7 +4505,7 @@
             const grid = document.getElementById('sites-grid');
             grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">Lade Sites...</div>';
             try {
-                const r = await fetch('/api/sites');
+                const r = await fetch('/api/vhosts');
                 const sites = r.ok ? await r.json() : [];
                 if (sites.length === 0) {
                     grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">Keine Sites vorhanden. Erstelle deine erste Website!</div>';
@@ -4531,12 +4521,7 @@
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                             <div>
                                 <div style="font-weight:600;font-size:15px;color:var(--text);">${site.name}</div>
-                                <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Port :${site.port}${site.spa ? ' · SPA' : ''}</div>
-                            </div>
-                            <div style="display:flex;gap:6px;">
-                                ${isRunning ? '' : `<button onclick="siteAction('${site.name}','start')" title="Starten" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;">▶</button>`}
-                                <button onclick="siteAction('${site.name}','restart')" title="Neu starten" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;">↺</button>
-                                <button onclick="siteAction('${site.name}','stop')" title="Stoppen" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;">⏹</button>
+                                <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">${site.hostname}${site.spa ? ' · SPA' : ''}</div>
                             </div>
                         </div>
 
@@ -4569,20 +4554,14 @@
 
         function openSiteModal() {
             document.getElementById('site-name').value = '';
-            document.getElementById('site-port').value = '';
+            document.getElementById('site-cf-hostname').value = '';
             document.getElementById('site-spa').checked = false;
-            document.getElementById('site-cf-enabled').checked = false;
-            toggleSiteCfFields(false);
+            loadSiteTunnels();
             document.getElementById('site-modal').classList.add('active');
         }
 
         function closeSiteModal() {
             document.getElementById('site-modal').classList.remove('active');
-        }
-
-        function toggleSiteCfFields(show) {
-            document.getElementById('site-cf-fields').style.display = show ? 'flex' : 'none';
-            if (show) loadSiteTunnels();
         }
 
         async function loadSiteTunnels() {
@@ -4599,26 +4578,22 @@
 
         async function submitSite() {
             const name = document.getElementById('site-name').value.trim();
-            const port = parseInt(document.getElementById('site-port').value);
+            const hostname = document.getElementById('site-cf-hostname').value.trim();
+            const tunnel = document.getElementById('site-cf-tunnel').value;
             const spa = document.getElementById('site-spa').checked;
-            const cfEnabled = document.getElementById('site-cf-enabled').checked;
 
             if (!name) return showToast('Name ist erforderlich.', 'error');
-            if (!port || port < 1 || port > 65535) return showToast('Ungültiger Port.', 'error');
+            if (!hostname) return showToast('Hostname ist erforderlich.', 'error');
+            if (!tunnel) return showToast('Cloudflare Tunnel erforderlich.', 'error');
 
-            const body = { name, port, spa };
-            if (cfEnabled) {
-                const tunnel = document.getElementById('site-cf-tunnel').value;
-                const hostname = document.getElementById('site-cf-hostname').value.trim();
-                if (!tunnel || !hostname) return showToast('Tunnel und Hostname erforderlich.', 'error');
-                body.cloudflare = { enabled: true, tunnel_id: tunnel, hostname };
-            }
+            const url = '/api/vhosts';
+            const body = { name, hostname, tunnel_id: tunnel, spa };
 
             const btn = document.getElementById('site-submit-btn');
             btn.disabled = true;
             btn.textContent = 'Erstelle...';
             try {
-                const r = await fetch('/api/sites', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const r = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
                 const res = await r.json();
                 if (res.ok) {
                     showToast(`Site '${name}' erstellt!`, 'success');
@@ -4652,7 +4627,7 @@
         async function deleteSite(name) {
             if (!confirm(`Site '${name}' wirklich löschen?`)) return;
             try {
-                const r = await fetch(`/api/sites/${name}`, { method: 'DELETE' });
+                const r = await fetch(`/api/vhosts/${name}`, { method: 'DELETE' });
                 const res = await r.json();
                 if (res.ok) { showToast(`Site '${name}' gelöscht.`, 'success'); loadSitesView(); }
                 else showToast(res.error || 'Fehler beim Löschen.', 'error');

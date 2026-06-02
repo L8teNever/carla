@@ -15,6 +15,28 @@ import config
 
 BASE_DIR = "/opt/stacks"
 SITE_PREFIX = "carla-site-"
+PORT_RANGE_START = 10100
+PORT_RANGE_END = 10999
+
+
+def _find_free_port() -> int:
+    """Findet einen freien Port im reservierten Bereich 10100-10999."""
+    out = system_executor.execute_command(
+        "ss -tlnp 2>/dev/null | awk 'NR>1 {print $4}' | grep -oE '[0-9]+$'"
+    )
+    used = set()
+    for line in out.splitlines():
+        try:
+            used.add(int(line.strip()))
+        except ValueError:
+            pass
+    for s in list_sites():
+        if s.get("port"):
+            used.add(s["port"])
+    for port in range(PORT_RANGE_START, PORT_RANGE_END):
+        if port not in used:
+            return port
+    raise RuntimeError("Keine freien Ports im Bereich 10100-10999 verfügbar.")
 
 
 def _site_dir(name: str) -> str:
@@ -151,7 +173,7 @@ def list_sites() -> list:
     return sites
 
 
-def create_site(name: str, port: int, spa: bool = False, cloudflare_data: dict = None) -> dict:
+def create_site(name: str, port: int = None, spa: bool = False, cloudflare_data: dict = None) -> dict:
     if not re.match(r'^[a-zA-Z0-9_-]+$', name):
         return {"ok": False, "error": "Name darf nur Buchstaben, Zahlen, - und _ enthalten."}
 
@@ -162,6 +184,13 @@ def create_site(name: str, port: int, spa: bool = False, cloudflare_data: dict =
     check = system_executor.execute_command(f"test -d {site_dir} && echo 'EXISTS' || echo 'NEW'")
     if "EXISTS" in check:
         return {"ok": False, "error": f"Site '{name}' existiert bereits."}
+
+    # Port automatisch vergeben wenn nicht angegeben
+    if port is None:
+        try:
+            port = _find_free_port()
+        except RuntimeError as e:
+            return {"ok": False, "error": str(e)}
 
     cloudflare_data = cloudflare_data or {"enabled": False}
 

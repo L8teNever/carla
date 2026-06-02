@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server
+from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server, vhost_server
 import config
 
 bp = Blueprint("main", __name__)
@@ -992,15 +992,17 @@ def api_sites_list():
 def api_sites_create():
     data = request.json or {}
     name = data.get("name", "").strip()
-    port_val = data.get("port")
     if not name:
         return jsonify({"ok": False, "error": "Name ist erforderlich."}), 400
-    try:
-        port = int(port_val)
-    except (ValueError, TypeError):
-        return jsonify({"ok": False, "error": "Port muss eine Zahl sein."}), 400
-    if port < 1 or port > 65535:
-        return jsonify({"ok": False, "error": "Port muss zwischen 1 und 65535 liegen."}), 400
+    port = None
+    port_val = data.get("port")
+    if port_val:
+        try:
+            port = int(port_val)
+            if port < 1 or port > 65535:
+                return jsonify({"ok": False, "error": "Port muss zwischen 1 und 65535 liegen."}), 400
+        except (ValueError, TypeError):
+            return jsonify({"ok": False, "error": "Ungültiger Port."}), 400
     result = static_server.create_site(
         name=name, port=port,
         spa=bool(data.get("spa", False)),
@@ -1031,4 +1033,36 @@ def api_sites_action(name, action):
 def api_sites_config(name):
     data = request.json or {}
     result = static_server.update_config(name, spa=bool(data.get("spa", False)))
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+# ---------------------------------------------------------------
+# Virtual Host Server Routes (geteilter nginx-Container)
+# ---------------------------------------------------------------
+
+@bp.route("/api/vhosts", methods=["GET"])
+def api_vhosts_list():
+    return jsonify(vhost_server.list_sites())
+
+
+@bp.route("/api/vhosts", methods=["POST"])
+def api_vhosts_add():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    hostname = data.get("hostname", "").strip()
+    tunnel_id = data.get("tunnel_id", "").strip()
+    spa = bool(data.get("spa", False))
+    if not name or not hostname or not tunnel_id:
+        return jsonify({"ok": False, "error": "Name, Hostname und Tunnel sind erforderlich."}), 400
+    result = vhost_server.add_site(name=name, hostname=hostname, tunnel_id=tunnel_id, spa=spa)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/vhosts/<name>", methods=["DELETE"])
+def api_vhosts_delete(name):
+    result = vhost_server.remove_site(name)
+    if result.get("ok"):
+        start_background_fetch()
     return jsonify(result), 200 if result["ok"] else 400
