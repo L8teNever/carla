@@ -2582,16 +2582,15 @@
 
                     const containers = data.stacks[stackName] || [];
                     totalContainers += containers.length;
-                    // Mindestabstand 50px zwischen Containern auf dem Ring
-                    const minContStep = 50 / (STACK_R + CONT_EXTRA);
-                    const maxSpread = Math.min(sliceAngle * 0.42, Math.max(0.35, (containers.length - 1) * minContStep));
+                    // Mindest-Pixelabstand 60px zwischen Containern — unabhängig vom Slice-Winkel
+                    const cr = STACK_R + CONT_EXTRA;
+                    const minAngStep = Math.max(0.15, 60 / cr); // rad: Mindestabstand
 
                     containers.forEach((cont, ci) => {
                         const spread = containers.length > 1
-                            ? (ci - (containers.length - 1) / 2) * (maxSpread / Math.max(containers.length - 1, 1))
+                            ? (ci - (containers.length - 1) / 2) * minAngStep
                             : 0;
                         const ca = baseAngle + spread;
-                        const cr = STACK_R + CONT_EXTRA;
                         const cx = Math.cos(ca) * cr, cy = Math.sin(ca) * cr;
                         const contId = 'c' + si + '_' + ci;
                         const cfs = cont.cloudflares || [];
