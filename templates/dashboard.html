@@ -2580,11 +2580,11 @@
 
                 const stackNames = Object.keys(data.stacks);
                 const n = stackNames.length;
-                // Großzügige Abstände — Lesbarkeit wichtiger als Kompaktheit
-                const minCircumferenceStep = 200;
-                const STACK_R    = Math.max(380, Math.ceil(n * minCircumferenceStep / (2 * Math.PI)));
-                const CONT_EXTRA = Math.max(220, STACK_R * 0.55);
-                const DOM_EXTRA  = Math.max(180, CONT_EXTRA * 0.75);
+                // Mindestabstand auf dem Ring: Label-Breite + etwas Luft (~110px)
+                const minCircumferenceStep = 110;
+                const STACK_R    = Math.max(250, Math.ceil(n * minCircumferenceStep / (2 * Math.PI)));
+                const CONT_EXTRA = Math.max(160, Math.min(260, STACK_R * 0.6));
+                const DOM_EXTRA  = Math.max(130, Math.min(200, CONT_EXTRA * 0.75));
                 const sliceAngle = (2 * Math.PI) / n;
 
                 let totalDomains=0, totalContainers=0;
@@ -2596,7 +2596,7 @@
 
                     // Stacks mit mehr Containern werden radial weiter nach außen geschoben
                     // → die Linie zu SERVER HOST wird länger, der Ast hat mehr Platz
-                    const extraR = Math.max(0, containers.length - 1) * 100;
+                    const extraR = Math.max(0, containers.length - 1) * 60;
                     const thisStackR = STACK_R + extraR;
 
                     const sx = Math.cos(baseAngle) * thisStackR;
@@ -2611,8 +2611,8 @@
                     const outX = Math.cos(baseAngle), outY = Math.sin(baseAngle);
                     // Senkrechte Richtung (90° zur radialen Linie)
                     const perpX = -outY, perpY = outX;
-                    const CONT_STEP = 140; // px Abstand zwischen Containern
-                    const DOM_STEP  = 110; // px Abstand zwischen Domain-Knoten
+                    const CONT_STEP = 95; // px Abstand zwischen Containern (Label-Breite ~130px → braucht ≥90px)
+                    const DOM_STEP  = 75; // px Abstand zwischen Domain-Knoten
 
                     containers.forEach((cont, ci) => {
                         // Containers immer senkrecht gestapelt → bleiben immer beieinander
@@ -2941,8 +2941,7 @@
                         if(r > maxR) maxR = r;
                     });
                     const fitZoom = Math.min(topoWidth, topoHeight) / 2 / maxR;
-                    // Etwas kleiner als "fit" damit Labels am Rand nicht abgeschnitten werden
-                    window.topoZoom = Math.max(0.08, Math.min(1.0, fitZoom * 0.82));
+                    window.topoZoom = Math.max(0.15, Math.min(1.2, fitZoom * 0.92));
                     window.topoPan = {x: 0, y: 0};
                 }
 
