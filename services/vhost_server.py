@@ -20,6 +20,23 @@ SITES_DIR = f"{VHOST_DIR}/sites"
 META_FILE = f"{VHOST_DIR}/sites.json"
 
 
+def normalize_name(name: str) -> str:
+    """Normalisiert den Site-Namen: Umlauts zu ae/oe/ue, Leerzeichen zu Unterstrichen,
+    Sonderzeichen entfernen, alles lowercase.
+    """
+    name = name.lower()
+    replacements = {
+        'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss'
+    }
+    for char, rep in replacements.items():
+        name = name.replace(char, rep)
+    name = name.replace(' ', '_')
+    name = re.sub(r'[^a-z0-9_-]', '_', name)
+    name = re.sub(r'_+', '_', name)
+    name = re.sub(r'-+', '-', name)
+    return name.strip('_').strip('-')
+
+
 def _get_cf_client():
     if config.CF_API_TOKEN and config.CF_ACCOUNT_ID:
         return CloudflareClient(config.CF_API_TOKEN, config.CF_ACCOUNT_ID)
@@ -103,7 +120,11 @@ def _generate_nginx_conf(sites: list) -> str:
             # SPA: unbekannte Unterrouten → index.html; sonst 404
             fallback = f"try_files $uri $uri/ @spa_{name};" if spa else "try_files $uri $uri/ =404;"
             path_slash = path.rstrip("/") + "/"
+            path_no_slash = path.rstrip("/")
             lines += [
+                f"    location = {path_no_slash} {{",
+                f"        rewrite ^ {path_slash} permanent;",
+                "    }",
                 f"    location {path_slash} {{",
                 f"        alias {site_dir}/;",
                 "        index index.html index.htm;",
@@ -253,6 +274,7 @@ def _setup_cf_hostname(cf, tunnel_id: str, hostname: str, host_ip: str) -> dict 
 def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
              extra_hostnames: list = None) -> dict:
     """domain_input kann 'host.de' oder 'host.de/pfad/xy' sein."""
+    name = normalize_name(name)
     if not name or not domain_input or not tunnel_id:
         return {"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}
 
@@ -398,8 +420,9 @@ def update_site(old_name: str, new_name: str, domain_input: str, tunnel_id: str,
     if not old_name or not new_name or not domain_input or not tunnel_id:
         return {"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}
 
-    if not re.match(r'^[a-zA-Z0-9_-]+$', new_name):
-        return {"ok": False, "error": "Name darf nur Buchstaben, Zahlen, - und _ enthalten."}
+    new_name = normalize_name(new_name)
+    if not new_name:
+        return {"ok": False, "error": "Name ist ungültig."}
 
     sites = _load_meta()
     site_idx = next((i for i, s in enumerate(sites) if s.get("name") == old_name), -1)

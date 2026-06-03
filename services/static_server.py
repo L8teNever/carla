@@ -19,6 +19,23 @@ PORT_RANGE_START = 10100
 PORT_RANGE_END = 10999
 
 
+def normalize_name(name: str) -> str:
+    """Normalisiert den Site-Namen: Umlauts zu ae/oe/ue, Leerzeichen zu Unterstrichen,
+    Sonderzeichen entfernen, alles lowercase.
+    """
+    name = name.lower()
+    replacements = {
+        'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss'
+    }
+    for char, rep in replacements.items():
+        name = name.replace(char, rep)
+    name = name.replace(' ', '_')
+    name = re.sub(r'[^a-z0-9_-]', '_', name)
+    name = re.sub(r'_+', '_', name)
+    name = re.sub(r'-+', '-', name)
+    return name.strip('_').strip('-')
+
+
 def _find_free_port() -> int:
     """Findet einen freien Port im reservierten Bereich 10100-10999."""
     out = system_executor.execute_command(
@@ -174,8 +191,9 @@ def list_sites() -> list:
 
 
 def create_site(name: str, port: int = None, spa: bool = False, cloudflare_data: dict = None) -> dict:
-    if not re.match(r'^[a-zA-Z0-9_-]+$', name):
-        return {"ok": False, "error": "Name darf nur Buchstaben, Zahlen, - und _ enthalten."}
+    name = normalize_name(name)
+    if not name:
+        return {"ok": False, "error": "Name ist ungültig."}
 
     site_dir = _site_dir(name)
     www_dir = f"{site_dir}/www"
