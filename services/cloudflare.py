@@ -150,6 +150,72 @@ class CloudflareClient:
                 access_info[domain] = entries
         return access_info
 
+    def list_access_groups(self) -> list:
+        """Gibt alle CF Access Groups zurück (wiederverwendbare Identitätsgruppen)."""
+        groups = self.fetch("access/groups")
+        if not isinstance(groups, list):
+            return []
+        return [{"id": g["id"], "name": g["name"]} for g in groups]
+
+    def create_access_app(self, name: str, domain: str, group_ids: list) -> dict:
+        """Erstellt eine CF Access Application und hängt die gewählten Gruppen als Policy an."""
+        try:
+            payload = {
+                "name": name,
+                "domain": domain,
+                "type": "self_hosted",
+                "session_duration": "24h",
+                "auto_redirect_to_identity": False,
+            }
+            res = requests.post(
+                f"{self.base_url}/accounts/{self.account_id}/access/apps",
+                headers=self.headers,
+                json=payload,
+                timeout=10,
+            )
+            resp = res.json()
+            if not resp.get("success"):
+                print(f"❌ [Cloudflare] create_access_app failed: {resp.get('errors')}")
+                return {"success": False, "errors": resp.get("errors", [])}
+
+            result = resp.get("result", {})
+            app_id = result.get("uid") or result.get("id")
+
+            if group_ids and app_id:
+                policy_payload = {
+                    "name": "Ausgewählte Gruppen",
+                    "decision": "allow",
+                    "include": [{"group": {"id": gid}} for gid in group_ids],
+                }
+                requests.post(
+                    f"{self.base_url}/accounts/{self.account_id}/access/apps/{app_id}/policies",
+                    headers=self.headers,
+                    json=policy_payload,
+                    timeout=10,
+                )
+            return {"success": True, "app_id": app_id}
+        except Exception as e:
+            print(f"❌ [Cloudflare] create_access_app exception: {e}")
+            return {"success": False, "errors": [{"message": str(e)}]}
+
+    def delete_access_app_by_domain(self, domain: str) -> bool:
+        """Löscht die CF Access Application für eine bestimmte Domain."""
+        try:
+            self._cache.pop("access/apps", None)
+            apps = self.fetch("access/apps")
+            for app in (apps if isinstance(apps, list) else []):
+                if app.get("domain") == domain:
+                    res = requests.delete(
+                        f"{self.base_url}/accounts/{self.account_id}/access/apps/{app['id']}",
+                        headers=self.headers,
+                        timeout=10,
+                    )
+                    return res.json().get("success", False)
+            return False
+        except Exception as e:
+            print(f"❌ [Cloudflare] delete_access_app_by_domain: {e}")
+            return False
+
     def list_tunnels(self) -> list:
         """Gibt alle Tunnel mit ID und Name zurueck."""
         tunnels = self.fetch("cfd_tunnel")

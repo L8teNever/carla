@@ -560,6 +560,49 @@ def _get_cf_client():
     return cloudflare.CloudflareClient(config.CF_API_TOKEN, config.CF_ACCOUNT_ID)
 
 
+@bp.route("/api/cf/access/groups", methods=["GET"])
+def api_cf_access_groups():
+    """Listet alle CF Access Groups (wiederverwendbare Zugriffsregeln)."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify([])
+    try:
+        return jsonify(cf.list_access_groups())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/cf/access/app", methods=["POST"])
+def api_cf_access_app_create():
+    """Erstellt eine CF Access Application für eine Domain."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"ok": False, "error": "Cloudflare nicht konfiguriert"}), 400
+    data = request.json or {}
+    domain = data.get("domain", "").strip()
+    group_ids = data.get("group_ids", [])
+    name = data.get("name", domain)
+    if not domain:
+        return jsonify({"ok": False, "error": "Domain erforderlich"}), 400
+    result = cf.create_access_app(name, domain, group_ids)
+    result["ok"] = result.get("success", False)
+    return jsonify(result)
+
+
+@bp.route("/api/cf/access/app", methods=["DELETE"])
+def api_cf_access_app_delete():
+    """Entfernt die CF Access Application für eine Domain."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"ok": False, "error": "Cloudflare nicht konfiguriert"}), 400
+    data = request.json or {}
+    domain = data.get("domain", "").strip()
+    if not domain:
+        return jsonify({"ok": False, "error": "Domain erforderlich"}), 400
+    success = cf.delete_access_app_by_domain(domain)
+    return jsonify({"ok": success})
+
+
 @bp.route("/api/cf/tunnels", methods=["GET"])
 def api_cf_tunnels():
     """Listet alle Cloudflare Tunnel auf."""

@@ -1955,6 +1955,25 @@
                                 <label class="form-label" style="font-size:10px;">Weitere Domains <span style="color:var(--text-muted);font-weight:400;">(optional, eine pro Zeile)</span></label>
                                 <textarea id="site-extra-domains" class="input mono" rows="2" placeholder="alias.domain.de&#10;www.domain.de" style="resize:vertical;padding:8px 12px;font-size:12px;line-height:1.5;" oninput="updateSitePreview()"></textarea>
                             </div>
+                            <!-- Zero Trust Zugangskontrolle -->
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:10px;">Zugangskontrolle</label>
+                                <div style="display:flex;gap:8px;margin-bottom:8px;">
+                                    <button type="button" id="site-access-public-btn" onclick="setSiteAccess('public')"
+                                        class="btn btn-sm" style="flex:1;border:1px solid var(--success);color:var(--success);">🌐 Öffentlich</button>
+                                    <button type="button" id="site-access-zt-btn" onclick="setSiteAccess('zerotrust')"
+                                        class="btn btn-sm" style="flex:1;border:1px solid var(--border);color:var(--text-muted);">🔒 Zero Trust</button>
+                                </div>
+                                <div id="site-zt-section" style="display:none;flex-direction:column;gap:6px;">
+                                    <div id="site-zt-loading" style="font-size:12px;color:var(--text-muted);">Lade Zugriffsregeln...</div>
+                                    <select id="site-zt-group" class="select" multiple size="4"
+                                        style="padding:6px 10px;font-size:12px;display:none;"></select>
+                                    <div style="font-size:10px;color:var(--text-muted);">
+                                        Strg/Cmd zum Mehrfach-Auswählen · Nur ausgewählte Gruppen erhalten Zugang
+                                    </div>
+                                </div>
+                            </div>
+
                             <div style="font-size:11px;color:var(--text-muted);background:rgba(255,255,255,0.02);border-radius:var(--r-md);padding:8px 12px;">
                                 ⚡ Geteilter Container — alle Domains zeigen auf dieselben Dateien
                             </div>
@@ -4650,6 +4669,50 @@
         // ---------------------------------------------------------------
 
         let editingSiteName = null;
+        let siteAccessMode = 'public';
+
+        function setSiteAccess(mode) {
+            siteAccessMode = mode;
+            const pubBtn = document.getElementById('site-access-public-btn');
+            const ztBtn  = document.getElementById('site-access-zt-btn');
+            const ztSec  = document.getElementById('site-zt-section');
+            if (mode === 'zerotrust') {
+                pubBtn.style.borderColor = 'var(--border)';
+                pubBtn.style.color = 'var(--text-muted)';
+                ztBtn.style.borderColor = '#f97316';
+                ztBtn.style.color = '#f97316';
+                ztSec.style.display = 'flex';
+                loadCfAccessGroups();
+            } else {
+                pubBtn.style.borderColor = 'var(--success)';
+                pubBtn.style.color = 'var(--success)';
+                ztBtn.style.borderColor = 'var(--border)';
+                ztBtn.style.color = 'var(--text-muted)';
+                ztSec.style.display = 'none';
+            }
+        }
+
+        async function loadCfAccessGroups() {
+            const loading = document.getElementById('site-zt-loading');
+            const sel = document.getElementById('site-zt-group');
+            loading.style.display = 'block';
+            sel.style.display = 'none';
+            try {
+                const r = await fetch('/api/cf/access/groups');
+                const groups = r.ok ? await r.json() : [];
+                if (!Array.isArray(groups) || groups.length === 0) {
+                    loading.textContent = 'Keine CF Access Groups gefunden.';
+                } else {
+                    sel.innerHTML = groups.map(g =>
+                        `<option value="${g.id}">${g.name}</option>`
+                    ).join('');
+                    loading.style.display = 'none';
+                    sel.style.display = 'block';
+                }
+            } catch(e) {
+                loading.textContent = 'Fehler beim Laden der Zugriffsregeln.';
+            }
+        }
 
         async function loadSitesView() {
             const grid = document.getElementById('sites-grid');
@@ -4734,6 +4797,7 @@
             document.getElementById('site-extra-domains').value = '';
             document.getElementById('site-domain-preview').textContent = '';
             document.getElementById('site-spa').checked = false;
+            setSiteAccess('public');
             loadSiteTunnels();
             document.getElementById('site-modal').classList.add('active');
         }
@@ -4801,6 +4865,18 @@
                 const r = await fetch(url, { method: method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
                 const res = await r.json();
                 if (res.ok) {
+                    // Zero Trust Access App erstellen falls gewünscht
+                    if (siteAccessMode === 'zerotrust' && !editingSiteName) {
+                        const ztSel = document.getElementById('site-zt-group');
+                        const groupIds = Array.from(ztSel.selectedOptions).map(o => o.value);
+                        if (groupIds.length > 0) {
+                            await fetch('/api/cf/access/app', {
+                                method: 'POST',
+                                headers: {'Content-Type':'application/json'},
+                                body: JSON.stringify({ domain: hostname, name: name, group_ids: groupIds })
+                            });
+                        }
+                    }
                     showToast(editingSiteName ? `Site '${name}' aktualisiert!` : `Site '${name}' erstellt!`, 'success');
                     closeSiteModal();
                     loadSitesView();
