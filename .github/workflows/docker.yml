@@ -1,6 +1,7 @@
 # ==============================================================
 # CARLA – Docker Build & Push Workflow
-# Baut das Image automatisch und lädt es auf Docker Hub hoch.
+# Baut das Image auf GitHub und lädt es in die GitHub Container Registry.
+# Pull: docker pull ghcr.io/l8tenever/carla:latest
 # ==============================================================
 name: Docker CI/CD
 
@@ -12,15 +13,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Login at Docker Hub
+      - name: Login at GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: l8tenever
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & Push CARLA
         uses: docker/build-push-action@v5
@@ -28,5 +34,5 @@ jobs:
           context: .
           push: true
           tags: |
-            l8tenever/carla:latest
-            l8tenever/carla:${{ github.sha }}
+            ghcr.io/l8tenever/carla:latest
+            ghcr.io/l8tenever/carla:${{ github.sha }}
