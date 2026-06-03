@@ -2601,41 +2601,44 @@
 
                     const containers = data.stacks[stackName] || [];
                     totalContainers += containers.length;
-                    // Mindest-Pixelabstand 60px zwischen Containern — unabhängig vom Slice-Winkel
-                    const cr = STACK_R + CONT_EXTRA;
-                    const minAngStep = Math.max(0.15, 60 / cr); // rad: Mindestabstand
+
+                    // Radiale Richtung (vom Zentrum zum Stack)
+                    const cr  = STACK_R + CONT_EXTRA;
+                    const outX = Math.cos(baseAngle), outY = Math.sin(baseAngle);
+                    // Senkrechte Richtung (90° zur radialen Linie)
+                    const perpX = -outY, perpY = outX;
+                    const CONT_STEP = 62; // px Abstand zwischen Containern
+                    const DOM_STEP  = 52; // px Abstand zwischen Domain-Knoten
 
                     containers.forEach((cont, ci) => {
-                        const spread = containers.length > 1
-                            ? (ci - (containers.length - 1) / 2) * minAngStep
-                            : 0;
-                        const ca = baseAngle + spread;
-                        const cx = Math.cos(ca) * cr, cy = Math.sin(ca) * cr;
+                        // Containers immer senkrecht gestapelt → bleiben immer beieinander
+                        const perpOff = (ci - (containers.length - 1) / 2) * CONT_STEP;
+                        const cx = outX * cr + perpX * perpOff;
+                        const cy = outY * cr + perpY * perpOff;
                         const contId = 'c' + si + '_' + ci;
                         const cfs = cont.cloudflares || [];
                         const hasZT = cfs.some(cf => cf.allowed_emails && cf.allowed_emails.length > 0);
                         topoNodes.push({id:contId, name:cont.name, type:'container',
                             iconType:getIconType(cont.name), security:hasZT?'zerotrust':'public',
                             isRunning:cont.state==='running', cloudflares:cfs,
-                            parentStackId:stackId, subAngle:ca, branchBaseAngle:baseAngle,
+                            parentStackId:stackId, subAngle:baseAngle, branchBaseAngle:baseAngle,
                             x:cx, y:cy, radius:18, targetX:cx, targetY:cy});
                         topoLinks.push({source:stackId, target:contId, particles:[]});
 
-                        const domSpread = Math.min(0.30, sliceAngle * 0.25);
+                        // Domain-Knoten ebenfalls senkrecht gestapelt hinter dem Container
                         cfs.forEach((cf, di) => {
                             totalDomains++;
-                            const s2 = cfs.length > 1
-                                ? (di - (cfs.length - 1) / 2) * (domSpread / Math.max(cfs.length - 1, 1))
-                                : 0;
-                            const da = ca + s2;
+                            const domPerpOff = (di - (cfs.length - 1) / 2) * DOM_STEP;
                             const dr = cr + DOM_EXTRA;
+                            const dx = outX * dr + perpX * (perpOff + domPerpOff);
+                            const dy = outY * dr + perpY * (perpOff + domPerpOff);
                             const domId = 'd' + si + '_' + ci + '_' + di;
                             const isZT = cf.allowed_emails && cf.allowed_emails.length > 0;
                             topoNodes.push({id:domId, name:cf.public_domain, type:'domain',
                                 security:isZT?'zerotrust':'public', tunnelName:cf.tunnel_name,
-                                parentContainerId:contId, subAngle:da, branchBaseAngle:baseAngle,
-                                x:Math.cos(da)*dr, y:Math.sin(da)*dr, radius:6,
-                                targetX:Math.cos(da)*dr, targetY:Math.sin(da)*dr});
+                                parentContainerId:contId, subAngle:baseAngle, branchBaseAngle:baseAngle,
+                                x:dx, y:dy, radius:6,
+                                targetX:dx, targetY:dy});
                             topoLinks.push({source:contId, target:domId, particles:[]});
                         });
                     });
