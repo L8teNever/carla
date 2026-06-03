@@ -68,22 +68,20 @@ def read_file(path: str) -> dict:
 
 
 def write_file(path: str, content: str) -> dict:
-    """Schreibt Inhalt in eine Datei."""
+    """Schreibt Inhalt in eine Datei (direkt via Python, kein Shell-Limit)."""
     path = _sanitize_path(path)
 
-    # Verzeichnis muss existieren
     parent = _parent(path)
     check = system_executor.execute_command(f'test -d {_quote(parent)} && echo "OK" || echo "NODIR"')
     if "NODIR" in check:
         return {"ok": False, "error": f"Verzeichnis existiert nicht: {parent}"}
 
-    # Datei schreiben via heredoc
-    cmd = f"cat > {_quote(path)} << 'CARLA_FILE_EOF'\n{content}\nCARLA_FILE_EOF"
-    result = system_executor.execute_command(cmd)
-    if result and "Error" in result:
-        return {"ok": False, "error": f"Fehler beim Schreiben: {result}"}
-
-    return {"ok": True, "path": path}
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return {"ok": True, "path": path}
+    except Exception as e:
+        return {"ok": False, "error": f"Fehler beim Schreiben: {e}"}
 
 
 def create_directory(path: str) -> dict:
