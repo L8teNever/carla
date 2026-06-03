@@ -2592,18 +2592,23 @@
 
                 stackNames.forEach((stackName, si) => {
                     const baseAngle = (si / n) * 2 * Math.PI;
-                    const sx = Math.cos(baseAngle) * STACK_R;
-                    const sy = Math.sin(baseAngle) * STACK_R;
+                    const containers = data.stacks[stackName] || [];
+                    totalContainers += containers.length;
+
+                    // Stacks mit mehr Containern werden radial weiter nach außen geschoben
+                    // → die Linie zu SERVER HOST wird länger, der Ast hat mehr Platz
+                    const extraR = Math.max(0, containers.length - 1) * 38;
+                    const thisStackR = STACK_R + extraR;
+
+                    const sx = Math.cos(baseAngle) * thisStackR;
+                    const sy = Math.sin(baseAngle) * thisStackR;
                     const stackId = 's' + si;
                     topoNodes.push({id:stackId, name:stackName, type:'stack', angle:baseAngle,
                         branchBaseAngle:baseAngle, x:sx, y:sy, radius:10, targetX:sx, targetY:sy});
                     topoLinks.push({source:'root', target:stackId, particles:[]});
 
-                    const containers = data.stacks[stackName] || [];
-                    totalContainers += containers.length;
-
                     // Radiale Richtung (vom Zentrum zum Stack)
-                    const cr  = STACK_R + CONT_EXTRA;
+                    const cr  = thisStackR + CONT_EXTRA;
                     const outX = Math.cos(baseAngle), outY = Math.sin(baseAngle);
                     // Senkrechte Richtung (90° zur radialen Linie)
                     const perpX = -outY, perpY = outX;
