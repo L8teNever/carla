@@ -1286,6 +1286,54 @@ def api_vhosts_update(name):
 # Cloudflare Public Domains Management Routes
 # ---------------------------------------------------------------
 
+POLICIES_FILE = "data/domain_policies.json"
+
+def _load_domain_policies() -> dict:
+    import json
+    import os
+    if os.path.exists(POLICIES_FILE):
+        try:
+            with open(POLICIES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_domain_policies(policies: dict):
+    import json
+    import os
+    os.makedirs(os.path.dirname(POLICIES_FILE), exist_ok=True)
+    try:
+        with open(POLICIES_FILE, "w", encoding="utf-8") as f:
+            json.dump(policies, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"❌ [CARLA] Error saving domain policies: {e}")
+
+
+@bp.route("/api/cloudflare/domain-policies", methods=["GET"])
+def api_cloudflare_domain_policies_get():
+    return jsonify(_load_domain_policies())
+
+
+@bp.route("/api/cloudflare/domain-policies", methods=["POST"])
+def api_cloudflare_domain_policies_save():
+    data = request.json or {}
+    hostname = data.get("hostname", "").strip()
+    is_public_approved = bool(data.get("is_public_approved", False))
+    public_approved_reason = data.get("public_approved_reason", "").strip()
+    
+    if not hostname:
+        return jsonify({"ok": False, "error": "Hostname ist erforderlich."}), 400
+        
+    policies = _load_domain_policies()
+    policies[hostname] = {
+        "is_public_approved": is_public_approved,
+        "public_approved_reason": public_approved_reason
+    }
+    _save_domain_policies(policies)
+    return jsonify({"ok": True})
+
+
 @bp.route("/api/cloudflare/domains", methods=["GET"])
 def api_cloudflare_domains_list():
     cf = _get_cf_client()
@@ -1296,6 +1344,7 @@ def api_cloudflare_domains_list():
         # 1. Fetch zones, tunnels, and access policies
         tunnels = cf.list_tunnels()
         access_info = cf.get_access_info()
+        policies = _load_domain_policies()
         
         # 2. Load cached infrastructure details for matching
         infra_data, _ = cache.load(CACHE_KEY)
@@ -1393,6 +1442,10 @@ def api_cloudflare_domains_list():
                                 }
                                 break
                 
+                pol = policies.get(hostname, {})
+                is_public_approved = pol.get("is_public_approved", False)
+                public_approved_reason = pol.get("public_approved_reason", "")
+
                 domains.append({
                     "hostname": hostname,
                     "tunnel_id": tun_id,
@@ -1402,7 +1455,9 @@ def api_cloudflare_domains_list():
                     "zero_trust": has_zero_trust,
                     "access_policies": zero_trust_emails,
                     "zone_id": zone_id,
-                    "matched_target": matched_target
+                    "matched_target": matched_target,
+                    "is_public_approved": is_public_approved,
+                    "public_approved_reason": public_approved_reason
                 })
                 
         return jsonify(domains)
