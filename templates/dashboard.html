@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de" class="dark">
 <head>
     <meta charset="UTF-8">
@@ -2644,7 +2644,96 @@
                                 x:dx, y:dy, radius:6,
                                 targetX:dx, targetY:dy});
                             topoLinks.push({source:contId, target:domId, particles:[]});
+
+                            // Geteilte vhosts unter dem passenden Domain-Knoten einhängen
+                            if (cont.name === 'carla-vhost') {
+                                const matchingVhosts = (data.vhosts || []).filter(v => v.hostname === cf.public_domain);
+                                matchingVhosts.forEach((vhost, vi) => {
+                                    const vhostPerpOff = (vi - (matchingVhosts.length - 1) / 2) * 55;
+                                    const vr = cr + DOM_EXTRA + 90;
+                                    const vx = outX * vr + perpX * (perpOff + domPerpOff + vhostPerpOff);
+                                    const vy = outY * vr + perpY * (perpOff + domPerpOff + vhostPerpOff);
+                                    const vsiteId = 'vsite_' + si + '_' + ci + '_' + di + '_' + vi;
+                                    
+                                    topoNodes.push({
+                                        id: vsiteId,
+                                        name: vhost.path === '/' ? '/' : vhost.path,
+                                        subLabel: 'Site: ' + vhost.name,
+                                        type: 'vhost_site',
+                                        parentId: domId,
+                                        subAngle: baseAngle,
+                                        branchBaseAngle: baseAngle,
+                                        x: vx,
+                                        y: vy,
+                                        radius: 6,
+                                        targetX: vx,
+                                        targetY: vy
+                                    });
+                                    topoLinks.push({source: domId, target: vsiteId, particles: []});
+                                });
+                            }
                         });
+
+                        // Geteilte vhosts ohne gematchte Domain direkt unter dem carla-vhost Container einhängen
+                        if (cont.name === 'carla-vhost') {
+                            const matchedHostnames = cfs.map(cf => cf.public_domain);
+                            const unmatchedVhosts = (data.vhosts || []).filter(v => !matchedHostnames.includes(v.hostname));
+                            unmatchedVhosts.forEach((vhost, vi) => {
+                                const vhostPerpOff = (vi - (unmatchedVhosts.length - 1) / 2) * 55;
+                                const vr = cr + DOM_EXTRA;
+                                const vx = outX * vr + perpX * (perpOff + vhostPerpOff);
+                                const vy = outY * vr + perpY * (perpOff + vhostPerpOff);
+                                const vsiteId = 'vsite_unmatched_' + si + '_' + ci + '_' + vi;
+                                
+                                topoNodes.push({
+                                    id: vsiteId,
+                                    name: vhost.path === '/' ? '/' : vhost.path,
+                                    subLabel: 'Site: ' + vhost.name + ' (' + vhost.hostname + ')',
+                                    type: 'vhost_site',
+                                    parentId: contId,
+                                    subAngle: baseAngle,
+                                    branchBaseAngle: baseAngle,
+                                    x: vx,
+                                    y: vy,
+                                    radius: 6,
+                                    targetX: vx,
+                                    targetY: vy
+                                });
+                                topoLinks.push({source: contId, target: vsiteId, particles: []});
+                            });
+                        }
+
+                        // Weiterleitungsregeln unter dem passenden Redirect-Container einhängen
+                        if (cont.name.startsWith('redirect-')) {
+                            const port = parseInt(cont.name.split('-')[1]);
+                            const redirectEntry = (data.redirects || []).find(r => r.port === port);
+                            if (redirectEntry && redirectEntry.rules) {
+                                const rules = redirectEntry.rules;
+                                rules.forEach((rule, ri) => {
+                                    const rulePerpOff = (ri - (rules.length - 1) / 2) * 55;
+                                    const rr = cr + DOM_EXTRA;
+                                    const rx = outX * rr + perpX * (perpOff + rulePerpOff);
+                                    const ry = outY * rr + perpY * (perpOff + rulePerpOff);
+                                    const ruleId = 'rrule_' + si + '_' + ci + '_' + ri;
+                                    
+                                    topoNodes.push({
+                                        id: ruleId,
+                                        name: rule.path,
+                                        subLabel: '→ ' + rule.url,
+                                        type: 'redirect_rule',
+                                        parentId: contId,
+                                        subAngle: baseAngle,
+                                        branchBaseAngle: baseAngle,
+                                        x: rx,
+                                        y: ry,
+                                        radius: 6,
+                                        targetX: rx,
+                                        targetY: ry
+                                    });
+                                    topoLinks.push({source: contId, target: ruleId, particles: []});
+                                });
+                            }
+                        }
                     });
                 });
 
@@ -2686,6 +2775,10 @@
                 if(node.type==='domain') {
                     const pc = topoNodes.find(n=>n.id===node.parentContainerId);
                     if(pc) return pc.parentStackId;
+                }
+                if(node.type==='vhost_site' || node.type==='redirect_rule') {
+                    const parent = topoNodes.find(n=>n.id===node.parentId);
+                    return getBranchStackId(parent);
                 }
                 return null;
             }
@@ -2856,6 +2949,28 @@
                         const parentCont = topoNodes.find(n=>n.id===node.parentContainerId);
                         drawOutwardLabel(topoCtx,node,parentCont,node.name,null,
                             isHighlighted?'#ffffff':'#94a3b8');
+                    } else if(node.type==='vhost_site') {
+                        const col = '#8b5cf6';
+                        if(isHighlighted){topoCtx.shadowColor=col;topoCtx.shadowBlur=14;}
+                        topoCtx.beginPath(); topoCtx.arc(node.x,node.y,curR,0,2*Math.PI);
+                        topoCtx.fillStyle='#1e1a3b'; topoCtx.strokeStyle=col; topoCtx.lineWidth=1.5;
+                        topoCtx.fill(); topoCtx.stroke(); topoCtx.shadowBlur=0;
+                        topoCtx.beginPath(); topoCtx.arc(node.x,node.y,3*scaleFactor,0,2*Math.PI);
+                        topoCtx.fillStyle=col; topoCtx.fill();
+                        const parentNode = topoNodes.find(n=>n.id===node.parentId);
+                        drawOutwardLabel(topoCtx,node,parentNode,node.name,node.subLabel,
+                            isHighlighted?'#ffffff':'#94a3b8', '#c084fc');
+                    } else if(node.type==='redirect_rule') {
+                        const col = '#ec4899';
+                        if(isHighlighted){topoCtx.shadowColor=col;topoCtx.shadowBlur=14;}
+                        topoCtx.beginPath(); topoCtx.arc(node.x,node.y,curR,0,2*Math.PI);
+                        topoCtx.fillStyle='#23122b'; topoCtx.strokeStyle=col; topoCtx.lineWidth=1.5;
+                        topoCtx.fill(); topoCtx.stroke(); topoCtx.shadowBlur=0;
+                        topoCtx.beginPath(); topoCtx.arc(node.x,node.y,3*scaleFactor,0,2*Math.PI);
+                        topoCtx.fillStyle=col; topoCtx.fill();
+                        const parentNode = topoNodes.find(n=>n.id===node.parentId);
+                        drawOutwardLabel(topoCtx,node,parentNode,node.name,node.subLabel,
+                            isHighlighted?'#ffffff':'#94a3b8', '#f472b6');
                     }
                     topoCtx.restore();
                 });
