@@ -1301,6 +1301,13 @@
             <span>Sites</span>
         </button>
 
+        <button onclick="navigateTo('domains')" id="nav-domains" class="rail-item" title="Öffentliche Domains">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
+            </svg>
+            <span>Domains</span>
+        </button>
+
         <button onclick="navigateTo('filemanager')" id="nav-filemanager" class="rail-item" title="Datei-Manager">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
@@ -1986,6 +1993,77 @@
                 </div>
             </section>
 
+            <!-- 9d. CLOUDFLARE DOMAINS VIEW -->
+            <section id="view-domains" class="page-view">
+                <div class="view-title">Öffentliche Domains</div>
+                <div class="view-subtitle">Übersicht aller über Cloudflare Tunnel freigegebenen Hostnames, ihrer lokalen Verbindungen und Zero-Trust Schutzstatus</div>
+
+                <div class="section-header">
+                    <div class="section-title" id="domains-count-title">Aktive Domains (0)</div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="text" id="domains-search" class="input" placeholder="Nach Domain, Tunnel, Container suchen..." style="max-width:300px; padding: 8px 12px; font-size:13.5px;" oninput="filterDomains()">
+                        <button onclick="loadDomainsView(true)" class="btn btn-icon" title="Aktualisieren">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container" style="margin-top: 15px;">
+                    <table class="table" id="domains-table">
+                        <thead>
+                            <tr>
+                                <th>Öffentliche Domain</th>
+                                <th>Verbindung (Ziel)</th>
+                                <th>Lokaler Kontext</th>
+                                <th>Cloudflare Tunnel</th>
+                                <th>Zero Trust Schutz</th>
+                                <th style="text-align: right;">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="domains-tbody">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Delete Domain Modal -->
+                <div id="delete-domain-modal" class="modal-backdrop">
+                    <div class="modal" style="max-width: 480px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title" style="color: var(--danger);">Domain löschen</h3>
+                            <button onclick="closeDeleteDomainModal()" class="modal-close">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <p style="font-size:14px; line-height:1.5; color: var(--text);">
+                                Bist du sicher, dass du die öffentliche Domain <strong id="delete-domain-name" class="mono" style="color:var(--primary);">domain.com</strong> dauerhaft löschen möchtest?
+                            </p>
+                            <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: var(--r-md); display:flex; flex-direction:column; gap:10px;">
+                                <label style="display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; user-select:none;">
+                                    <input type="checkbox" id="delete-domain-dns" checked>
+                                    DNS CNAME-Eintrag bei Cloudflare löschen
+                                </label>
+                                <label style="display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; user-select:none;">
+                                    <input type="checkbox" id="delete-domain-access" checked>
+                                    Zero Trust Access Application (falls vorhanden) löschen
+                                </label>
+                            </div>
+                            <p style="font-size: 11.5px; color: var(--text-muted); line-height:1.4;">
+                                Hinweis: Dadurch wird der Hostname aus der Ingress-Konfiguration des Tunnels entfernt. Der lokale Container bzw. Service läuft unberührt weiter.
+                            </p>
+                        </div>
+                        <div class="modal-actions">
+                            <button onclick="closeDeleteDomainModal()" class="btn">Abbrechen</button>
+                            <button onclick="submitDeleteDomain()" class="btn btn-danger" id="delete-domain-submit-btn">Domain löschen</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- 10. FILE MANAGER (Safer action toolbars) -->
             <section id="view-filemanager" class="page-view">
                 <div class="view-title">Datei-Manager</div>
@@ -2301,6 +2379,8 @@
                 navigateTo('redirects');
             } else if (path === '/sites') {
                 navigateTo('sites');
+            } else if (path === '/domains') {
+                navigateTo('domains');
             } else {
                 navigateTo('dashboard');
             }
@@ -2355,6 +2435,7 @@
             if (pageId === 'performance') startMetricsPolling();
             if (pageId === 'redirects') loadRedirectsView();
             if (pageId === 'sites') loadSitesView();
+            if (pageId === 'domains') loadDomainsView();
         }
 
         function stopAllPolling() {
@@ -5042,6 +5123,232 @@
             setTimeout(() => {
                 if (typeof loadDirectory === 'function') loadDirectory(wwwPath);
             }, 300);
+        }
+
+        // -----------------------------------------------------------
+        // 9d. CLOUDFLARE DOMAINS MANAGEMENT
+        // -----------------------------------------------------------
+        let allDomains = [];
+        let deleteDomainHostname = '';
+        let deleteDomainTunnelId = '';
+        let deleteDomainZoneId = '';
+
+        async function loadDomainsView(forceRefresh = false) {
+            const tbody = document.getElementById('domains-tbody');
+            const countTitle = document.getElementById('domains-count-title');
+            
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">Lade Cloudflare Domains...</td></tr>';
+            countTitle.textContent = 'Aktive Domains (Lade...)';
+            
+            try {
+                if (forceRefresh) {
+                    showToast('Aktualisiere Cloudflare Daten...', 'info');
+                    await fetch('/api/refresh', { method: 'POST' });
+                    // Wait a bit for cache refresh to complete
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+
+                const r = await fetch('/api/cloudflare/domains');
+                if (!r.ok) {
+                    const errData = await r.json();
+                    throw new Error(errData.error || 'Fehler beim Laden der Domains.');
+                }
+                
+                allDomains = await r.json();
+                renderDomains(allDomains);
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--danger); font-weight:600;">
+                    ${e.message}<br>
+                    <button class="btn btn-sm" onclick="navigateTo('settings')" style="margin-top:12px;">Zu den Einstellungen</button>
+                </td></tr>`;
+                countTitle.textContent = 'Aktive Domains (Fehler)';
+            }
+        }
+
+        function renderDomains(domains) {
+            const tbody = document.getElementById('domains-tbody');
+            const countTitle = document.getElementById('domains-count-title');
+            
+            tbody.innerHTML = '';
+            countTitle.textContent = `Aktive Domains (${domains.length})`;
+            
+            if (domains.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">Keine Cloudflare Domains gefunden.</td></tr>';
+                return;
+            }
+            
+            domains.forEach(domain => {
+                const tr = document.createElement('tr');
+                
+                // 1. Hostname column
+                const tdHost = document.createElement('td');
+                tdHost.innerHTML = `
+                    <a href="https://${domain.hostname}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                        🌐 ${domain.hostname}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px; height:11px; opacity:0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    </a>
+                `;
+                tr.appendChild(tdHost);
+                
+                // 2. Connection column
+                const tdSvc = document.createElement('td');
+                tdSvc.innerHTML = `<span class="mono" style="font-size:12px; color:var(--text-muted);">${domain.service}</span>`;
+                tr.appendChild(tdSvc);
+                
+                // 3. Local context column
+                const tdContext = document.createElement('td');
+                if (domain.matched_target) {
+                    const tgt = domain.matched_target;
+                    let icon = '📦';
+                    if (tgt.type === 'redirect') icon = '🔀';
+                    if (tgt.type === 'vhost') icon = '📄';
+                    
+                    const isRunning = tgt.status === 'running';
+                    const statusDot = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${isRunning ? 'var(--success)' : 'var(--danger)'}; margin-right:6px;"></span>`;
+                    
+                    tdContext.innerHTML = `
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span style="font-weight:600; font-size:13px; color:var(--text);">${icon} ${tgt.name}</span>
+                            <span style="font-size:11px; color:var(--text-muted); display:flex; align-items:center;">
+                                ${statusDot}${tgt.detail}
+                            </span>
+                        </div>
+                    `;
+                } else {
+                    tdContext.innerHTML = `<span class="text-muted" style="font-size:12.5px;">External / Unknown</span>`;
+                }
+                tr.appendChild(tdContext);
+                
+                // 4. Tunnel column
+                const tdTunnel = document.createElement('td');
+                const isTunActive = domain.tunnel_status === 'healthy' || domain.tunnel_status === 'active';
+                const tunnelBadge = isTunActive 
+                    ? `<span class="badge success" style="font-size:10px; padding:2px 6px;">Active</span>`
+                    : `<span class="badge warning" style="font-size:10px; padding:2px 6px;">${domain.tunnel_status}</span>`;
+                
+                tdTunnel.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:2px;">
+                        <span style="font-weight:500; font-size:13px;">☁️ ${domain.tunnel_name}</span>
+                        <div style="margin-top:2px;">${tunnelBadge}</div>
+                    </div>
+                `;
+                tr.appendChild(tdTunnel);
+                
+                // 5. Zero trust column
+                const tdZT = document.createElement('td');
+                if (domain.zero_trust) {
+                    const policiesText = domain.access_policies && domain.access_policies.length > 0
+                        ? `Berechtigt: ${domain.access_policies.join(', ')}`
+                        : 'Abgesichert über Zero Trust';
+                    
+                    tdZT.innerHTML = `
+                        <span class="badge success" style="font-size:10px; padding:2.5px 7px; display:inline-flex; align-items:center; gap:4px;" title="${policiesText}">
+                            🛡️ Zero Trust
+                        </span>
+                        ${domain.access_policies && domain.access_policies.length > 0 ? `
+                        <div style="font-size:10px; color:var(--text-muted); margin-top:3px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${domain.access_policies.join(', ')}">
+                            ${domain.access_policies.join(', ')}
+                        </div>` : ''}
+                    `;
+                } else {
+                    tdZT.innerHTML = `
+                        <span class="badge danger" style="font-size:10px; padding:2.5px 7px; display:inline-flex; align-items:center; gap:4px;" title="Achtung: Diese Route ist öffentlich erreichbar!">
+                            ⚠️ Öffentlich
+                        </span>
+                    `;
+                }
+                tr.appendChild(tdZT);
+                
+                // 6. Actions column
+                const tdActions = document.createElement('td');
+                tdActions.style.textAlign = 'right';
+                tdActions.innerHTML = `
+                    <button class="btn btn-danger btn-sm" onclick="deleteDomain('${domain.hostname}', '${domain.tunnel_id}', '${domain.zone_id || ''}')" title="Domain löschen" style="padding: 5px 10px;">
+                        Löschen
+                    </button>
+                `;
+                tr.appendChild(tdActions);
+                
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterDomains() {
+            const query = document.getElementById('domains-search').value.toLowerCase().trim();
+            if (!query) {
+                renderDomains(allDomains);
+                return;
+            }
+            
+            const filtered = allDomains.filter(domain => {
+                const hostMatch = domain.hostname.toLowerCase().includes(query);
+                const svcMatch = domain.service.toLowerCase().includes(query);
+                const tunMatch = domain.tunnel_name.toLowerCase().includes(query);
+                
+                let targetMatch = false;
+                if (domain.matched_target) {
+                    targetMatch = domain.matched_target.name.toLowerCase().includes(query) || 
+                                  (domain.matched_target.stack && domain.matched_target.stack.toLowerCase().includes(query));
+                }
+                
+                return hostMatch || svcMatch || tunMatch || targetMatch;
+            });
+            
+            renderDomains(filtered);
+        }
+
+        function deleteDomain(hostname, tunnelId, zoneId) {
+            deleteDomainHostname = hostname;
+            deleteDomainTunnelId = tunnelId;
+            deleteDomainZoneId = zoneId;
+            
+            document.getElementById('delete-domain-name').textContent = hostname;
+            document.getElementById('delete-domain-dns').checked = true;
+            document.getElementById('delete-domain-access').checked = true;
+            
+            document.getElementById('delete-domain-modal').classList.add('active');
+        }
+
+        function closeDeleteDomainModal() {
+            document.getElementById('delete-domain-modal').classList.remove('active');
+        }
+
+        async function submitDeleteDomain() {
+            const btn = document.getElementById('delete-domain-submit-btn');
+            const dnsChecked = document.getElementById('delete-domain-dns').checked;
+            const accessChecked = document.getElementById('delete-domain-access').checked;
+            
+            btn.disabled = true;
+            btn.textContent = 'Lösche...';
+            
+            try {
+                const r = await fetch('/api/cloudflare/domains', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        hostname: deleteDomainHostname,
+                        tunnel_id: deleteDomainTunnelId,
+                        zone_id: deleteDomainZoneId,
+                        delete_dns: dnsChecked,
+                        delete_access: accessChecked
+                    })
+                });
+                
+                const res = await r.json();
+                if (res.ok) {
+                    showToast(`Domain '${deleteDomainHostname}' erfolgreich gelöscht!`, 'success');
+                    closeDeleteDomainModal();
+                    loadDomainsView(false);
+                } else {
+                    showToast(res.error || 'Fehler beim Löschen der Domain.', 'error');
+                }
+            } catch(e) {
+                showToast(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Domain löschen';
+            }
         }
     </script>
 </body>

@@ -276,6 +276,7 @@ def start_background_fetch():
 @bp.route("/filemanager")
 @bp.route("/redirects")
 @bp.route("/sites")
+@bp.route("/domains")
 def index(stack_name=None, name=None):
     return render_template("dashboard.html")
 
@@ -1279,3 +1280,192 @@ def api_vhosts_update(name):
     if result.get("ok"):
         start_background_fetch()
     return jsonify(result), 200 if result["ok"] else 400
+
+
+# ---------------------------------------------------------------
+# Cloudflare Public Domains Management Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/cloudflare/domains", methods=["GET"])
+def api_cloudflare_domains_list():
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare ist nicht konfiguriert."}), 400
+
+    try:
+        # 1. Fetch zones, tunnels, and access policies
+        tunnels = cf.list_tunnels()
+        access_info = cf.get_access_info()
+        
+        # 2. Load cached infrastructure details for matching
+        infra_data, _ = cache.load(CACHE_KEY)
+        if infra_data is None:
+            infra_data = {}
+
+        domains = []
+        
+        # 3. Iterate over tunnels to retrieve ingress configurations
+        for tun in tunnels:
+            tun_id = tun["id"]
+            tun_name = tun["name"]
+            tun_status = tun.get("status", "unknown")
+            
+            # Fetch config for this specific tunnel
+            cfg = cf.get_tunnel_config(tun_id)
+            ingress_rules = cfg.get("config", {}).get("ingress", [])
+            
+            for rule in ingress_rules:
+                hostname = rule.get("hostname")
+                if not hostname:
+                    continue  # skip catchall
+                
+                service = rule.get("service", "")
+                
+                # Zero trust detection
+                zero_trust_emails = access_info.get(hostname, [])
+                has_zero_trust = hostname in access_info
+                
+                # Match Zone ID
+                zone_id = cf.find_zone_id(hostname)
+                
+                # Local service matching logic
+                matched_target = None
+                service_port = None
+                
+                normalized = service if "://" in service else "http://" + service
+                try:
+                    p = urlparse(normalized)
+                    service_port = p.port
+                except Exception:
+                    pass
+                
+                if service_port is not None:
+                    # a) Match against redirects
+                    for red in infra_data.get("redirects", []):
+                        if str(red.get("port")) == str(service_port):
+                            matched_target = {
+                                "type": "redirect",
+                                "name": f"Umleitung (Port {service_port})",
+                                "detail": f"→ {len(red.get('rules', []))} Pfade",
+                                "status": "running" if red.get("state") == "running" else "stopped"
+                            }
+                            break
+                    
+                    # b) Match against containers
+                    if not matched_target:
+                        for stack_name, stack in infra_data.get("stacks", {}).items():
+                            for container in stack:
+                                host_ports = [str(pt) for pt in container.get("host_ports", [])]
+                                if str(service_port) in host_ports:
+                                    matched_target = {
+                                        "type": "container",
+                                        "name": container.get("name"),
+                                        "stack": stack_name,
+                                        "detail": f"Stack: {stack_name}",
+                                        "status": container.get("state", "unknown")
+                                    }
+                                    break
+                                
+                                for binding in container.get("port_bindings", []):
+                                    if str(binding.get("host_port")) == str(service_port):
+                                        matched_target = {
+                                            "type": "container",
+                                            "name": container.get("name"),
+                                            "stack": stack_name,
+                                            "detail": f"Stack: {stack_name}",
+                                            "status": container.get("state", "unknown")
+                                        }
+                                        break
+                                if matched_target:
+                                    break
+                            if matched_target:
+                                break
+                    
+                    # c) Match against sites (nginx vhosts)
+                    if not matched_target:
+                        for site in infra_data.get("vhosts", []):
+                            if site.get("hostname") == hostname or hostname in site.get("extra_hostnames", []):
+                                matched_target = {
+                                    "type": "vhost",
+                                    "name": f"Site: {site.get('name')}",
+                                    "detail": f"Nginx-Pfad: {site.get('path', '/')}",
+                                    "status": "running" if site.get("state") == "running" else "stopped"
+                                }
+                                break
+                
+                domains.append({
+                    "hostname": hostname,
+                    "tunnel_id": tun_id,
+                    "tunnel_name": tun_name,
+                    "tunnel_status": tun_status,
+                    "service": service,
+                    "zero_trust": has_zero_trust,
+                    "access_policies": zero_trust_emails,
+                    "zone_id": zone_id,
+                    "matched_target": matched_target
+                })
+                
+        return jsonify(domains)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/cloudflare/domains", methods=["DELETE"])
+def api_cloudflare_domains_delete():
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"ok": False, "error": "Cloudflare ist nicht konfiguriert."}), 400
+
+    data = request.json or {}
+    hostname = data.get("hostname", "").strip()
+    tunnel_id = data.get("tunnel_id", "").strip()
+    zone_id = data.get("zone_id", "").strip()
+    delete_dns = bool(data.get("delete_dns", True))
+    delete_access = bool(data.get("delete_access", True))
+
+    if not hostname or not tunnel_id:
+        return jsonify({"ok": False, "error": "Hostname und Tunnel-ID sind erforderlich."}), 400
+
+    try:
+        errors = []
+        
+        # 1. Remove ingress rule from tunnel config
+        rules = cf.get_tunnel_ingress(tunnel_id)
+        # Filter out rules matching this hostname
+        new_rules = [r for r in rules if r.get("hostname") != hostname]
+        
+        update_res = cf.update_tunnel_ingress(tunnel_id, new_rules)
+        if not update_res.get("success"):
+            update_errs = update_res.get("errors", [])
+            err_msg = update_errs[0].get("message", "Fehler beim Aktualisieren des Ingress") if update_errs else "Fehler beim Ingress-Update"
+            errors.append(f"Tunnel-Ingress: {err_msg}")
+
+        # 2. Delete CNAME record if requested
+        if delete_dns:
+            if not zone_id:
+                # Find Zone ID dynamically if not provided
+                zone_id = cf.find_zone_id(hostname)
+            
+            if zone_id:
+                dns_deleted = cf.delete_cname_record(zone_id, hostname)
+                if not dns_deleted:
+                    errors.append("DNS-Eintrag konnte nicht gelöscht werden.")
+            else:
+                errors.append("Zonen-ID für DNS-Eintrag nicht gefunden.")
+
+        # 3. Delete Access App if requested
+        if delete_access:
+            # We ignore failure if no Access App exists, but try to delete it
+            cf.delete_access_app_by_domain(hostname)
+
+        if errors:
+            return jsonify({"ok": False, "error": "; ".join(errors)}), 400
+
+        # Success - clean cache and trigger refresh in background
+        cache.clear(CACHE_KEY)
+        start_background_fetch()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
