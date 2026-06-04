@@ -107,7 +107,15 @@ def _generate_nginx_conf(sites: list) -> str:
             for eh in s.get("extra_hostnames", []):
                 all_names.add(eh)
         server_name_line = " ".join(sorted(all_names))
-        lines += [f"server {{", f"    listen {VHOST_PORT};", f"    server_name {server_name_line};", "    charset utf-8;", ""]
+        lines += [
+            "server {",
+            f"    listen {VHOST_PORT};",
+            f"    server_name {server_name_line};",
+            "    charset utf-8;",
+            "    port_in_redirect off;",
+            "    absolute_redirect off;",
+            ""
+        ]
 
         # Zuerst alle Unterpfad-Sites (alias-basiert)
         for site in host_sites_sorted:

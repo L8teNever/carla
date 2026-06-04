@@ -102,6 +102,8 @@ def _generate_nginx_config(port: int, spa: bool = False) -> str:
     root /var/www;
     index index.html index.htm;
     charset utf-8;
+    port_in_redirect off;
+    absolute_redirect off;
 
     location / {{
         {fallback}
