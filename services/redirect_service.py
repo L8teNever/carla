@@ -56,6 +56,7 @@ def _cleanup_cloudflare(tunnel_id: str, hostname: str):
     zone_id = cf_client.find_zone_id(hostname)
     if zone_id:
         cf_client.delete_cname_record(zone_id, hostname)
+    cf_client.delete_access_app_by_domain(hostname)
         
     # 2. Ingress-Regel aus dem Tunnel löschen
     existing_rules = cf_client.get_tunnel_ingress(tunnel_id)

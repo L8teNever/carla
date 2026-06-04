@@ -396,6 +396,7 @@ def _cleanup_cf_hostnames(cf, tunnel_id: str, hostnames: list, remaining_sites: 
             zone_id = cf.find_zone_id(hostname)
             if zone_id:
                 cf.delete_cname_record(zone_id, hostname)
+            cf.delete_access_app_by_domain(hostname)
     except Exception as e:
         print(f"❌ [vhost] Fehler beim Cloudflare-Cleanup: {e}")
 
