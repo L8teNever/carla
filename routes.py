@@ -1442,22 +1442,19 @@ def api_cloudflare_domains_delete():
             err_msg = update_errs[0].get("message", "Fehler beim Aktualisieren des Ingress") if update_errs else "Fehler beim Ingress-Update"
             errors.append(f"Tunnel-Ingress: {err_msg}")
 
-        # 2. Delete CNAME record if requested
+        # 2. Delete CNAME record if requested (non-fatal)
         if delete_dns:
             if not zone_id:
                 # Find Zone ID dynamically if not provided
                 zone_id = cf.find_zone_id(hostname)
             
             if zone_id:
-                dns_deleted = cf.delete_cname_record(zone_id, hostname)
-                if not dns_deleted:
-                    errors.append("DNS-Eintrag konnte nicht gelöscht werden.")
+                cf.delete_cname_record(zone_id, hostname)
             else:
-                errors.append("Zonen-ID für DNS-Eintrag nicht gefunden.")
+                print(f"⚠️ [CARLA] DNS Zonen-ID für {hostname} nicht gefunden. DNS-Löschen übersprungen.")
 
         # 3. Delete Access App if requested
         if delete_access:
-            # We ignore failure if no Access App exists, but try to delete it
             cf.delete_access_app_by_domain(hostname)
 
         if errors:
@@ -1467,5 +1464,135 @@ def api_cloudflare_domains_delete():
         cache.clear(CACHE_KEY)
         start_background_fetch()
         return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ---------------------------------------------------------------
+# Cloudflare Zero Trust Access Applications Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/cloudflare/access-apps", methods=["GET"])
+def api_cloudflare_access_apps_list():
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare ist nicht konfiguriert."}), 400
+    
+    try:
+        apps = cf.fetch("access/apps")
+        # Ensure apps is a list
+        if not isinstance(apps, list):
+            apps = []
+            
+        access_info = cf.get_access_info()
+        
+        result = []
+        for app in apps:
+            domain = app.get("domain", "")
+            result.append({
+                "id": app.get("id"),
+                "name": app.get("name"),
+                "domain": domain,
+                "created_at": app.get("created_at"),
+                "updated_at": app.get("updated_at"),
+                "policies": access_info.get(domain, [])
+            })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/cloudflare/access-apps/<app_id>", methods=["DELETE"])
+def api_cloudflare_access_apps_delete(app_id):
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"ok": False, "error": "Cloudflare ist nicht konfiguriert."}), 400
+    try:
+        import requests
+        url = f"{cf.base_url}/accounts/{cf.account_id}/access/apps/{app_id}"
+        res = requests.delete(url, headers=cf.headers, timeout=10)
+        resp = res.json()
+        cf._cache.pop("access/apps", None) # clear cache
+        return jsonify({"ok": resp.get("success", False), "error": resp.get("errors")})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@bp.route("/api/cloudflare/access-apps/<app_id>/policies", methods=["GET"])
+def api_cloudflare_access_apps_policies_get(app_id):
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare ist nicht konfiguriert."}), 400
+    try:
+        import requests
+        policies_url = f"{cf.base_url}/accounts/{cf.account_id}/access/apps/{app_id}/policies"
+        res = requests.get(policies_url, headers=cf.headers, timeout=10)
+        policies = res.json().get("result", [])
+        if not isinstance(policies, list):
+            policies = []
+            
+        selected_groups = []
+        for policy in policies:
+            for inc in policy.get("include", []):
+                if "group" in inc:
+                    g_id = inc["group"].get("id")
+                    if g_id:
+                        selected_groups.append(g_id)
+        
+        return jsonify({"group_ids": selected_groups})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/cloudflare/access-apps/<app_id>/policies", methods=["PUT"])
+def api_cloudflare_access_apps_policies_update(app_id):
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"ok": False, "error": "Cloudflare ist nicht konfiguriert."}), 400
+    
+    data = request.json or {}
+    group_ids = data.get("group_ids", [])
+    
+    try:
+        import requests
+        policies_url = f"{cf.base_url}/accounts/{cf.account_id}/access/apps/{app_id}/policies"
+        res = requests.get(policies_url, headers=cf.headers, timeout=10)
+        policies = res.json().get("result", [])
+        
+        if not isinstance(policies, list):
+            policies = []
+            
+        if policies:
+            policy_id = policies[0]["id"]
+            policy_payload = {
+                "name": "Ausgewählte Gruppen",
+                "decision": "allow",
+                "include": [{"group": {"id": gid}} for gid in group_ids]
+            }
+            put_res = requests.put(
+                f"{policies_url}/{policy_id}",
+                headers=cf.headers,
+                json=policy_payload,
+                timeout=10
+            )
+            ok = put_res.json().get("success", False)
+            err = put_res.json().get("errors")
+        else:
+            policy_payload = {
+                "name": "Ausgewählte Gruppen",
+                "decision": "allow",
+                "include": [{"group": {"id": gid}} for gid in group_ids]
+            }
+            post_res = requests.post(
+                policies_url,
+                headers=cf.headers,
+                json=policy_payload,
+                timeout=10
+            )
+            ok = post_res.json().get("success", False)
+            err = post_res.json().get("errors")
+            
+        cf._cache.clear()
+        return jsonify({"ok": ok, "error": err})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500

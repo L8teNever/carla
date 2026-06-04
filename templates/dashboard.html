@@ -1998,35 +1998,77 @@
                 <div class="view-title">Öffentliche Domains</div>
                 <div class="view-subtitle">Übersicht aller über Cloudflare Tunnel freigegebenen Hostnames, ihrer lokalen Verbindungen und Zero-Trust Schutzstatus</div>
 
-                <div class="section-header">
-                    <div class="section-title" id="domains-count-title">Aktive Domains (0)</div>
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="text" id="domains-search" class="input" placeholder="Nach Domain, Tunnel, Container suchen..." style="max-width:300px; padding: 8px 12px; font-size:13.5px;" oninput="filterDomains()">
-                        <button onclick="loadDomainsView(true)" class="btn btn-icon" title="Aktualisieren">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
-                                <polyline points="23 4 23 10 17 10"></polyline>
-                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                            </svg>
-                        </button>
+                <!-- Tab navigation -->
+                <div class="tabs-nav" style="margin-bottom: 20px;">
+                    <button class="tab-btn active" id="domains-tab-btn-tunnels" onclick="switchDomainsSubTab('tunnels')">Tunnel Routen</button>
+                    <button class="tab-btn" id="domains-tab-btn-access" onclick="switchDomainsSubTab('access')">Zero Trust Apps</button>
+                </div>
+
+                <!-- 1. Tunnel Routes Sub-Tab -->
+                <div id="domains-tab-tunnels" class="tab-panel">
+                    <div class="section-header">
+                        <div class="section-title" id="domains-count-title">Aktive Domains (0)</div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="text" id="domains-search" class="input" placeholder="Nach Domain, Tunnel, Container suchen..." style="max-width:300px; padding: 8px 12px; font-size:13.5px;" oninput="filterDomains()">
+                            <button onclick="loadDomainsView(true)" class="btn btn-icon" title="Aktualisieren">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                                    <polyline points="23 4 23 10 17 10"></polyline>
+                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-container" style="margin-top: 15px;">
+                        <table class="table" id="domains-table">
+                            <thead>
+                                <tr>
+                                    <th>Öffentliche Domain</th>
+                                    <th>Verbindung (Ziel)</th>
+                                    <th>Lokaler Kontext</th>
+                                    <th>Cloudflare Tunnel</th>
+                                    <th>Zero Trust Schutz</th>
+                                    <th style="text-align: right;">Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="domains-tbody">
+                                <!-- Injected dynamically -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
-                <div class="table-container" style="margin-top: 15px;">
-                    <table class="table" id="domains-table">
-                        <thead>
-                            <tr>
-                                <th>Öffentliche Domain</th>
-                                <th>Verbindung (Ziel)</th>
-                                <th>Lokaler Kontext</th>
-                                <th>Cloudflare Tunnel</th>
-                                <th>Zero Trust Schutz</th>
-                                <th style="text-align: right;">Aktionen</th>
-                            </tr>
-                        </thead>
-                        <tbody id="domains-tbody">
-                            <!-- Injected dynamically -->
-                        </tbody>
-                    </table>
+                <!-- 2. Zero Trust Apps Sub-Tab -->
+                <div id="domains-tab-access" class="tab-panel" style="display: none;">
+                    <div class="section-header">
+                        <div class="section-title" id="access-count-title">Zero Trust Applikationen (0)</div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="text" id="access-search" class="input" placeholder="Nach App oder Domain suchen..." style="max-width:300px; padding: 8px 12px; font-size:13.5px;" oninput="filterAccessApps()">
+                            <button onclick="loadAccessAppsView(true)" class="btn btn-icon" title="Aktualisieren">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                                    <polyline points="23 4 23 10 17 10"></polyline>
+                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-container" style="margin-top: 15px;">
+                        <table class="table" id="access-apps-table">
+                            <thead>
+                                <tr>
+                                    <th>App-Name</th>
+                                    <th>Domain</th>
+                                    <th>Erstellt am</th>
+                                    <th>Zugriffsregeln (Policies)</th>
+                                    <th style="text-align: right;">Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="access-apps-tbody">
+                                <!-- Injected dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <!-- Delete Domain Modal -->
@@ -2059,6 +2101,38 @@
                         <div class="modal-actions">
                             <button onclick="closeDeleteDomainModal()" class="btn">Abbrechen</button>
                             <button onclick="submitDeleteDomain()" class="btn btn-danger" id="delete-domain-submit-btn">Domain löschen</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Zero Trust Policies Modal -->
+                <div id="edit-access-modal" class="modal-backdrop">
+                    <div class="modal" style="max-width: 480px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title">Zero Trust Richtlinien bearbeiten</h3>
+                            <button onclick="closeEditAccessModal()" class="modal-close">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <div>
+                                <span class="mono" id="edit-access-domain" style="font-weight:600; color:var(--primary); font-size:15px;">domain.com</span>
+                                <span id="edit-access-app-name" style="display:block; font-size:12px; color:var(--text-muted); margin-top:2px;">App-Name: ...</span>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label">Erlaubte Identitätsgruppen (Access Groups)</label>
+                                <div id="edit-access-zt-loading" style="font-size:12px; color:var(--text-muted);">Lade Zugriffsregeln...</div>
+                                <select id="edit-access-zt-group" class="select" multiple size="6" style="padding:6px 10px; font-size:12px; display:none;"></select>
+                                <div style="font-size:10.5px; color:var(--text-muted); margin-top:6px; line-height:1.4;">
+                                    Strg/Cmd gedrückt halten, um mehrere Gruppen auszuwählen.<br>
+                                    Nur Mitglieder der ausgewählten Gruppen erhalten Zugriff.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button onclick="closeEditAccessModal()" class="btn">Abbrechen</button>
+                            <button onclick="submitEditAccessPolicies()" class="btn btn-primary" id="edit-access-submit-btn">Richtlinien speichern</button>
                         </div>
                     </div>
                 </div>
@@ -2435,7 +2509,7 @@
             if (pageId === 'performance') startMetricsPolling();
             if (pageId === 'redirects') loadRedirectsView();
             if (pageId === 'sites') loadSitesView();
-            if (pageId === 'domains') loadDomainsView();
+            if (pageId === 'domains') switchDomainsSubTab('tunnels');
         }
 
         function stopAllPolling() {
@@ -5129,9 +5203,30 @@
         // 9d. CLOUDFLARE DOMAINS MANAGEMENT
         // -----------------------------------------------------------
         let allDomains = [];
+        let allAccessApps = [];
         let deleteDomainHostname = '';
         let deleteDomainTunnelId = '';
         let deleteDomainZoneId = '';
+        let editAccessAppId = '';
+
+        function switchDomainsSubTab(tabId) {
+            document.querySelectorAll('#view-domains .tab-panel').forEach(panel => {
+                panel.style.display = 'none';
+            });
+            document.querySelectorAll('#view-domains .tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            if (tabId === 'tunnels') {
+                document.getElementById('domains-tab-tunnels').style.display = 'block';
+                document.getElementById('domains-tab-btn-tunnels').classList.add('active');
+                loadDomainsView(false);
+            } else if (tabId === 'access') {
+                document.getElementById('domains-tab-access').style.display = 'block';
+                document.getElementById('domains-tab-btn-access').classList.add('active');
+                loadAccessAppsView(false);
+            }
+        }
 
         async function loadDomainsView(forceRefresh = false) {
             const tbody = document.getElementById('domains-tbody');
@@ -5348,6 +5443,229 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Domain löschen';
+            }
+        }
+
+        async function loadAccessAppsView(forceRefresh = false) {
+            const tbody = document.getElementById('access-apps-tbody');
+            const countTitle = document.getElementById('access-count-title');
+            
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--text-muted);">Lade Zero Trust Applikationen...</td></tr>';
+            countTitle.textContent = 'Zero Trust Applikationen (Lade...)';
+            
+            try {
+                if (forceRefresh) {
+                    showToast('Aktualisiere Cloudflare Daten...', 'info');
+                    await fetch('/api/refresh', { method: 'POST' });
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+
+                const r = await fetch('/api/cloudflare/access-apps');
+                if (!r.ok) {
+                    const errData = await r.json();
+                    throw new Error(errData.error || 'Fehler beim Laden der Zero Trust Apps.');
+                }
+                
+                allAccessApps = await r.json();
+                renderAccessApps(allAccessApps);
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--danger); font-weight:600;">
+                    ${e.message}
+                </td></tr>`;
+                countTitle.textContent = 'Zero Trust Applikationen (Fehler)';
+            }
+        }
+
+        function renderAccessApps(apps) {
+            const tbody = document.getElementById('access-apps-tbody');
+            const countTitle = document.getElementById('access-count-title');
+            
+            tbody.innerHTML = '';
+            countTitle.textContent = `Zero Trust Applikationen (${apps.length})`;
+            
+            if (apps.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--text-muted);">Keine Zero Trust Applikationen in Cloudflare konfiguriert.</td></tr>';
+                return;
+            }
+            
+            apps.forEach(app => {
+                const tr = document.createElement('tr');
+                
+                // 1. App Name
+                const tdName = document.createElement('td');
+                tdName.innerHTML = `<span style="font-weight:600; font-size:14px; color:var(--text);">${app.name}</span>`;
+                tr.appendChild(tdName);
+                
+                // 2. Domain (linked)
+                const tdDomain = document.createElement('td');
+                tdDomain.innerHTML = `
+                    <a href="https://${app.domain}" target="_blank" style="color:var(--primary); font-weight:500; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                        🌐 ${app.domain}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px; height:11px; opacity:0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    </a>
+                `;
+                tr.appendChild(tdDomain);
+                
+                // 3. Created At
+                const tdDate = document.createElement('td');
+                let formattedDate = 'N/A';
+                if (app.created_at) {
+                    try {
+                        const d = new Date(app.created_at);
+                        formattedDate = d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    } catch(e) {}
+                }
+                tdDate.innerHTML = `<span style="font-size:12.5px; color:var(--text-muted);">${formattedDate}</span>`;
+                tr.appendChild(tdDate);
+                
+                // 4. Policies (Emails / Groups)
+                const tdPol = document.createElement('td');
+                if (app.policies && app.policies.length > 0) {
+                    tdPol.innerHTML = app.policies.map(p => {
+                        const isEmail = p.includes('@') && !p.startsWith('Gruppe:');
+                        const isGroup = p.startsWith('Gruppe:');
+                        let badgeClass = 'info';
+                        if (isGroup) badgeClass = 'success';
+                        else if (p === 'Jeder') badgeClass = 'warning';
+                        return `<span class="badge ${badgeClass}" style="font-size:10px; margin-right:4px; margin-bottom:4px; display:inline-block;">${p}</span>`;
+                    }).join('');
+                } else {
+                    tdPol.innerHTML = `<span class="badge danger" style="font-size:10px;">Keine Zugriffsregeln!</span>`;
+                }
+                tr.appendChild(tdPol);
+                
+                // 5. Actions
+                const tdAct = document.createElement('td');
+                tdAct.style.textAlign = 'right';
+                tdAct.innerHTML = `
+                    <button class="btn btn-sm" onclick="editAccessApp('${app.id}', '${app.name.replace(/'/g, "\\'")}', '${app.domain}')" style="margin-right:6px; padding: 5px 10px;">
+                        Bearbeiten
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteAccessApp('${app.id}', '${app.name.replace(/'/g, "\\'")}', '${app.domain}')" style="padding: 5px 10px;">
+                        Löschen
+                    </button>
+                `;
+                tr.appendChild(tdAct);
+                
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterAccessApps() {
+            const query = document.getElementById('access-search').value.toLowerCase().trim();
+            if (!query) {
+                renderAccessApps(allAccessApps);
+                return;
+            }
+            
+            const filtered = allAccessApps.filter(app => {
+                const nameMatch = app.name.toLowerCase().includes(query);
+                const domainMatch = app.domain.toLowerCase().includes(query);
+                return nameMatch || domainMatch;
+            });
+            
+            renderAccessApps(filtered);
+        }
+
+        async function deleteAccessApp(appId, name, domain) {
+            if (!confirm(`Zero Trust Applikation '${name}' (${domain}) wirklich löschen?`)) return;
+            
+            try {
+                showToast(`Lösche Zero Trust App '${name}'...`, 'info');
+                const r = await fetch(`/api/cloudflare/access-apps/${appId}`, {
+                    method: 'DELETE'
+                });
+                const res = await r.json();
+                if (res.ok) {
+                    showToast(`Zero Trust App '${name}' erfolgreich gelöscht!`, 'success');
+                    loadAccessAppsView(false);
+                } else {
+                    const err = res.error ? JSON.stringify(res.error) : 'Unbekannter Fehler';
+                    showToast(`Fehler beim Löschen: ${err}`, 'error');
+                }
+            } catch(e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        async function editAccessApp(appId, name, domain) {
+            editAccessAppId = appId;
+            
+            document.getElementById('edit-access-domain').textContent = domain;
+            document.getElementById('edit-access-app-name').textContent = `Applikation: ${name}`;
+            
+            const loading = document.getElementById('edit-access-zt-loading');
+            const sel = document.getElementById('edit-access-zt-group');
+            
+            loading.style.display = 'block';
+            sel.style.display = 'none';
+            document.getElementById('edit-access-modal').classList.add('active');
+            
+            try {
+                // 1. Fetch available access groups
+                const grpResp = await fetch('/api/cf/access/groups');
+                const groups = grpResp.ok ? await grpResp.json() : [];
+                
+                if (!Array.isArray(groups) || groups.length === 0) {
+                    loading.textContent = 'Keine CF Access Gruppen gefunden. Erstelle Gruppen im Cloudflare Dashboard.';
+                    return;
+                }
+                
+                // Populate options
+                sel.innerHTML = groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+                
+                // 2. Fetch selected policies for this application
+                const polResp = await fetch(`/api/cloudflare/access-apps/${appId}/policies`);
+                const polData = polResp.ok ? await polResp.json() : { group_ids: [] };
+                
+                // Select active groups
+                const selectedIds = polData.group_ids || [];
+                Array.from(sel.options).forEach(opt => {
+                    opt.selected = selectedIds.includes(opt.value);
+                });
+                
+                loading.style.display = 'none';
+                sel.style.display = 'block';
+            } catch(e) {
+                loading.textContent = 'Fehler beim Laden der Richtliniendaten.';
+                console.error(e);
+            }
+        }
+
+        function closeEditAccessModal() {
+            document.getElementById('edit-access-modal').classList.remove('active');
+        }
+
+        async function submitEditAccessPolicies() {
+            const btn = document.getElementById('edit-access-submit-btn');
+            const sel = document.getElementById('edit-access-zt-group');
+            const groupIds = Array.from(sel.selectedOptions).map(opt => opt.value);
+            
+            btn.disabled = true;
+            btn.textContent = 'Speichere Richtlinien...';
+            
+            try {
+                const r = await fetch(`/api/cloudflare/access-apps/${editAccessAppId}/policies`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ group_ids: groupIds })
+                });
+                
+                const res = await r.json();
+                if (res.ok) {
+                    showToast('Richtlinien erfolgreich aktualisiert!', 'success');
+                    closeEditAccessModal();
+                    loadAccessAppsView(false);
+                } else {
+                    const err = res.error ? JSON.stringify(res.error) : 'Unbekannter Fehler';
+                    showToast(`Fehler beim Aktualisieren: ${err}`, 'error');
+                }
+            } catch(e) {
+                showToast(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Richtlinien speichern';
             }
         }
     </script>
