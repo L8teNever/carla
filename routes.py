@@ -1523,6 +1523,78 @@ def api_cloudflare_domains_delete():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@bp.route("/api/cloudflare/domains/check-status", methods=["GET"])
+def api_cloudflare_domains_check_status():
+    import requests
+    domain = request.args.get("domain", "").strip()
+    if not domain:
+        return jsonify({"ok": False, "error": "Domain ist erforderlich."}), 400
+
+    url = f"https://{domain}"
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        resp = requests.get(url, headers=headers, timeout=5, allow_redirects=True, verify=False)
+        status_code = resp.status_code
+        
+        text_preview = resp.text[:2000].lower()
+        is_cloudflare_error = False
+        cloudflare_error_code = None
+        is_cf_server = "cloudflare" in resp.headers.get("Server", "").lower() or "cf-ray" in resp.headers
+        
+        if status_code >= 400:
+            if "502 bad gateway" in text_preview or "error code 502" in text_preview or "bad gateway" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 502
+            elif "504 gateway timeout" in text_preview or "error code 504" in text_preview or "gateway timeout" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 504
+            elif "521" in text_preview or "web server is down" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 521
+            elif "522" in text_preview or "connection timed out" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 522
+            elif "523" in text_preview or "origin is unreachable" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 523
+            elif "524" in text_preview or "a timeout occurred" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 524
+        
+        return jsonify({
+            "ok": True,
+            "status_code": status_code,
+            "is_cloudflare_error": is_cloudflare_error,
+            "cloudflare_error_code": cloudflare_error_code,
+            "is_cf_server": is_cf_server,
+            "error_msg": None
+        })
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "ok": True,
+            "status_code": 0,
+            "is_cloudflare_error": False,
+            "cloudflare_error_code": None,
+            "is_cf_server": False,
+            "error_msg": "Timeout (5s)"
+        })
+    except Exception as e:
+        return jsonify({
+            "ok": True,
+            "status_code": 0,
+            "is_cloudflare_error": False,
+            "cloudflare_error_code": None,
+            "is_cf_server": False,
+            "error_msg": str(e)
+        })
+
+
+
 # ---------------------------------------------------------------
 # Cloudflare Zero Trust Access Applications Routes
 # ---------------------------------------------------------------

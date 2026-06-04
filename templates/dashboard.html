@@ -1207,6 +1207,32 @@
             gap: 15px;
             height: calc(100vh - 190px);
         }
+
+        /* Bulk Actions Floating Bar */
+        #domains-bulk-bar {
+            position: fixed;
+            bottom: 24px;
+            left: calc(50% + 40px); /* Adjusting for sidebar app-rail width (80px) */
+            transform: translateX(-50%) translateY(120px);
+            background: rgba(18, 17, 24, 0.85);
+            border: 1px solid var(--primary);
+            box-shadow: 0 10px 30px rgba(167, 139, 250, 0.2);
+            border-radius: var(--r-lg);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+            backdrop-filter: blur(20px);
+        }
+        #domains-bulk-bar.active {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
     </style>
 </head>
 <body>
@@ -2023,7 +2049,19 @@
                         </div>
                     </div>
 
-                    <div class="table-container" style="margin-top: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 5px;">
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="bulkSelectAll()" class="btn btn-sm btn-secondary" style="font-size:12px; padding:6px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);">Alle markieren</button>
+                            <button onclick="clearBulkSelection()" class="btn btn-sm btn-secondary" style="font-size:12px; padding:6px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);">Auswahl aufheben</button>
+                        </div>
+                        <div>
+                            <button onclick="checkAllVisibleDomainsStatus()" class="btn btn-sm btn-secondary" style="font-size:12px; padding:6px 12px; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);">
+                                🔍 Reichweite prüfen
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-container" style="margin-top: 10px;">
                         <table class="table" id="domains-table">
                             <thead>
                                 <tr>
@@ -2164,6 +2202,117 @@
                             <button onclick="submitEditApproval()" class="btn btn-primary" id="approval-submit-btn">Freigabe speichern</button>
                         </div>
                     </div>
+                </div>
+
+                <!-- Bulk Delete Modal -->
+                <div id="bulk-delete-modal" class="modal-backdrop">
+                    <div class="modal" style="max-width: 480px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title" style="color: var(--danger);">Bulk-Löschen</h3>
+                            <button onclick="closeBulkDeleteModal()" class="modal-close">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <p style="font-size:14px; line-height:1.5; color: var(--text);">
+                                Bist du sicher, dass du die folgenden <strong id="bulk-delete-count" style="color:var(--primary);">0</strong> ausgewählten Domains dauerhaft löschen möchtest?
+                            </p>
+                            
+                            <!-- Scrollable list of domains -->
+                            <div id="bulk-delete-domains-list" style="max-height: 120px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 12px; background: rgba(0,0,0,0.15);">
+                                <!-- Populated dynamically -->
+                            </div>
+                            
+                            <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: var(--r-md); display:flex; flex-direction:column; gap:10px;">
+                                <label style="display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; user-select:none;">
+                                    <input type="checkbox" id="bulk-delete-dns" checked>
+                                    DNS CNAME-Einträge bei Cloudflare löschen
+                                </label>
+                                <label style="display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; user-select:none;">
+                                    <input type="checkbox" id="bulk-delete-access" checked>
+                                    Zero Trust Access Applications löschen (falls vorhanden)
+                                </label>
+                            </div>
+                            
+                            <!-- Progress Container -->
+                            <div id="bulk-delete-progress-container" style="display: none; background:rgba(255,255,255,0.02); padding:12px; border-radius:var(--r-md); border:1px solid var(--border);">
+                                <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom: 6px;">
+                                    <span id="bulk-delete-progress-label">Lösche Domains...</span>
+                                    <strong id="bulk-delete-progress-percent">0%</strong>
+                                </div>
+                                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: var(--r-full); overflow: hidden;">
+                                    <div id="bulk-delete-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s;"></div>
+                                </div>
+                            </div>
+                            
+                            <p style="font-size: 11.5px; color: var(--text-muted); line-height:1.4;">
+                                Hinweis: Die lokale Services (Docker Stack, nginx vhosts, etc.) bleiben unberührt.
+                            </p>
+                        </div>
+                        <div class="modal-actions">
+                            <button onclick="closeBulkDeleteModal()" class="btn">Abbrechen</button>
+                            <button onclick="submitBulkDelete()" class="btn btn-danger" id="bulk-delete-submit-btn">Löschen starten</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bulk Approval Modal -->
+                <div id="bulk-approval-modal" class="modal-backdrop">
+                    <div class="modal" style="max-width: 480px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title">Bulk-Freigabe bearbeiten</h3>
+                            <button onclick="closeBulkApprovalModal()" class="modal-close">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <p style="font-size:14px; line-height:1.5; color: var(--text);">
+                                Bearbeite die Freigabeeinstellungen für <strong id="bulk-approval-count" style="color:var(--primary);">0</strong> ausgewählte Domains.
+                            </p>
+                            
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <input type="checkbox" id="bulk-approval-is-public" style="width:18px; height:18px; cursor:pointer;">
+                                <label for="bulk-approval-is-public" style="font-size:13.5px; font-weight:600; cursor:pointer; user-select:none;">Dürfen öffentlich erreichbar sein (ohne Zero Trust)</label>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:11px;">Begründung / Zweck für die Freigabe</label>
+                                <textarea id="bulk-approval-reason" class="input" rows="3" placeholder="z.B. Öffentliche App, Landing Page, etc." style="resize:vertical; font-size:13px; line-height:1.4; padding:8px 12px;"></textarea>
+                            </div>
+                            
+                            <!-- Progress Container -->
+                            <div id="bulk-approval-progress-container" style="display: none; background:rgba(255,255,255,0.02); padding:12px; border-radius:var(--r-md); border:1px solid var(--border);">
+                                <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom: 6px;">
+                                    <span id="bulk-approval-progress-label">Speichere Freigaben...</span>
+                                    <strong id="bulk-approval-progress-percent">0%</strong>
+                                </div>
+                                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: var(--r-full); overflow: hidden;">
+                                    <div id="bulk-approval-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button onclick="closeBulkApprovalModal()" class="btn">Abbrechen</button>
+                            <button onclick="submitBulkApproval()" class="btn btn-primary" id="bulk-approval-submit-btn">Freigabe speichern</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Floating Bulk Actions Bar -->
+                <div id="domains-bulk-bar">
+                    <span id="bulk-selected-count" style="font-weight: 600; color: #fff; font-size: 13px;">0 Domains ausgewählt</span>
+                    <div style="width: 1px; height: 20px; background: var(--border);"></div>
+                    
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <input type="text" id="bulk-pattern-input" class="input" placeholder="Muster (z.B. *.de, *test*)" style="padding: 6px 10px; font-size: 12px; width: 150px; height: 30px; background: rgba(0,0,0,0.2);" onkeydown="if(event.key==='Enter') bulkSelectByPattern()">
+                        <button onclick="bulkSelectByPattern()" class="btn btn-sm" style="height: 30px; font-size: 11px; padding: 0 10px;" title="Domains passend zum Muster markieren">Markieren</button>
+                    </div>
+                    
+                    <div style="width: 1px; height: 20px; background: var(--border);"></div>
+                    
+                    <button onclick="openBulkApprovalModal()" class="btn btn-sm btn-primary" style="height: 30px; font-size: 11px; padding: 0 12px;">🌐 Freigabe</button>
+                    <button onclick="openBulkDeleteModal()" class="btn btn-sm btn-danger" style="height: 30px; font-size: 11px; padding: 0 12px;">🗑️ Löschen</button>
+                    <button onclick="clearBulkSelection()" class="btn btn-sm btn-secondary" style="height: 30px; font-size: 11px; padding: 0 10px;">X</button>
                 </div>
             </section>
 
@@ -5233,6 +5382,9 @@
         // -----------------------------------------------------------
         let allDomains = [];
         let allAccessApps = [];
+        let selectedDomains = new Set();
+        let selectedDomainsData = {}; // hostname -> { tunnel_id, zone_id }
+        let domainStatusCache = {}; // hostname -> status details
         let deleteDomainHostname = '';
         let deleteDomainTunnelId = '';
         let deleteDomainZoneId = '';
@@ -5262,6 +5414,10 @@
             const tbody = document.getElementById('domains-tbody');
             const countTitle = document.getElementById('domains-count-title');
             
+            selectedDomains.clear();
+            selectedDomainsData = {};
+            updateBulkBar();
+            
             tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:30px; color:var(--text-muted);">Lade Cloudflare Domains...</td></tr>';
             countTitle.textContent = 'Aktive Domains (Lade...)';
             
@@ -5289,6 +5445,47 @@
                 </td></tr>`;
                 countTitle.textContent = 'Aktive Domains (Fehler)';
             }
+        }
+
+        function getStatusBadgeHtml(hostname) {
+            const cached = domainStatusCache[hostname];
+            if (!cached) {
+                return `<span class="domain-status-badge badge" id="status-${hostname}" onclick="checkSingleDomainStatus('${hostname}')" style="font-size:10px; padding:3px 7px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: var(--r-full); cursor: pointer; user-select: none; color: var(--text-muted);" title="Klicken zum Prüfen">🔍 Status prüfen</span>`;
+            }
+            
+            let badgeStyle = 'font-size:10px; padding:3px 7px; border-radius: var(--r-full); cursor: pointer; user-select: none; font-weight: 600; text-transform: uppercase;';
+            let badgeText = '';
+            let badgeTitle = 'Klicken zum Aktualisieren';
+            
+            if (cached.checking) {
+                badgeStyle += ' background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--text);';
+                badgeText = '⌛ Prüft...';
+            } else if (cached.error_msg) {
+                badgeStyle += ' background: rgba(132, 132, 150, 0.15); border: 1px solid rgba(132, 132, 150, 0.3); color: var(--text-muted);';
+                badgeText = `⚪ ${cached.error_msg}`;
+                badgeTitle = `Fehler: ${cached.error_msg}. Klicken zum Aktualisieren`;
+            } else if (cached.is_cloudflare_error) {
+                badgeStyle += ' background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: var(--danger);';
+                badgeText = `🔴 502 Bad Gateway`;
+                if (cached.cloudflare_error_code) {
+                    badgeText = `🔴 ${cached.cloudflare_error_code} Cloudflare`;
+                }
+                badgeTitle = `Cloudflare Gateway-Fehler. Klicken zum Aktualisieren`;
+            } else if (cached.status_code >= 200 && cached.status_code < 300) {
+                badgeStyle += ' background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--success);';
+                badgeText = `🟢 OK (${cached.status_code})`;
+                badgeTitle = `Erreichbar. Klicken zum Aktualisieren`;
+            } else if (cached.status_code >= 300 && cached.status_code < 400) {
+                badgeStyle += ' background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: var(--info);';
+                badgeText = `🔵 Redirect (${cached.status_code})`;
+                badgeTitle = `Weiterleitung. Klicken zum Aktualisieren`;
+            } else {
+                badgeStyle += ' background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: var(--danger);';
+                badgeText = `🔴 HTTP ${cached.status_code}`;
+                badgeTitle = `Fehler-Statuscode erhalten. Klicken zum Aktualisieren`;
+            }
+            
+            return `<span class="domain-status-badge badge" id="status-${hostname}" onclick="checkSingleDomainStatus('${hostname}')" style="${badgeStyle}" title="${badgeTitle}">${badgeText}</span>`;
         }
 
         function renderDomains(domains) {
@@ -5401,22 +5598,29 @@
                     // Escape reason for js attribute
                     const escapedReason = (domain.public_approved_reason || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
                     
+                    const isChecked = selectedDomains.has(domain.hostname) ? 'checked' : '';
+                    const statusBadgeHtml = getStatusBadgeHtml(domain.hostname);
+                    
                     domainItem.innerHTML = `
-                        <div style="display:flex; flex-direction:column; gap:3px; flex:1; min-width:0;">
-                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                <a href="https://${domain.hostname}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none; font-size:13.5px; display:inline-flex; align-items:center; gap:4px;">
-                                    🌐 ${domain.hostname}
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px; height:11px; opacity:0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                                </a>
-                                <span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">[☁️ ${domain.tunnel_name}]</span>
+                        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+                            <input type="checkbox" class="domain-checkbox" data-hostname="${domain.hostname}" data-tunnel-id="${domain.tunnel_id}" data-zone-id="${domain.zone_id || ''}" onchange="toggleDomainSelection('${domain.hostname}', this.checked, '${domain.tunnel_id}', '${domain.zone_id || ''}')" ${isChecked} style="width:16px; height:16px; cursor:pointer; flex-shrink:0;">
+                            <div style="display:flex; flex-direction:column; gap:3px; flex:1; min-width:0;">
+                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                    <a href="https://${domain.hostname}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none; font-size:13.5px; display:inline-flex; align-items:center; gap:4px;">
+                                        🌐 ${domain.hostname}
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px; height:11px; opacity:0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                    </a>
+                                    <span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">[☁️ ${domain.tunnel_name}]</span>
+                                </div>
+                                ${domain.public_approved_reason ? `
+                                <div style="font-size:11px; color:var(--text-muted); font-style:italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;" title="${domain.public_approved_reason}">
+                                    Begründung: ${domain.public_approved_reason}
+                                </div>` : ''}
                             </div>
-                            ${domain.public_approved_reason ? `
-                            <div style="font-size:11px; color:var(--text-muted); font-style:italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;" title="${domain.public_approved_reason}">
-                                Begründung: ${domain.public_approved_reason}
-                            </div>` : ''}
                         </div>
                         
                         <div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">
+                            ${statusBadgeHtml}
                             ${badgeHtml}
                             <div style="display:flex; gap:6px;">
                                 <button class="btn btn-sm btn-icon" onclick="editDomainApproval('${domain.hostname}', ${domain.is_public_approved}, '${escapedReason}')" title="Öffentliche Freigabe bearbeiten" style="padding: 4px 8px; font-size:11px;">⚙️</button>
@@ -5432,6 +5636,310 @@
                 
                 tbody.appendChild(tr);
             });
+        }
+
+        function toggleDomainSelection(hostname, checked, tunnelId, zoneId) {
+            if (checked) {
+                selectedDomains.add(hostname);
+                selectedDomainsData[hostname] = { tunnel_id: tunnelId, zone_id: zoneId };
+            } else {
+                selectedDomains.delete(hostname);
+                delete selectedDomainsData[hostname];
+            }
+            updateBulkBar();
+        }
+
+        function updateBulkBar() {
+            const bar = document.getElementById('domains-bulk-bar');
+            const countLabel = document.getElementById('bulk-selected-count');
+            
+            if (selectedDomains.size > 0) {
+                countLabel.textContent = `${selectedDomains.size} Domains ausgewählt`;
+                bar.classList.add('active');
+            } else {
+                bar.classList.remove('active');
+            }
+        }
+
+        function clearBulkSelection() {
+            selectedDomains.clear();
+            selectedDomainsData = {};
+            document.querySelectorAll('#domains-tbody .domain-checkbox').forEach(cb => cb.checked = false);
+            updateBulkBar();
+        }
+
+        function bulkSelectAll() {
+            const checkboxes = document.querySelectorAll('#domains-tbody .domain-checkbox');
+            if (checkboxes.length === 0) return;
+            
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            
+            checkboxes.forEach(cb => {
+                const hostname = cb.getAttribute('data-hostname');
+                cb.checked = !allChecked;
+                if (!allChecked) {
+                    const tunnelId = cb.getAttribute('data-tunnel-id');
+                    const zoneId = cb.getAttribute('data-zone-id');
+                    selectedDomains.add(hostname);
+                    selectedDomainsData[hostname] = { tunnel_id: tunnelId, zone_id: zoneId };
+                } else {
+                    selectedDomains.delete(hostname);
+                }
+            });
+            
+            if (allChecked) {
+                selectedDomainsData = {};
+            }
+            
+            updateBulkBar();
+        }
+
+        function bulkSelectByPattern() {
+            const patternInput = document.getElementById('bulk-pattern-input');
+            const pattern = patternInput.value.trim().toLowerCase();
+            if (!pattern) {
+                showToast('Bitte ein Muster eingeben.', 'warning');
+                return;
+            }
+            
+            let regex;
+            if (!pattern.includes('*') && !pattern.includes('?')) {
+                regex = new RegExp(pattern.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+            } else {
+                const escaped = pattern.replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&');
+                const glob = '^' + escaped.replace(/\\\*/g, '.*').replace(/\\\?/g, '.') + '$';
+                regex = new RegExp(glob, 'i');
+            }
+            
+            const checkboxes = document.querySelectorAll('#domains-tbody .domain-checkbox');
+            let matchCount = 0;
+            
+            checkboxes.forEach(cb => {
+                const hostname = cb.getAttribute('data-hostname');
+                if (regex.test(hostname)) {
+                    if (!cb.checked) {
+                        cb.checked = true;
+                        const tunnelId = cb.getAttribute('data-tunnel-id');
+                        const zoneId = cb.getAttribute('data-zone-id');
+                        selectedDomains.add(hostname);
+                        selectedDomainsData[hostname] = { tunnel_id: tunnelId, zone_id: zoneId };
+                    }
+                    matchCount++;
+                }
+            });
+            
+            updateBulkBar();
+            showToast(`${matchCount} passende Domains markiert.`, 'info');
+        }
+
+        async function checkSingleDomainStatus(domain) {
+            domainStatusCache[domain] = { checking: true };
+            const badge = document.getElementById(`status-${domain}`);
+            if (badge) {
+                badge.outerHTML = getStatusBadgeHtml(domain);
+            }
+            
+            try {
+                const r = await fetch(`/api/cloudflare/domains/check-status?domain=${encodeURIComponent(domain)}`);
+                if (!r.ok) throw new Error('HTTP Fehler');
+                const data = await r.json();
+                domainStatusCache[domain] = data;
+            } catch (e) {
+                domainStatusCache[domain] = {
+                    ok: true,
+                    status_code: 0,
+                    is_cloudflare_error: false,
+                    error_msg: e.message
+                };
+            }
+            
+            const badgeUpdated = document.getElementById(`status-${domain}`);
+            if (badgeUpdated) {
+                badgeUpdated.outerHTML = getStatusBadgeHtml(domain);
+            }
+        }
+
+        async function checkAllVisibleDomainsStatus() {
+            const checkboxes = document.querySelectorAll('#domains-tbody .domain-checkbox');
+            const hostnames = Array.from(checkboxes).map(cb => cb.getAttribute('data-hostname'));
+            
+            if (hostnames.length === 0) {
+                showToast('Keine Domains zum Prüfen sichtbar.', 'info');
+                return;
+            }
+            
+            showToast(`Prüfe Reichweite für ${hostnames.length} Domains...`, 'info');
+            
+            const throttle = 5;
+            let index = 0;
+            
+            async function worker() {
+                while (index < hostnames.length) {
+                    const currentHost = hostnames[index++];
+                    await checkSingleDomainStatus(currentHost);
+                }
+            }
+            
+            const workers = [];
+            for (let i = 0; i < Math.min(throttle, hostnames.length); i++) {
+                workers.push(worker());
+            }
+            await Promise.all(workers);
+            
+            showToast('Reichweitenprüfung abgeschlossen.', 'success');
+        }
+
+        function openBulkApprovalModal() {
+            if (selectedDomains.size === 0) return;
+            document.getElementById('bulk-approval-count').textContent = selectedDomains.size;
+            document.getElementById('bulk-approval-is-public').checked = false;
+            document.getElementById('bulk-approval-reason').value = '';
+            document.getElementById('bulk-approval-progress-container').style.display = 'none';
+            document.getElementById('bulk-approval-submit-btn').disabled = false;
+            document.getElementById('bulk-approval-modal').classList.add('active');
+        }
+        
+        function closeBulkApprovalModal() {
+            document.getElementById('bulk-approval-modal').classList.remove('active');
+        }
+        
+        async function submitBulkApproval() {
+            const isPublic = document.getElementById('bulk-approval-is-public').checked;
+            const reason = document.getElementById('bulk-approval-reason').value.trim();
+            const hostnames = Array.from(selectedDomains);
+            
+            document.getElementById('bulk-approval-progress-container').style.display = 'block';
+            document.getElementById('bulk-approval-submit-btn').disabled = true;
+            
+            const progressBar = document.getElementById('bulk-approval-progress-bar');
+            const progressPercent = document.getElementById('bulk-approval-progress-percent');
+            const progressLabel = document.getElementById('bulk-approval-progress-label');
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (let i = 0; i < hostnames.length; i++) {
+                const hostname = hostnames[i];
+                progressLabel.textContent = `Aktualisiere ${hostname}...`;
+                const pct = Math.round((i / hostnames.length) * 100);
+                progressBar.style.width = `${pct}%`;
+                progressPercent.textContent = `${pct}%`;
+                
+                try {
+                    const r = await fetch('/api/cloudflare/domain-policies', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            hostname: hostname,
+                            is_public_approved: isPublic,
+                            public_approved_reason: reason
+                        })
+                    });
+                    const res = await r.json();
+                    if (res.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (e) {
+                    errorCount++;
+                }
+            }
+            
+            progressBar.style.width = '100%';
+            progressPercent.textContent = '100%';
+            progressLabel.textContent = 'Abgeschlossen!';
+            
+            await new Promise(r => setTimeout(r, 800));
+            closeBulkApprovalModal();
+            clearBulkSelection();
+            showToast(`${successCount} Domains erfolgreich aktualisiert.${errorCount > 0 ? ` (${errorCount} Fehler)` : ''}`, 'success');
+            loadDomainsView(false);
+        }
+
+        function openBulkDeleteModal() {
+            if (selectedDomains.size === 0) return;
+            document.getElementById('bulk-delete-count').textContent = selectedDomains.size;
+            
+            const listContainer = document.getElementById('bulk-delete-domains-list');
+            listContainer.innerHTML = '';
+            Array.from(selectedDomains).forEach(h => {
+                const li = document.createElement('div');
+                li.className = 'mono';
+                li.style.fontSize = '12px';
+                li.style.color = 'var(--primary)';
+                li.style.padding = '3px 0';
+                li.textContent = `• ${h}`;
+                listContainer.appendChild(li);
+            });
+            
+            document.getElementById('bulk-delete-dns').checked = true;
+            document.getElementById('bulk-delete-access').checked = true;
+            document.getElementById('bulk-delete-progress-container').style.display = 'none';
+            document.getElementById('bulk-delete-submit-btn').disabled = false;
+            document.getElementById('bulk-delete-modal').classList.add('active');
+        }
+        
+        function closeBulkDeleteModal() {
+            document.getElementById('bulk-delete-modal').classList.remove('active');
+        }
+        
+        async function submitBulkDelete() {
+            const deleteDns = document.getElementById('bulk-delete-dns').checked;
+            const deleteAccess = document.getElementById('bulk-delete-access').checked;
+            const hostnames = Array.from(selectedDomains);
+            
+            document.getElementById('bulk-delete-progress-container').style.display = 'block';
+            document.getElementById('bulk-delete-submit-btn').disabled = true;
+            
+            const progressBar = document.getElementById('bulk-delete-progress-bar');
+            const progressPercent = document.getElementById('bulk-delete-progress-percent');
+            const progressLabel = document.getElementById('bulk-delete-progress-label');
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (let i = 0; i < hostnames.length; i++) {
+                const hostname = hostnames[i];
+                progressLabel.textContent = `Lösche ${hostname}...`;
+                const pct = Math.round((i / hostnames.length) * 100);
+                progressBar.style.width = `${pct}%`;
+                progressPercent.textContent = `${pct}%`;
+                
+                const meta = selectedDomainsData[hostname] || {};
+                
+                try {
+                    const r = await fetch('/api/cloudflare/domains', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            hostname: hostname,
+                            tunnel_id: meta.tunnel_id,
+                            zone_id: meta.zone_id || '',
+                            delete_dns: deleteDns,
+                            delete_access: deleteAccess
+                        })
+                    });
+                    const res = await r.json();
+                    if (res.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (e) {
+                    errorCount++;
+                }
+            }
+            
+            progressBar.style.width = '100%';
+            progressPercent.textContent = '100%';
+            progressLabel.textContent = 'Abgeschlossen!';
+            
+            await new Promise(r => setTimeout(r, 800));
+            closeBulkDeleteModal();
+            clearBulkSelection();
+            showToast(`${successCount} Domains gelöscht.${errorCount > 0 ? ` (${errorCount} Fehler)` : ''}`, 'success');
+            loadDomainsView(false);
         }
 
         function filterDomains() {
