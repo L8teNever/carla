@@ -131,7 +131,7 @@ def _generate_nginx_conf(sites: list) -> str:
             path_no_slash = path.rstrip("/")
             lines += [
                 f"    location = {path_no_slash} {{",
-                "        return 301 $uri/$is_args$args;",
+                "        return 302 $uri/$is_args$args;",
                 "    }",
                 f"    location {path_slash} {{",
                 f"        alias {site_dir}/;",
