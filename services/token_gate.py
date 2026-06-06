@@ -152,7 +152,8 @@ class Handler(BaseHTTPRequestHandler):
         max_uses = token.get("max_uses", 1)
         is_asset = Path(sub_path).suffix.lower() in ASSET_EXTS if sub_path else False
 
-        if not is_asset and uses >= max_uses:
+        # max_uses == 0 bedeutet unbegrenzt
+        if not is_asset and max_uses != 0 and uses >= max_uses:
             self.reply_html(410, "Dieser Link ist abgelaufen.")
             return
 
@@ -184,7 +185,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if not is_asset:
             new_uses = uses + 1
-            if new_uses >= max_uses:
+            if max_uses != 0 and new_uses >= max_uses:
                 # Letzte Nutzung → Token löschen + CF aufräumen (im Hintergrund)
                 threading.Thread(
                     target=_auto_cleanup,
@@ -397,7 +398,7 @@ def create_link(
     """
     if not site_name:
         return {"ok": False, "error": "site_name ist erforderlich."}
-    max_uses = max(1, int(max_uses))
+    max_uses = max(0, int(max_uses))  # 0 = unbegrenzt
     tokens   = _load_tokens()
 
     # ── Subdomain-Modus ──────────────────────────────────────

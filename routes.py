@@ -3,7 +3,7 @@
 # Definiert alle URL-Endpunkte der Webanwendung.
 # ==============================================================
 
-from flask import Blueprint, render_template, jsonify, request, redirect, url_for
+from flask import Blueprint, render_template, jsonify, request, redirect
 import threading
 from urllib.parse import urlparse
 from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server, vhost_server, token_gate
@@ -335,8 +335,7 @@ def api_cf_debug_log():
         return jsonify({
             "cloudflare_configured": True,
             "service_urls": list(mapping.keys()),
-            "port_index_keys": sorted(port_index.keys()),
-            "name_index_keys": sorted(name_index.keys()),
+            "cf_index_keys": sorted(cf_index.keys()),
             "access_apps_count": len(access_info),
             "container_matching": container_matching,
         })
@@ -1309,7 +1308,7 @@ def api_tokens_create():
     if not site_name:
         return jsonify({"ok": False, "error": "site_name ist erforderlich."}), 400
     hostname      = data.get("hostname") or None
-    max_uses      = int(data.get("max_uses", 1))
+    max_uses      = max(0, int(data.get("max_uses", 1)))  # 0 = unbegrenzt
     use_subdomain = bool(data.get("use_subdomain", False))
     base_domain   = data.get("base_domain") or None
     tunnel_id     = data.get("tunnel_id") or None
