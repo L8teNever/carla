@@ -403,6 +403,21 @@ def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
             "urls": all_urls, "www_path": site_dir, "token_only": token_only}
 
 
+def set_token_only(name: str, token_only: bool) -> dict:
+    """Schaltet den Token-Only-Modus für eine Site ein oder aus."""
+    sites = _load_meta()
+    site  = next((s for s in sites if s.get("name") == name), None)
+    if not site:
+        return {"ok": False, "error": f"Site '{name}' nicht gefunden."}
+    site["token_only"] = token_only
+    _save_meta(sites)
+    ensure_server(sites)
+    if token_only:
+        from services import token_gate
+        token_gate.ensure_token_gate_running()
+    return {"ok": True, "token_only": token_only}
+
+
 def _cleanup_cf_hostnames(cf, tunnel_id: str, hostnames: list, remaining_sites: list):
     """Entfernt Ingress-Regeln und DNS-Einträge für eine Liste von Hostnames,
     wenn sie von keinem der verbleibenden Sites mehr genutzt werden.

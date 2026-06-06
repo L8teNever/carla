@@ -1968,6 +1968,17 @@
                         </div>
                         <div style="display:flex;flex-direction:column;gap:18px;">
 
+                            <!-- Zugriffsschutz Toggle -->
+                            <div id="token-only-box" style="border-radius:var(--r-md);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;" onclick="toggleTokenOnly()">
+                                <div>
+                                    <div style="font-weight:600;font-size:13px;" id="token-only-label">Nur über Link erreichbar</div>
+                                    <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;" id="token-only-desc">Site ist öffentlich zugänglich</div>
+                                </div>
+                                <div id="token-only-toggle" style="width:40px;height:22px;border-radius:11px;background:var(--border);position:relative;flex-shrink:0;transition:background .2s;">
+                                    <div id="token-only-knob" style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s;"></div>
+                                </div>
+                            </div>
+
                             <!-- Neuen Link erstellen -->
                             <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--r-md);padding:14px;display:flex;flex-direction:column;gap:12px;">
                                 <div style="font-size:12px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;">NEUEN LINK ERSTELLEN</div>
@@ -5277,7 +5288,7 @@
                             <span class="badge ${isRunning ? 'badge-success' : 'badge-danger'}">${isRunning ? 'RUNNING' : 'STOPPED'}</span>
                             <div style="display:flex;gap:8px;">
                                 <button onclick="openSiteFiles('${site.www_path}')" class="btn btn-sm">Dateien</button>
-                                <button onclick="openTokenModal('${site.name}', '${site.hostname}', '${site.tunnel_id || ''}')" class="btn btn-sm" title="Einmallinks verwalten">🔗 Links</button>
+                                <button onclick="openTokenModal('${site.name}', '${site.hostname}', '${site.tunnel_id || ''}', ${!!site.token_only})" class="btn btn-sm" style="${site.token_only ? 'border-color:var(--primary);color:var(--primary);' : ''}" title="Einmallinks / Zugriffsschutz">🔗 Links${site.token_only ? ' 🔒' : ''}</button>
                                 <button onclick="editSiteFromCard(this)" class="btn btn-sm">Bearbeiten</button>
                                 <button onclick="deleteSite('${site.name}')" class="btn btn-danger btn-sm">Löschen</button>
                             </div>
@@ -5441,19 +5452,61 @@
         }
 
         // ── Token / Einmallinks ────────────────────────────────────
-        let _tokenSite = '', _tokenHostname = '', _tokenTunnelId = '';
+        let _tokenSite = '', _tokenHostname = '', _tokenTunnelId = '', _tokenOnly = false;
 
-        function openTokenModal(siteName, hostname, tunnelId) {
+        function openTokenModal(siteName, hostname, tunnelId, tokenOnly) {
             _tokenSite     = siteName;
             _tokenHostname = hostname;
             _tokenTunnelId = tunnelId;
+            _tokenOnly     = !!tokenOnly;
             document.getElementById('token-modal-site').textContent = siteName;
             document.getElementById('token-hostname').value = hostname || '';
             document.getElementById('token-mode').value = 'path';
             document.getElementById('token-new-result').style.display = 'none';
+            _renderTokenOnlyToggle();
             updateTokenModeUI();
             loadTokenLinks();
             document.getElementById('token-modal').classList.add('active');
+        }
+
+        function _renderTokenOnlyToggle() {
+            const box    = document.getElementById('token-only-box');
+            const toggle = document.getElementById('token-only-toggle');
+            const knob   = document.getElementById('token-only-knob');
+            const desc   = document.getElementById('token-only-desc');
+            if (_tokenOnly) {
+                box.style.background    = 'rgba(124,58,237,0.1)';
+                box.style.border        = '1px solid rgba(124,58,237,0.35)';
+                toggle.style.background = 'var(--primary)';
+                knob.style.left         = '21px';
+                desc.textContent        = 'Direkter Zugriff gesperrt — nur über Token-Link';
+            } else {
+                box.style.background    = 'rgba(255,255,255,0.03)';
+                box.style.border        = '1px solid var(--border)';
+                toggle.style.background = 'var(--border)';
+                knob.style.left         = '3px';
+                desc.textContent        = 'Site ist öffentlich zugänglich';
+            }
+        }
+
+        async function toggleTokenOnly() {
+            const newVal = !_tokenOnly;
+            try {
+                const r   = await fetch(`/api/vhosts/${_tokenSite}/token-only`, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ token_only: newVal })
+                });
+                const res = await r.json();
+                if (res.ok) {
+                    _tokenOnly = newVal;
+                    _renderTokenOnlyToggle();
+                    showToast(newVal ? 'Site gesperrt – nur per Link erreichbar.' : 'Site wieder öffentlich.', 'success');
+                    loadSitesView();
+                } else {
+                    showToast(res.error || 'Fehler.', 'error');
+                }
+            } catch(e) { showToast(e.message, 'error'); }
         }
 
         function closeTokenModal() {

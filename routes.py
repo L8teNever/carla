@@ -1286,6 +1286,16 @@ def api_vhosts_update(name):
 # Token Gate (Einmallinks)
 # ---------------------------------------------------------------
 
+@bp.route("/api/vhosts/<name>/token-only", methods=["POST"])
+def api_vhosts_token_only(name):
+    data       = request.json or {}
+    token_only = bool(data.get("token_only", False))
+    result     = vhost_server.set_token_only(name, token_only)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
+
+
 @bp.route("/api/vhosts/tokens", methods=["GET"])
 def api_tokens_list():
     site_name = request.args.get("site")
