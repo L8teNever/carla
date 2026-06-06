@@ -1313,6 +1313,7 @@ def api_tokens_create():
     use_subdomain = bool(data.get("use_subdomain", False))
     base_domain   = data.get("base_domain") or None
     tunnel_id     = data.get("tunnel_id") or None
+    token_length = max(16, min(256, int(data.get("token_length", 16))))
     result = token_gate.create_link(
         site_name=site_name,
         hostname=hostname,
@@ -1320,6 +1321,7 @@ def api_tokens_create():
         use_subdomain=use_subdomain,
         base_domain=base_domain,
         tunnel_id=tunnel_id,
+        token_length=token_length,
     )
     return jsonify(result), 200 if result["ok"] else 400
 

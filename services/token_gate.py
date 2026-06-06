@@ -26,7 +26,9 @@ TOKEN_GATE_NAME = "carla-token-gate"
 TOKEN_CHARS_PATH      = string.ascii_letters + string.digits + "-_"
 # DNS-safe / lowercase (Subdomain-Modus; kein _)
 TOKEN_CHARS_SUBDOMAIN = string.ascii_lowercase + string.digits + "-"
-TOKEN_LENGTH = 16
+TOKEN_LENGTH_MIN =  16
+TOKEN_LENGTH_MAX = 256
+TOKEN_LENGTH_DEFAULT = 16
 
 # ── Eingebettetes Python-Server-Skript ─────────────────────────
 _SERVER_SCRIPT = r'''#!/usr/bin/env python3
@@ -358,9 +360,10 @@ def _find_tunnel_for_domain(base_domain: str) -> str | None:
     return match.get("tunnel_id") if match else None
 
 
-def _gen_token(chars: str, existing: set) -> str:
+def _gen_token(chars: str, existing: set, length: int = TOKEN_LENGTH_DEFAULT) -> str:
+    length = max(TOKEN_LENGTH_MIN, min(TOKEN_LENGTH_MAX, length))
     for _ in range(200):
-        code = "".join(secrets.choice(chars) for _ in range(TOKEN_LENGTH))
+        code = "".join(secrets.choice(chars) for _ in range(length))
         if chars is TOKEN_CHARS_SUBDOMAIN:
             if code[0] == "-" or code[-1] == "-":
                 continue
@@ -378,6 +381,7 @@ def create_link(
     use_subdomain: bool = False,
     base_domain: str = None,
     tunnel_id: str = None,
+    token_length: int = TOKEN_LENGTH_DEFAULT,
 ) -> dict:
     """
     Erstellt einen limitierten Zugangslink für eine vhost-Site.
@@ -420,7 +424,7 @@ def create_link(
         if not cf:
             return {"ok": False, "error": "Cloudflare nicht konfiguriert."}
 
-        code              = _gen_token(TOKEN_CHARS_SUBDOMAIN, set(tokens.keys()))
+        code              = _gen_token(TOKEN_CHARS_SUBDOMAIN, set(tokens.keys()), token_length)
         subdomain_hostname = f"{code}.{base_domain}"
 
         cf_result = _cf_add_subdomain(cf, tunnel_id, subdomain_hostname)
@@ -455,7 +459,7 @@ def create_link(
             return {"ok": False, "error": "Keine vhost-Sites vorhanden."}
         hostname = site["hostname"]
 
-    code = _gen_token(TOKEN_CHARS_PATH, set(tokens.keys()))
+    code = _gen_token(TOKEN_CHARS_PATH, set(tokens.keys()), token_length)
 
     tokens[code] = {
         "site_name":   site_name,

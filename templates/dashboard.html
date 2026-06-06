@@ -2002,6 +2002,17 @@
                                     </div>
                                 </div>
 
+                                <div>
+                                    <label class="form-label" style="font-size:11px;display:flex;justify-content:space-between;">
+                                        <span>Token-Länge</span>
+                                        <span style="font-family:var(--font-mono);color:var(--primary);" id="token-length-val">16 Zeichen</span>
+                                    </label>
+                                    <input type="range" id="token-length" min="16" max="256" step="8" value="16"
+                                        oninput="document.getElementById('token-length-val').textContent=this.value+' Zeichen'"
+                                        style="width:100%;accent-color:var(--primary);">
+                                    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:2px;"><span>16</span><span>256</span></div>
+                                </div>
+
                                 <div id="token-host-row" style="display:flex;flex-direction:column;gap:4px;">
                                     <label class="form-label" style="font-size:11px;">Hostname <span style="color:var(--text-muted);font-weight:400;">(leer = zufällig)</span></label>
                                     <input id="token-hostname" class="input mono" style="height:36px;" placeholder="z.B. anna.domain.de — leer lassen für Zufall">
@@ -5563,10 +5574,11 @@
             const btn          = document.getElementById('token-create-btn');
             const mode         = document.getElementById('token-mode').value;
             const maxUses      = parseInt(document.getElementById('token-max-uses').value);
+            const tokenLength  = parseInt(document.getElementById('token-length').value);
             const hostVal      = document.getElementById('token-hostname').value.trim();
             const useSubdomain = mode === 'subdomain';
 
-            const body = { site_name: _tokenSite, max_uses: maxUses, use_subdomain: useSubdomain };
+            const body = { site_name: _tokenSite, max_uses: maxUses, use_subdomain: useSubdomain, token_length: tokenLength };
             if (useSubdomain) {
                 if (hostVal) body.base_domain = hostVal;
                 if (_tokenTunnelId) body.tunnel_id = _tokenTunnelId;
