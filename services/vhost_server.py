@@ -82,6 +82,8 @@ def _parse_domain(domain_input: str) -> tuple[str, str]:
 
 def _generate_nginx_conf(sites: list) -> str:
     from collections import defaultdict
+    from services.token_gate import TOKEN_GATE_PORT
+
     # Gruppiere Sites nach Hostname
     by_host: dict = defaultdict(list)
     for site in sites:
@@ -117,56 +119,81 @@ def _generate_nginx_conf(sites: list) -> str:
             ""
         ]
 
-        # Zuerst alle Unterpfad-Sites (alias-basiert)
+        # Zuerst alle Unterpfad-Sites
         for site in host_sites_sorted:
             path = site.get("path", "/")
             if path == "/":
                 continue
             name = site["name"]
-            spa = site.get("spa", False)
-            site_dir = f"{SITES_DIR}/{name}"
-            # SPA: unbekannte Unterrouten → index.html; sonst 404
-            fallback = f"try_files $uri $uri/ @spa_{name};" if spa else "try_files $uri $uri/ =404;"
             path_slash = path.rstrip("/") + "/"
             path_no_slash = path.rstrip("/")
-            lines += [
-                f"    location = {path_no_slash} {{",
-                "        return 302 $uri/$is_args$args;",
-                "    }",
-                f"    location {path_slash} {{",
-                f"        alias {site_dir}/;",
-                "        index index.html index.htm;",
-                f"        {fallback}",
-                "    }",
-            ]
-            if spa:
+
+            if site.get("token_only"):
                 lines += [
-                    f"    location @spa_{name} {{",
-                    f"        rewrite ^ {path_slash}index.html break;",
+                    f"    location = {path_no_slash} {{",
+                    "        return 302 $uri/$is_args$args;",
+                    "    }",
+                    f"    location {path_slash} {{",
+                    f"        proxy_pass http://127.0.0.1:{TOKEN_GATE_PORT};",
+                    "        proxy_set_header X-Forwarded-Host $host;",
+                    "        proxy_set_header X-Forwarded-Uri $request_uri;",
+                    "    }",
+                    ""
+                ]
+            else:
+                spa = site.get("spa", False)
+                site_dir = f"{SITES_DIR}/{name}"
+                # SPA: unbekannte Unterrouten → index.html; sonst 404
+                fallback = f"try_files $uri $uri/ @spa_{name};" if spa else "try_files $uri $uri/ =404;"
+                lines += [
+                    f"    location = {path_no_slash} {{",
+                    "        return 302 $uri/$is_args$args;",
+                    "    }",
+                    f"    location {path_slash} {{",
+                    f"        alias {site_dir}/;",
+                    "        index index.html index.htm;",
+                    f"        {fallback}",
                     "    }",
                 ]
-            lines.append("")
+                if spa:
+                    lines += [
+                        f"    location @spa_{name} {{",
+                        f"        rewrite ^ {path_slash}index.html break;",
+                        "    }",
+                    ]
+                lines.append("")
 
         # Root-Site am Ende (niedrigste Priorität)
         if root_site:
             name = root_site["name"]
-            spa = root_site.get("spa", False)
-            site_dir = f"{SITES_DIR}/{name}"
-            fallback = "try_files $uri $uri/ /index.html;" if spa else "try_files $uri $uri/ =404;"
-            lines += [
-                f"    root {site_dir};",
-                "    index index.html index.htm;",
-                "",
-                "    location / {",
-                f"        {fallback}",
-                "    }",
-                "",
-                "    location ~* \\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {",
-                "        expires 7d;",
-                '        add_header Cache-Control "public";',
-                "    }",
-                ""
-            ]
+
+            if root_site.get("token_only"):
+                lines += [
+                    "    location / {",
+                    f"        proxy_pass http://127.0.0.1:{TOKEN_GATE_PORT};",
+                    "        proxy_set_header X-Forwarded-Host $host;",
+                    "        proxy_set_header X-Forwarded-Uri $request_uri;",
+                    "    }",
+                    ""
+                ]
+            else:
+                spa = root_site.get("spa", False)
+                site_dir = f"{SITES_DIR}/{name}"
+                fallback = "try_files $uri $uri/ /index.html;" if spa else "try_files $uri $uri/ =404;"
+                lines += [
+                    f"    root {site_dir};",
+                    "    index index.html index.htm;",
+                    "",
+                    "    location / {",
+                    f"        {fallback}",
+                    "    }",
+                    "",
+                    "    location ~* \\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {",
+                    "        expires 7d;",
+                    '        add_header Cache-Control "public";',
+                    "    }",
+                    ""
+                ]
 
         lines += ["}", ""]
 
@@ -280,7 +307,7 @@ def _setup_cf_hostname(cf, tunnel_id: str, hostname: str, host_ip: str) -> dict 
 
 
 def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
-             extra_hostnames: list = None) -> dict:
+             extra_hostnames: list = None, token_only: bool = False) -> dict:
     """domain_input kann 'host.de' oder 'host.de/pfad/xy' sein."""
     name = normalize_name(name)
     if not name or not domain_input or not tunnel_id:
@@ -360,15 +387,20 @@ def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
         "name": name, "hostname": hostname, "path": path,
         "tunnel_id": tunnel_id, "spa": spa,
         "extra_hostnames": extra_hostnames,
+        "token_only": token_only,
     }
     sites.append(site_entry)
     _save_meta(sites)
 
     ensure_server(sites)
 
+    if token_only:
+        from services import token_gate
+        token_gate.ensure_token_gate_running()
+
     all_urls = [f"https://{hostname}{path}"] + [f"https://{eh}" for eh in extra_hostnames]
     return {"ok": True, "name": name, "hostname": hostname, "path": path,
-            "urls": all_urls, "www_path": site_dir}
+            "urls": all_urls, "www_path": site_dir, "token_only": token_only}
 
 
 def _cleanup_cf_hostnames(cf, tunnel_id: str, hostnames: list, remaining_sites: list):
@@ -424,7 +456,7 @@ def remove_site(name: str) -> dict:
 
 
 def update_site(old_name: str, new_name: str, domain_input: str, tunnel_id: str, spa: bool = False,
-                extra_hostnames: list = None) -> dict:
+                extra_hostnames: list = None, token_only: bool = False) -> dict:
     """Aktualisiert eine bestehende Virtual Host Site."""
     if not old_name or not new_name or not domain_input or not tunnel_id:
         return {"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}
@@ -510,12 +542,17 @@ def update_site(old_name: str, new_name: str, domain_input: str, tunnel_id: str,
         "name": new_name, "hostname": hostname, "path": path,
         "tunnel_id": tunnel_id, "spa": spa,
         "extra_hostnames": extra_hostnames_clean,
+        "token_only": token_only,
     }
     sites[site_idx] = updated_entry
     _save_meta(sites)
 
     ensure_server(sites)
 
+    if token_only:
+        from services import token_gate
+        token_gate.ensure_token_gate_running()
+
     all_urls = [f"https://{hostname}{path}"] + [f"https://{eh}" for eh in extra_hostnames_clean]
     return {"ok": True, "name": new_name, "hostname": hostname, "path": path,
-            "urls": all_urls, "www_path": new_dir}
+            "urls": all_urls, "www_path": new_dir, "token_only": token_only}
