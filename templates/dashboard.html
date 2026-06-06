@@ -1987,10 +1987,12 @@
                                     <div style="flex:1;">
                                         <label class="form-label" style="font-size:11px;">Max. Nutzungen</label>
                                         <select id="token-max-uses" class="input" style="height:36px;padding:0 10px;">
+                                            <option value="0">∞ Unbegrenzt</option>
                                             <option value="1">1× (Einmallink)</option>
                                             <option value="2">2×</option>
                                             <option value="3">3×</option>
                                             <option value="5">5×</option>
+                                            <option value="10">10×</option>
                                         </select>
                                     </div>
                                     <div style="flex:1;">
@@ -5556,7 +5558,7 @@
                         <div style="display:flex;justify-content:space-between;align-items:center;">
                             <span style="font-size:11px;color:var(--text-muted);">
                                 ${lnk.is_subdomain ? '🌐 Subdomain' : '🔗 Pfad'} ·
-                                ${lnk.uses}/${lnk.max_uses} genutzt ·
+                                ${lnk.max_uses === 0 ? `${lnk.uses}× genutzt · ∞` : `${lnk.uses}/${lnk.max_uses} genutzt`} ·
                                 <span style="color:${lnk.active ? 'var(--success)' : 'var(--danger)'};">${lnk.active ? 'aktiv' : 'abgelaufen'}</span>
                             </span>
                             <div style="display:flex;gap:6px;">
