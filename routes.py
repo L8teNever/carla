@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server, vhost_server
+from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server, vhost_server, token_gate
 import config
 
 bp = Blueprint("main", __name__)
@@ -1280,6 +1280,50 @@ def api_vhosts_update(name):
     if result.get("ok"):
         start_background_fetch()
     return jsonify(result), 200 if result["ok"] else 400
+
+
+# ---------------------------------------------------------------
+# Token Gate (Einmallinks)
+# ---------------------------------------------------------------
+
+@bp.route("/api/vhosts/tokens", methods=["GET"])
+def api_tokens_list():
+    site_name = request.args.get("site")
+    return jsonify(token_gate.list_links(site_name or None))
+
+
+@bp.route("/api/vhosts/tokens", methods=["POST"])
+def api_tokens_create():
+    data         = request.json or {}
+    site_name    = data.get("site_name", "").strip()
+    if not site_name:
+        return jsonify({"ok": False, "error": "site_name ist erforderlich."}), 400
+    hostname      = data.get("hostname") or None
+    max_uses      = int(data.get("max_uses", 1))
+    use_subdomain = bool(data.get("use_subdomain", False))
+    base_domain   = data.get("base_domain") or None
+    tunnel_id     = data.get("tunnel_id") or None
+    result = token_gate.create_link(
+        site_name=site_name,
+        hostname=hostname,
+        max_uses=max_uses,
+        use_subdomain=use_subdomain,
+        base_domain=base_domain,
+        tunnel_id=tunnel_id,
+    )
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/vhosts/tokens/<token_code>", methods=["DELETE"])
+def api_tokens_delete(token_code):
+    result = token_gate.delete_link(token_code)
+    return jsonify(result), 200 if result["ok"] else 404
+
+
+@bp.route("/api/vhosts/tokens/<token_code>/reset", methods=["POST"])
+def api_tokens_reset(token_code):
+    result = token_gate.reset_link(token_code)
+    return jsonify(result), 200 if result["ok"] else 404
 
 
 # ---------------------------------------------------------------

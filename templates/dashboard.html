@@ -1957,6 +1957,68 @@
                     <!-- Dynamic site cards -->
                 </div>
 
+                <!-- Token Links Modal -->
+                <div id="token-modal" class="modal-backdrop">
+                    <div class="modal" style="max-width:540px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title">🔗 Einmallinks – <span id="token-modal-site"></span></h3>
+                            <button onclick="closeTokenModal()" class="modal-close">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:18px;">
+
+                            <!-- Neuen Link erstellen -->
+                            <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--r-md);padding:14px;display:flex;flex-direction:column;gap:12px;">
+                                <div style="font-size:12px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;">NEUEN LINK ERSTELLEN</div>
+
+                                <div style="display:flex;gap:10px;align-items:flex-end;">
+                                    <div style="flex:1;">
+                                        <label class="form-label" style="font-size:11px;">Max. Nutzungen</label>
+                                        <select id="token-max-uses" class="input" style="height:36px;padding:0 10px;">
+                                            <option value="1">1× (Einmallink)</option>
+                                            <option value="2">2×</option>
+                                            <option value="3">3×</option>
+                                            <option value="5">5×</option>
+                                        </select>
+                                    </div>
+                                    <div style="flex:1;">
+                                        <label class="form-label" style="font-size:11px;">Modus</label>
+                                        <select id="token-mode" class="input" style="height:36px;padding:0 10px;" onchange="updateTokenModeUI()">
+                                            <option value="path">Pfad  (host.de/TOKEN)</option>
+                                            <option value="subdomain">Subdomain  (TOKEN.domain.de)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div id="token-host-row" style="display:flex;flex-direction:column;gap:4px;">
+                                    <label class="form-label" style="font-size:11px;">Hostname <span style="color:var(--text-muted);font-weight:400;">(leer = zufällig)</span></label>
+                                    <input id="token-hostname" class="input mono" style="height:36px;" placeholder="z.B. anna.domain.de — leer lassen für Zufall">
+                                </div>
+
+                                <button onclick="createTokenLink()" id="token-create-btn" class="btn btn-primary" style="width:100%;">Link erstellen</button>
+
+                                <div id="token-new-result" style="display:none;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:var(--r-md);padding:10px 12px;">
+                                    <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Dein neuer Link:</div>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <a id="token-new-url" href="#" target="_blank" style="font-family:var(--font-mono);font-size:12px;color:var(--primary);word-break:break-all;flex:1;"></a>
+                                        <button onclick="copyTokenUrl()" class="btn btn-sm" style="white-space:nowrap;flex-shrink:0;">Kopieren</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bestehende Links -->
+                            <div>
+                                <div style="font-size:12px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;margin-bottom:10px;">BESTEHENDE LINKS</div>
+                                <div id="token-list" style="display:flex;flex-direction:column;gap:8px;">
+                                    <div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">Lade...</div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Create Site Modal -->
                 <div id="site-modal" class="modal-backdrop">
                     <div class="modal" style="max-width:520px;">
@@ -5215,6 +5277,7 @@
                             <span class="badge ${isRunning ? 'badge-success' : 'badge-danger'}">${isRunning ? 'RUNNING' : 'STOPPED'}</span>
                             <div style="display:flex;gap:8px;">
                                 <button onclick="openSiteFiles('${site.www_path}')" class="btn btn-sm">Dateien</button>
+                                <button onclick="openTokenModal('${site.name}', '${site.hostname}', '${site.tunnel_id || ''}')" class="btn btn-sm" title="Einmallinks verwalten">🔗 Links</button>
                                 <button onclick="editSiteFromCard(this)" class="btn btn-sm">Bearbeiten</button>
                                 <button onclick="deleteSite('${site.name}')" class="btn btn-danger btn-sm">Löschen</button>
                             </div>
@@ -5375,6 +5438,130 @@
             setTimeout(() => {
                 if (typeof loadDirectory === 'function') loadDirectory(wwwPath);
             }, 300);
+        }
+
+        // ── Token / Einmallinks ────────────────────────────────────
+        let _tokenSite = '', _tokenHostname = '', _tokenTunnelId = '';
+
+        function openTokenModal(siteName, hostname, tunnelId) {
+            _tokenSite     = siteName;
+            _tokenHostname = hostname;
+            _tokenTunnelId = tunnelId;
+            document.getElementById('token-modal-site').textContent = siteName;
+            document.getElementById('token-hostname').value = hostname || '';
+            document.getElementById('token-mode').value = 'path';
+            document.getElementById('token-new-result').style.display = 'none';
+            updateTokenModeUI();
+            loadTokenLinks();
+            document.getElementById('token-modal').classList.add('active');
+        }
+
+        function closeTokenModal() {
+            document.getElementById('token-modal').classList.remove('active');
+        }
+
+        function updateTokenModeUI() {
+            const mode = document.getElementById('token-mode').value;
+            const hostRow = document.getElementById('token-host-row');
+            const hostInput = document.getElementById('token-hostname');
+            if (mode === 'subdomain') {
+                hostRow.querySelector('label').innerHTML = 'Base-Domain <span style="color:var(--text-muted);font-weight:400;">(leer = auto)</span>';
+                hostInput.placeholder = 'z.B. domain.de — leer lassen für Zufall';
+            } else {
+                hostRow.querySelector('label').innerHTML = 'Hostname <span style="color:var(--text-muted);font-weight:400;">(leer = zufällig)</span>';
+                hostInput.placeholder = 'z.B. anna.domain.de — leer lassen für Zufall';
+            }
+        }
+
+        async function loadTokenLinks() {
+            const list = document.getElementById('token-list');
+            list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">Lade...</div>';
+            try {
+                const r = await fetch(`/api/vhosts/tokens?site=${encodeURIComponent(_tokenSite)}`);
+                const links = r.ok ? await r.json() : [];
+                if (!links.length) {
+                    list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">Noch keine Links vorhanden.</div>';
+                    return;
+                }
+                list.innerHTML = links.map(lnk => `
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid ${lnk.active ? 'rgba(124,58,237,0.25)' : 'var(--border)'};border-radius:var(--r-md);padding:10px 12px;display:flex;flex-direction:column;gap:6px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <a href="${lnk.url}" target="_blank" style="font-family:var(--font-mono);font-size:11.5px;color:${lnk.active ? 'var(--primary)' : 'var(--text-muted)'};word-break:break-all;flex:1;text-decoration:${lnk.active ? 'none' : 'line-through'};">${lnk.url}</a>
+                            <button onclick="navigator.clipboard.writeText('${lnk.url}').then(()=>showToast('Kopiert!','success'))" class="btn btn-sm" style="flex-shrink:0;" title="Kopieren">📋</button>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span style="font-size:11px;color:var(--text-muted);">
+                                ${lnk.is_subdomain ? '🌐 Subdomain' : '🔗 Pfad'} ·
+                                ${lnk.uses}/${lnk.max_uses} genutzt ·
+                                <span style="color:${lnk.active ? 'var(--success)' : 'var(--danger)'};">${lnk.active ? 'aktiv' : 'abgelaufen'}</span>
+                            </span>
+                            <div style="display:flex;gap:6px;">
+                                ${!lnk.active ? `<button onclick="resetTokenLink('${lnk.token}')" class="btn btn-sm" title="Zurücksetzen">↺</button>` : ''}
+                                <button onclick="deleteTokenLink('${lnk.token}')" class="btn btn-danger btn-sm" title="Löschen">✕</button>
+                            </div>
+                        </div>
+                    </div>`).join('');
+            } catch(e) {
+                list.innerHTML = `<div style="color:var(--danger);font-size:13px;text-align:center;padding:16px;">Fehler: ${e.message}</div>`;
+            }
+        }
+
+        async function createTokenLink() {
+            const btn          = document.getElementById('token-create-btn');
+            const mode         = document.getElementById('token-mode').value;
+            const maxUses      = parseInt(document.getElementById('token-max-uses').value);
+            const hostVal      = document.getElementById('token-hostname').value.trim();
+            const useSubdomain = mode === 'subdomain';
+
+            const body = { site_name: _tokenSite, max_uses: maxUses, use_subdomain: useSubdomain };
+            if (useSubdomain) {
+                if (hostVal) body.base_domain = hostVal;
+                if (_tokenTunnelId) body.tunnel_id = _tokenTunnelId;
+            } else {
+                if (hostVal) body.hostname = hostVal;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Erstelle...';
+            document.getElementById('token-new-result').style.display = 'none';
+            try {
+                const r   = await fetch('/api/vhosts/tokens', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const res = await r.json();
+                if (res.ok) {
+                    const urlEl = document.getElementById('token-new-url');
+                    urlEl.href        = res.url;
+                    urlEl.textContent = res.url;
+                    document.getElementById('token-new-result').style.display = 'block';
+                    loadTokenLinks();
+                } else {
+                    showToast(res.error || 'Fehler beim Erstellen.', 'error');
+                }
+            } catch(e) { showToast(e.message, 'error'); }
+            finally { btn.disabled = false; btn.textContent = 'Link erstellen'; }
+        }
+
+        function copyTokenUrl() {
+            const url = document.getElementById('token-new-url').href;
+            navigator.clipboard.writeText(url).then(() => showToast('Link kopiert!', 'success'));
+        }
+
+        async function deleteTokenLink(tokenCode) {
+            if (!confirm('Diesen Link wirklich löschen?')) return;
+            try {
+                const r   = await fetch(`/api/vhosts/tokens/${tokenCode}`, { method:'DELETE' });
+                const res = await r.json();
+                if (res.ok) { showToast('Link gelöscht.', 'success'); loadTokenLinks(); }
+                else showToast(res.error || 'Fehler.', 'error');
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        async function resetTokenLink(tokenCode) {
+            try {
+                const r   = await fetch(`/api/vhosts/tokens/${tokenCode}/reset`, { method:'POST' });
+                const res = await r.json();
+                if (res.ok) { showToast('Link zurückgesetzt.', 'success'); loadTokenLinks(); }
+                else showToast(res.error || 'Fehler.', 'error');
+            } catch(e) { showToast(e.message, 'error'); }
         }
 
         // -----------------------------------------------------------
