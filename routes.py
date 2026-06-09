@@ -565,6 +565,108 @@ def api_cf_tunnel_ingress_edit(tunnel_id, index):
 
 
 # ---------------------------------------------------------------
+# Publish / DNS Routes ("interner Port -> oeffentliche Domain")
+# ---------------------------------------------------------------
+
+@bp.route("/api/cf/zones", methods=["GET"])
+def api_cf_zones():
+    """Listet alle Cloudflare-Zonen (Domains) des Accounts."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+    return jsonify(cf.list_zones())
+
+
+@bp.route("/api/cf/zone/<zone_id>/dns", methods=["GET"])
+def api_cf_zone_dns(zone_id):
+    """Listet alle DNS-Eintraege einer Zone."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+    return jsonify(cf.list_dns_records(zone_id))
+
+
+@bp.route("/api/cf/publish", methods=["POST"])
+def api_cf_publish():
+    """One-Shot: macht einen internen Service unter einer oeffentlichen Domain
+    erreichbar (Tunnel-Ingress + DNS CNAME + optional Zero Trust Access).
+
+    Body: { tunnel_id, hostname, service, access_emails?: ["a@b.de", "@firma.de"] }
+    """
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+
+    data = request.json or {}
+    tunnel_id = (data.get("tunnel_id") or "").strip()
+    hostname = (data.get("hostname") or "").strip()
+    service = (data.get("service") or "").strip()
+    access_emails = data.get("access_emails") or []
+
+    if not tunnel_id or not hostname or not service:
+        return jsonify({"error": "tunnel_id, hostname und service sind erforderlich"}), 400
+
+    result = cf.publish_service(tunnel_id, hostname, service, access_emails)
+    cache.clear(CACHE_KEY)
+
+    if result["success"]:
+        return jsonify({"status": "ok",
+                        "message": f"{hostname} ist jetzt oeffentlich erreichbar.",
+                        "steps": result["steps"]})
+    # Teilweise/komplett fehlgeschlagen — Fehlermeldungen sammeln
+    msgs = []
+    for step, info in result["steps"].items():
+        if not info.get("success"):
+            errs = info.get("errors", [])
+            detail = errs[0].get("message", "Fehler") if errs else "Fehler"
+            msgs.append(f"{step}: {detail}")
+    return jsonify({"error": " | ".join(msgs) or "Veroeffentlichung fehlgeschlagen.",
+                    "steps": result["steps"]}), 400
+
+
+@bp.route("/api/cf/dns", methods=["POST"])
+def api_cf_dns_point():
+    """Generisch: 'diese IP/dieses Ziel soll auf diese Domain/Subdomain zeigen'.
+
+    Body: { name, content, type?: A|AAAA|CNAME, proxied?: bool }
+    """
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+
+    data = request.json or {}
+    name = (data.get("name") or "").strip()
+    content = (data.get("content") or "").strip()
+    rtype = (data.get("type") or "").strip().upper() or None
+    proxied = bool(data.get("proxied", True))
+
+    if not name or not content:
+        return jsonify({"error": "name und content (Ziel-IP/Domain) sind erforderlich"}), 400
+
+    result = cf.point_dns(name, content, rtype, proxied)
+    if result.get("success"):
+        return jsonify({"status": "ok",
+                        "message": f"{name} ({result.get('type')}) -> {content} {result.get('action', '')}.".strip()})
+    errs = result.get("errors", [])
+    msg = errs[0].get("message", "Unbekannter Fehler") if errs else "Unbekannter Fehler"
+    return jsonify({"error": msg}), 400
+
+
+@bp.route("/api/cf/dns/<zone_id>/<record_id>", methods=["DELETE"])
+def api_cf_dns_delete(zone_id, record_id):
+    """Loescht einen DNS-Eintrag."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert"}), 400
+    result = cf.delete_dns_record(zone_id, record_id)
+    if result.get("success"):
+        return jsonify({"status": "ok", "message": "DNS-Eintrag entfernt."})
+    errs = result.get("errors", [])
+    msg = errs[0].get("message", "Unbekannter Fehler") if errs else "Unbekannter Fehler"
+    return jsonify({"error": msg}), 400
+
+
+# ---------------------------------------------------------------
 # Auto-Update Routes
 # ---------------------------------------------------------------
 

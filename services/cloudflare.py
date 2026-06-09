@@ -3,6 +3,7 @@
 # Kapselt alle Cloudflare API-Anfragen.
 # ==============================================================
 
+import re
 import requests
 
 
@@ -31,6 +32,29 @@ class CloudflareClient:
             return data
         except Exception:
             return []
+
+    # --------------------------------------------------------------
+    # Generischer Request-Helfer (mit voller URL, account- oder zone-scoped)
+    # --------------------------------------------------------------
+
+    def _request(self, method: str, url: str, payload: dict | None = None,
+                 params: dict | None = None) -> dict:
+        """Fuehrt einen API-Request aus und gibt ein normalisiertes Resultat zurueck:
+        {'success': bool, 'result': ..., 'errors': [...]}.
+        """
+        try:
+            res = requests.request(
+                method, url, headers=self.headers,
+                json=payload, params=params, timeout=10,
+            )
+            data = res.json()
+            return {
+                "success": bool(data.get("success")),
+                "result": data.get("result"),
+                "errors": data.get("errors", []),
+            }
+        except Exception as e:
+            return {"success": False, "result": None, "errors": [{"message": str(e)}]}
 
     def get_tunnel_config(self, tunnel_id: str) -> dict:
         key = f"t_cfg_{tunnel_id}"
@@ -150,3 +174,220 @@ class CloudflareClient:
             return {"success": False, "errors": resp.get("errors", [])}
         except Exception as e:
             return {"success": False, "errors": [{"message": str(e)}]}
+
+    # ==============================================================
+    # DNS / Zonen
+    # ==============================================================
+
+    def list_zones(self) -> list:
+        """Gibt alle Zonen (Domains) des Accounts zurueck: [{'id','name'}, ...]."""
+        if "zones" in self._cache:
+            return self._cache["zones"]
+        res = self._request(
+            "GET", f"{self.base_url}/zones",
+            params={"account.id": self.account_id, "per_page": 50},
+        )
+        zones = [{"id": z["id"], "name": z["name"]} for z in (res.get("result") or [])]
+        self._cache["zones"] = zones
+        return zones
+
+    def find_zone_for_hostname(self, hostname: str) -> dict | None:
+        """Findet die passende Zone fuer einen Hostnamen (laengste Uebereinstimmung).
+        z.B. app.dev.example.com -> Zone example.com.
+        """
+        hostname = hostname.strip().lower().rstrip(".")
+        best = None
+        for z in self.list_zones():
+            zn = z["name"].lower()
+            if hostname == zn or hostname.endswith("." + zn):
+                if best is None or len(zn) > len(best["name"]):
+                    best = z
+        return best
+
+    def list_dns_records(self, zone_id: str) -> list:
+        """Listet alle DNS-Eintraege einer Zone."""
+        res = self._request(
+            "GET", f"{self.base_url}/zones/{zone_id}/dns_records",
+            params={"per_page": 200},
+        )
+        out = []
+        for r in (res.get("result") or []):
+            out.append({
+                "id": r.get("id"),
+                "type": r.get("type"),
+                "name": r.get("name"),
+                "content": r.get("content"),
+                "proxied": r.get("proxied", False),
+            })
+        return out
+
+    def upsert_dns_record(self, zone_id: str, name: str, rtype: str,
+                          content: str, proxied: bool = True) -> dict:
+        """Erstellt oder aktualisiert einen DNS-Eintrag (idempotent auf name+type)."""
+        name = name.strip().lower().rstrip(".")
+        existing = None
+        for r in self.list_dns_records(zone_id):
+            if r["name"].lower().rstrip(".") == name and r["type"] == rtype:
+                existing = r
+                break
+
+        payload = {"type": rtype, "name": name, "content": content,
+                   "proxied": proxied, "ttl": 1}
+        if existing:
+            res = self._request(
+                "PUT",
+                f"{self.base_url}/zones/{zone_id}/dns_records/{existing['id']}",
+                payload=payload,
+            )
+            action = "updated"
+        else:
+            res = self._request(
+                "POST", f"{self.base_url}/zones/{zone_id}/dns_records",
+                payload=payload,
+            )
+            action = "created"
+        res["action"] = action
+        return res
+
+    def delete_dns_record(self, zone_id: str, record_id: str) -> dict:
+        return self._request(
+            "DELETE",
+            f"{self.base_url}/zones/{zone_id}/dns_records/{record_id}",
+        )
+
+    # ==============================================================
+    # Zero Trust Access
+    # ==============================================================
+
+    def ensure_access_app(self, hostname: str, emails: list) -> dict:
+        """Stellt sicher, dass fuer den Hostnamen eine Access-Application mit
+        einer Allow-Policy fuer die angegebenen E-Mails existiert.
+        emails: Liste von E-Mail-Adressen (exakt) oder '@domain.tld' fuer ganze Domains.
+        """
+        hostname = hostname.strip().lower().rstrip(".")
+        # Existierende App suchen
+        app_id = None
+        for app in self.fetch("access/apps"):
+            if app.get("domain", "").lower().rstrip("/") == hostname:
+                app_id = app["id"]
+                break
+
+        if not app_id:
+            res = self._request(
+                "POST", f"{self.base_url}/accounts/{self.account_id}/access/apps",
+                payload={
+                    "name": hostname,
+                    "domain": hostname,
+                    "type": "self_hosted",
+                    "session_duration": "24h",
+                },
+            )
+            if not res["success"]:
+                return res
+            app_id = (res.get("result") or {}).get("id")
+            self._cache.pop("access/apps", None)
+
+        include = []
+        for e in emails:
+            e = e.strip()
+            if not e:
+                continue
+            if e.startswith("@"):
+                include.append({"email_domain": {"domain": e[1:]}})
+            else:
+                include.append({"email": {"email": e}})
+        if not include:
+            include = [{"everyone": {}}]
+
+        res = self._request(
+            "POST",
+            f"{self.base_url}/accounts/{self.account_id}/access/apps/{app_id}/policies",
+            payload={
+                "name": f"Allow {hostname}",
+                "decision": "allow",
+                "include": include,
+            },
+        )
+        res["app_id"] = app_id
+        return res
+
+    # ==============================================================
+    # High-Level: Service veroeffentlichen / IP auf Domain zeigen
+    # ==============================================================
+
+    def publish_service(self, tunnel_id: str, hostname: str, service: str,
+                        access_emails: list | None = None) -> dict:
+        """One-Shot: macht einen internen Service unter einer oeffentlichen Domain
+        erreichbar — komplett ueber Cloudflare Zero Trust Tunnel.
+
+        Schritte:
+          1. Ingress-Regel im Tunnel (hostname -> service)
+          2. DNS CNAME (hostname -> <tunnel_id>.cfargotunnel.com, proxied)
+          3. optional: Zero Trust Access-Policy (Zugriff auf E-Mails beschraenken)
+
+        Gibt einen Report pro Schritt zurueck.
+        """
+        hostname = hostname.strip().lower().rstrip(".")
+        service = service.strip()
+        steps = {}
+
+        # 1) Ingress-Regel hinzufuegen (vor Catch-All)
+        rules = self.get_tunnel_ingress(tunnel_id)
+        non_catchall = [r for r in rules if not r.get("is_catchall")]
+        # Bestehende Regel fuer denselben Hostnamen ersetzen statt duplizieren
+        non_catchall = [r for r in non_catchall if r.get("hostname") != hostname]
+        non_catchall.append({"hostname": hostname, "service": service})
+        catchall = [r for r in rules if r.get("is_catchall")]
+        new_rules = non_catchall + (catchall or [{"service": "http_status:404", "is_catchall": True}])
+        ing = self.update_tunnel_ingress(tunnel_id, new_rules)
+        steps["ingress"] = {"success": ing.get("success", False),
+                            "errors": ing.get("errors", [])}
+
+        # 2) DNS CNAME auf den Tunnel zeigen lassen
+        zone = self.find_zone_for_hostname(hostname)
+        if not zone:
+            steps["dns"] = {"success": False,
+                            "errors": [{"message": f"Keine passende Cloudflare-Zone fuer '{hostname}' gefunden."}]}
+        else:
+            dns = self.upsert_dns_record(
+                zone["id"], hostname, "CNAME",
+                f"{tunnel_id}.cfargotunnel.com", proxied=True,
+            )
+            steps["dns"] = {"success": dns.get("success", False),
+                            "action": dns.get("action"),
+                            "errors": dns.get("errors", [])}
+
+        # 3) Zero Trust Access (optional)
+        if access_emails:
+            acc = self.ensure_access_app(hostname, access_emails)
+            steps["access"] = {"success": acc.get("success", False),
+                               "errors": acc.get("errors", [])}
+
+        self._cache.pop(f"t_cfg_{tunnel_id}", None)
+        overall = all(s.get("success") for s in steps.values())
+        return {"success": overall, "hostname": hostname, "steps": steps}
+
+    def point_dns(self, name: str, content: str, rtype: str | None = None,
+                  proxied: bool = True) -> dict:
+        """Generisch: 'diese IP/dieses Ziel soll auf diese Domain/Subdomain zeigen'.
+        rtype wird automatisch erkannt (IPv4 -> A, IPv6 -> AAAA, sonst CNAME),
+        kann aber explizit gesetzt werden.
+        """
+        name = name.strip().lower().rstrip(".")
+        content = content.strip()
+        if not rtype:
+            if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", content):
+                rtype = "A"
+            elif ":" in content:
+                rtype = "AAAA"
+            else:
+                rtype = "CNAME"
+
+        zone = self.find_zone_for_hostname(name)
+        if not zone:
+            return {"success": False,
+                    "errors": [{"message": f"Keine passende Cloudflare-Zone fuer '{name}' gefunden."}]}
+        res = self.upsert_dns_record(zone["id"], name, rtype, content, proxied=proxied)
+        res["type"] = rtype
+        res["zone"] = zone["name"]
+        return res

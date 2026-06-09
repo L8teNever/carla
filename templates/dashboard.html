@@ -2105,8 +2105,19 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
                     </div>
 
                     <!-- ═══ Cloudflare Tunnel Routen ═══ -->
-                    <div class="section-title">Cloudflare Tunnel Routen</div>
-                    <div class="section-sub">Ingress-Regeln verwalten — Hostname-zu-Service-Zuordnungen hinzufügen, bearbeiten oder entfernen.</div>
+                    <div class="flex-between" style="align-items:flex-end;gap:12px">
+                        <div>
+                            <div class="section-title">Cloudflare Tunnel Routen</div>
+                            <div class="section-sub">Ingress-Regeln verwalten — Hostname-zu-Service-Zuordnungen hinzufügen, bearbeiten oder entfernen.</div>
+                        </div>
+                        <button onclick="openPublishModal()" class="btn btn-primary btn-sm" style="white-space:nowrap">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M12 2v13" /><path d="m6 8 6-6 6 6" /><path d="M5 21h14" />
+                            </svg>
+                            Veröffentlichen
+                        </button>
+                    </div>
 
                     <!-- Tunnel Status -->
                     <div id="tunnel-status" class="status-banner hidden" style="margin-bottom:16px">
@@ -2204,6 +2215,70 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
                             <div class="flex" style="display:flex;gap:10px;margin-top:20px">
                                 <button onclick="closeIngressModal()" class="btn btn-secondary" style="flex:1">Abbrechen</button>
                                 <button id="ingress-modal-save" onclick="saveIngressRule()" class="btn btn-primary" style="flex:1">Speichern</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Publish / Veröffentlichen Modal -->
+                    <div id="publish-modal" class="modal-backdrop hidden">
+                        <div class="modal">
+                            <div class="flex-between" style="margin-bottom:20px">
+                                <h3 class="card-title">Veröffentlichen</h3>
+                                <button onclick="closePublishModal()" class="icon-btn">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <!-- Modus-Auswahl -->
+                            <div style="display:flex;gap:8px;margin-bottom:18px">
+                                <button id="pub-tab-tunnel" onclick="setPublishMode('tunnel')" class="btn btn-sm btn-primary" style="flex:1">Über Tunnel (Zero Trust)</button>
+                                <button id="pub-tab-dns" onclick="setPublishMode('dns')" class="btn btn-sm btn-secondary" style="flex:1">Direkt (DNS)</button>
+                            </div>
+
+                            <!-- Tunnel-Modus: interner Service -> öffentliche Domain -->
+                            <div id="pub-mode-tunnel" style="display:flex;flex-direction:column;gap:16px">
+                                <div>
+                                    <div class="field-label">Tunnel</div>
+                                    <select id="pub-tunnel" class="input mono"></select>
+                                </div>
+                                <div>
+                                    <div class="field-label">Öffentliche Domain / Subdomain</div>
+                                    <input type="text" id="pub-hostname" class="input mono" placeholder="app.example.com">
+                                </div>
+                                <div>
+                                    <div class="field-label">Interner Service (Ziel)</div>
+                                    <input type="text" id="pub-service" class="input mono" placeholder="http://localhost:8080">
+                                    <div class="field-hint">z.B. http://10.7.0.1:3000, http://localhost:8080, tcp://localhost:22</div>
+                                </div>
+                                <div>
+                                    <div class="field-label">Zero Trust – Zugriff beschränken (optional)</div>
+                                    <input type="text" id="pub-emails" class="input mono" placeholder="ich@firma.de, @firma.de">
+                                    <div class="field-hint">Kommagetrennt. Leer = öffentlich (nur WAF/Proxy). „@domain.de“ erlaubt die ganze Domain.</div>
+                                </div>
+                            </div>
+
+                            <!-- DNS-Modus: diese IP -> diese Domain -->
+                            <div id="pub-mode-dns" class="hidden" style="display:flex;flex-direction:column;gap:16px">
+                                <div>
+                                    <div class="field-label">Domain / Subdomain</div>
+                                    <input type="text" id="pub-dns-name" class="input mono" placeholder="sub.example.com">
+                                </div>
+                                <div>
+                                    <div class="field-label">Ziel (IP oder Hostname)</div>
+                                    <input type="text" id="pub-dns-content" class="input mono" placeholder="203.0.113.10 oder ziel.example.com">
+                                    <div class="field-hint">IPv4 → A, IPv6 → AAAA, sonst CNAME (automatisch erkannt).</div>
+                                </div>
+                                <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted)">
+                                    <input type="checkbox" id="pub-dns-proxied" checked> Über Cloudflare proxen (orange Wolke)
+                                </label>
+                            </div>
+
+                            <div class="flex" style="display:flex;gap:10px;margin-top:20px">
+                                <button onclick="closePublishModal()" class="btn btn-secondary" style="flex:1">Abbrechen</button>
+                                <button id="pub-save" onclick="submitPublish()" class="btn btn-primary" style="flex:1">Veröffentlichen</button>
                             </div>
                         </div>
                     </div>
@@ -3802,6 +3877,130 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
                 txt.classList.add('text-green-400');
             }
             setTimeout(() => el.classList.add('hidden'), 5000);
+        }
+
+        // -----------------------------------------------------------
+        // PUBLISH / VERÖFFENTLICHEN LOGIC
+        // -----------------------------------------------------------
+        let publishMode = 'tunnel';
+
+        function showToast(msg, isError) {
+            let el = document.getElementById('global-toast');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'global-toast';
+                el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;' +
+                    'padding:14px 22px;border-radius:14px;font-size:14px;font-weight:600;max-width:90vw;' +
+                    'box-shadow:0 8px 30px rgba(0,0,0,.4);transition:opacity .3s;backdrop-filter:blur(12px)';
+                document.body.appendChild(el);
+            }
+            el.textContent = msg;
+            el.style.background = isError ? 'rgba(242,184,181,.15)' : 'rgba(74,222,128,.15)';
+            el.style.border = isError ? '1px solid #F2B8B5' : '1px solid #4ADE80';
+            el.style.color = isError ? '#F2B8B5' : '#4ADE80';
+            el.style.opacity = '1';
+            clearTimeout(el._t);
+            el._t = setTimeout(() => { el.style.opacity = '0'; }, 5000);
+        }
+
+        function openPublishModal(prefillService = '') {
+            setPublishMode('tunnel');
+            document.getElementById('pub-hostname').value = '';
+            document.getElementById('pub-emails').value = '';
+            document.getElementById('pub-dns-name').value = '';
+            document.getElementById('pub-dns-content').value = '';
+            document.getElementById('pub-dns-proxied').checked = true;
+            document.getElementById('pub-service').value = prefillService || '';
+
+            const sel = document.getElementById('pub-tunnel');
+            sel.innerHTML = '<option value="">Lade Tunnel…</option>';
+            fetch('/api/cf/tunnels')
+                .then(r => r.json())
+                .then(tunnels => {
+                    if (tunnels.error || !Array.isArray(tunnels) || tunnels.length === 0) {
+                        sel.innerHTML = `<option value="">${tunnels.error || 'Keine Tunnel gefunden'}</option>`;
+                        return;
+                    }
+                    sel.innerHTML = tunnels.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+                    if (typeof selectedTunnelId !== 'undefined' && selectedTunnelId) sel.value = selectedTunnelId;
+                })
+                .catch(() => { sel.innerHTML = '<option value="">Fehler beim Laden</option>'; });
+
+            document.getElementById('publish-modal').classList.remove('hidden');
+        }
+
+        function closePublishModal() {
+            document.getElementById('publish-modal').classList.add('hidden');
+        }
+
+        function setPublishMode(mode) {
+            publishMode = mode;
+            const tunnelEl = document.getElementById('pub-mode-tunnel');
+            const dnsEl = document.getElementById('pub-mode-dns');
+            const tabT = document.getElementById('pub-tab-tunnel');
+            const tabD = document.getElementById('pub-tab-dns');
+            const isTunnel = mode === 'tunnel';
+            tunnelEl.classList.toggle('hidden', !isTunnel);
+            dnsEl.classList.toggle('hidden', isTunnel);
+            tabT.className = `btn btn-sm ${isTunnel ? 'btn-primary' : 'btn-secondary'}`;
+            tabD.className = `btn btn-sm ${isTunnel ? 'btn-secondary' : 'btn-primary'}`;
+            tabT.style.flex = '1';
+            tabD.style.flex = '1';
+        }
+
+        function submitPublish() {
+            const btn = document.getElementById('pub-save');
+            let url, body;
+
+            if (publishMode === 'tunnel') {
+                const tunnel_id = document.getElementById('pub-tunnel').value;
+                const hostname = document.getElementById('pub-hostname').value.trim();
+                const service = document.getElementById('pub-service').value.trim();
+                const emailsRaw = document.getElementById('pub-emails').value.trim();
+                if (!tunnel_id || !hostname || !service) {
+                    showToast('Tunnel, Domain und Service sind erforderlich.', true);
+                    return;
+                }
+                const access_emails = emailsRaw
+                    ? emailsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+                url = '/api/cf/publish';
+                body = { tunnel_id, hostname, service, access_emails };
+            } else {
+                const name = document.getElementById('pub-dns-name').value.trim();
+                const content = document.getElementById('pub-dns-content').value.trim();
+                const proxied = document.getElementById('pub-dns-proxied').checked;
+                if (!name || !content) {
+                    showToast('Domain und Ziel-IP/Hostname sind erforderlich.', true);
+                    return;
+                }
+                url = '/api/cf/dns';
+                body = { name, content, proxied };
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Veröffentlichen…';
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+                .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+                .then(({ ok, data }) => {
+                    btn.disabled = false;
+                    btn.textContent = 'Veröffentlichen';
+                    if (ok) {
+                        closePublishModal();
+                        showToast(data.message || 'Erfolgreich veröffentlicht!', false);
+                        if (typeof selectedTunnelId !== 'undefined' && selectedTunnelId) loadIngressRules();
+                    } else {
+                        showToast(data.error || 'Veröffentlichung fehlgeschlagen.', true);
+                    }
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    btn.textContent = 'Veröffentlichen';
+                    showToast('Netzwerkfehler.', true);
+                });
         }
 
         // -----------------------------------------------------------
@@ -5930,6 +6129,9 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
 
             const cursorStyle = clickAction ? 'cursor-pointer' : '';
 
+            // Vorschlag fuer die interne Service-Adresse beim Veroeffentlichen
+            const pubService = p.local_url || `http://localhost:${p.port}`;
+
             return `
                 <div class="port-row glass-card p-4 border-l-4 ${borderColor} ${cursorStyle}" ${clickAction}>
                     <div class="flex items-center justify-between flex-wrap gap-3">
@@ -5957,13 +6159,23 @@ API_KEY=xxx" style="resize:vertical;font-size:13px;line-height:1.5"></textarea>
                             </div>
                         </div>
 
-                        <!-- Aktions-Pfeil -->
-                        ${clickAction ? `
-                        <div class="text-[#D0BCFF] opacity-60">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
-                            </svg>
-                        </div>` : ''}
+                        <!-- Aktionen -->
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button onclick="event.stopPropagation(); openPublishModal('${escapeHtml(pubService)}')"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D0BCFF]/10 border border-[#D0BCFF]/30 text-[#D0BCFF] text-[11px] font-bold hover:bg-[#D0BCFF]/20 transition-all"
+                                title="Diesen Port über eine öffentliche Domain erreichbar machen">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <path d="M12 2v13"/><path d="m6 8 6-6 6 6"/><path d="M5 21h14"/>
+                                </svg>
+                                Veröffentlichen
+                            </button>
+                            ${clickAction ? `
+                            <div class="text-[#D0BCFF] opacity-60">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                                </svg>
+                            </div>` : ''}
+                        </div>
                     </div>
                 </div>
             `;
