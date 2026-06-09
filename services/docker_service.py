@@ -1,5 +1,11 @@
+# ==============================================================
+# CARLA – Docker Service
+# Steuert und überwacht Docker-Container und Compose-Stacks lokal.
+# ==============================================================
+
 from . import system_executor
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def get_github_url(image_full_name: str, github_token: str) -> str | None:
@@ -11,6 +17,7 @@ def get_github_url(image_full_name: str, github_token: str) -> str | None:
                 "Authorization": f"Bearer {github_token}",
                 "Accept": "application/vnd.github.v3+json"
             }
+            # verify=False ist beibehalten wegen urllib3 Deaktivierung in main
             response = requests.get(api_url, headers=headers, timeout=2, verify=False)
             if response.status_code == 200:
                 return f"https://github.com/{repo_path}"
@@ -19,10 +26,9 @@ def get_github_url(image_full_name: str, github_token: str) -> str | None:
     return None
 
 
-def fetch_docker_data(unused_host, unused_user, unused_pass, github_token: str) -> dict:
-    """Holt Container-Daten via System-Executor."""
+def fetch_docker_data(github_token: str) -> dict:
+    """Holt lokale Container-Daten."""
     result = {"stacks": {}, "os": "Unbekannt", "error": None}
-    target_ip = system_executor.get_host_ip()
 
     try:
         # OS-Info
@@ -36,7 +42,25 @@ def fetch_docker_data(unused_host, unused_user, unused_pass, github_token: str) 
         # Tab-sep: Project | Name | Image | Ports | Status | RunningState
         cmd = "docker ps -a --format '{{.Label \"com.docker.compose.project\"}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}\t{{.State}}'"
         out = system_executor.execute_command(cmd)
-        
+
+        # Container network IPs holen
+        ip_map = {}
+        try:
+            ids_out = system_executor.execute_command("docker ps -aq")
+            ids = [i.strip() for i in ids_out.splitlines() if i.strip()]
+            if ids:
+                inspect_cmd = f"docker inspect --format '{{{{.Name}}}}\\t{{{{range .NetworkSettings.Networks}}}}{{{{.IPAddress}}}} {{{{end}}}}' {' '.join(ids)}"
+                inspect_out = system_executor.execute_command(inspect_cmd)
+                for line in inspect_out.splitlines():
+                    parts = line.split("\t")
+                    if len(parts) >= 2:
+                        c_name = parts[0].strip().lstrip("/")
+                        ips = [ip.strip() for ip in parts[1].split() if ip.strip()]
+                        ip_map[c_name] = ips
+        except Exception as e:
+            print(f"[Docker Service] Fehler beim Holen der IPs: {e}")
+
+        containers = []
         for line in out.splitlines():
             parts = line.split("\t")
             if len(parts) >= 6:
@@ -45,41 +69,75 @@ def fetch_docker_data(unused_host, unused_user, unused_pass, github_token: str) 
                 img = parts[2].strip()
                 ports = parts[3].strip()
                 status_text = parts[4].strip()
-                state = parts[5].strip() # running, exited, paused, etc.
+                state = parts[5].strip()
 
+                # Alle Port-Bindings als exakte IP:PORT Paare speichern
+                port_bindings = []  # [{"host_ip": "10.7.0.1", "host_port": 1014}, ...]
                 local_url = ""
                 if "->" in ports:
-                    try:
-                        host_side = ports.split(",")[0].split("->")[0].strip()
-                        ip, port = host_side.rsplit(":", 1) if ":" in host_side else (target_ip, host_side)
-                        local_url = f"http://{target_ip if ip in ['0.0.0.0', '::', ''] else ip}:{port}"
-                    except Exception:
-                        pass
+                    seen_bindings = set()
+                    for mapping in ports.split(","):
+                        mapping = mapping.strip()
+                        if "->" not in mapping:
+                            continue
+                        try:
+                            host_side, _ = mapping.split("->")
+                            host_side = host_side.strip()
+                            if ":" in host_side:
+                                host_ip, hp_str = host_side.rsplit(":", 1)
+                            else:
+                                host_ip, hp_str = "", host_side
+                            hp = int(hp_str)
+                            key = (host_ip, hp)
+                            if key not in seen_bindings:
+                                seen_bindings.add(key)
+                                port_bindings.append({"host_ip": host_ip, "host_port": hp})
+                        except Exception:
+                            pass
+                    if port_bindings:
+                        b = port_bindings[0]
+                        local_url = f"http://{b['host_ip']}:{b['host_port']}" if b['host_ip'] else f"http://localhost:{b['host_port']}"
 
-                if stack not in result["stacks"]:
-                    result["stacks"][stack] = []
-
-                result["stacks"][stack].append({
+                containers.append({
+                    "stack": stack,
                     "name": name,
                     "image": img,
                     "local_url": local_url,
+                    "port_bindings": port_bindings,
                     "ports_raw": ports,
                     "status_text": status_text,
                     "state": state,
-                    "github": get_github_url(img, github_token),
+                    "internal_ips": ip_map.get(name, [])
                 })
+
+        # GitHub-URLs parallel abrufen
+        unique_images = list({c["image"] for c in containers})
+        github_map = {}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(get_github_url, img, github_token): img for img in unique_images}
+            for future in as_completed(futures):
+                img = futures[future]
+                github_map[img] = future.result()
+
+        for c in containers:
+            stack = c.pop("stack")
+            c["github"] = github_map.get(c["image"])
+            if stack not in result["stacks"]:
+                result["stacks"][stack] = []
+            result["stacks"][stack].append(c)
+
     except Exception as e:
         result["error"] = str(e)
 
     return result
 
 
-def fetch_container_logs(unused_host, unused_user, unused_pass, container_name, tail=100) -> str:
+def fetch_container_logs(container_name: str, tail=100) -> str:
     """Holt die letzten X Zeilen der Docker-Logs."""
     return system_executor.execute_command(f"docker logs --tail {tail} {container_name}")
 
 
-def execute_container_command(unused_host, unused_user, unused_pass, container_name, cmd) -> str:
+def execute_container_command(container_name: str, cmd: str) -> str:
     """Führt einen Befehl im Docker-Container aus."""
     return system_executor.execute_command(f"docker exec {container_name} {cmd}")
 
@@ -120,18 +178,12 @@ def stack_action(stack_name: str, action: str) -> str:
     else:
         return "Unbekannte Aktion"
 
-    # Update/Pull braucht laenger
     cmd_timeout = 120 if action == "update" else 60
     return system_executor.execute_command(cmd, timeout=cmd_timeout)
 
 
 def deploy_stack(stack_name: str, compose_content: str, env_content: str = "") -> dict:
-    """Erstellt einen neuen Stack aus einer docker-compose.yml.
-
-    Legt ein Verzeichnis unter /opt/stacks/<stack_name> an,
-    schreibt die Compose-Datei (und optional .env) und startet den Stack.
-    """
-    import shlex
+    """Erstellt einen neuen Stack aus einer docker-compose.yml."""
     base_dir = "/opt/stacks"
     workdir = f"{base_dir}/{stack_name}"
 
@@ -141,7 +193,6 @@ def deploy_stack(stack_name: str, compose_content: str, env_content: str = "") -
         return {"ok": False, "error": f"Verzeichnis konnte nicht erstellt werden: {result}"}
 
     # Compose-Datei schreiben (via heredoc)
-    escaped = compose_content.replace("'", "'\\''")
     write_cmd = f"cat > {workdir}/docker-compose.yml << 'CARLA_EOF'\n{compose_content}\nCARLA_EOF"
     result = system_executor.execute_command(write_cmd)
     if result and "Error" in result:
@@ -165,7 +216,7 @@ def deploy_stack(stack_name: str, compose_content: str, env_content: str = "") -
     }
 
 
-def fetch_container_logs_since_last_start(unused_host, unused_user, unused_pass, container_name) -> str:
+def fetch_container_logs_since_last_start(container_name: str) -> str:
     """Holt alle Logs seit dem letzten Start des Containers."""
     started_at = system_executor.execute_command(
         f"docker inspect --format '{{{{.State.StartedAt}}}}' {container_name}"
@@ -175,4 +226,3 @@ def fetch_container_logs_since_last_start(unused_host, unused_user, unused_pass,
         return "Konnte Startzeitpunkt nicht ermitteln."
 
     return system_executor.execute_command(f"docker logs --since {started_at} {container_name}")
-

@@ -3,10 +3,10 @@
 # Definiert alle URL-Endpunkte der Webanwendung.
 # ==============================================================
 
-from flask import Blueprint, render_template, jsonify, request, redirect, url_for
+from flask import Blueprint, render_template, jsonify, request, redirect
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, ssh_docker, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager
+from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server, vhost_server, token_gate
 import config
 
 bp = Blueprint("main", __name__)
@@ -74,16 +74,89 @@ def _build_cf_graph_data(client: cloudflare.CloudflareClient) -> dict:
             policies = client.fetch(f"access/apps/{app_id}/policies")
             for p_idx, policy in enumerate(policies):
                 for m_idx, member in enumerate(policy.get('include', [])):
-                    for key, val in member.items():
-                        m_id = f"m_{app_id}_{str(val)}"
+                    label = ""
+                    if "email" in member:
+                        val = member["email"]
+                        label = val.get("email", str(val)) if isinstance(val, dict) else str(val)
+                    elif "email_domain" in member:
+                        val = member["email_domain"]
+                        dom = val.get("domain", str(val)) if isinstance(val, dict) else str(val)
+                        label = f"@{dom}"
+                    elif "group" in member:
+                        group = member["group"]
+                        group_name = group.get("name", group.get("id", str(group))) if isinstance(group, dict) else str(group)
+                        label = f"Gruppe: {group_name}"
+                    elif "everyone" in member:
+                        label = "Jeder"
+                    else:
+                        for key, val in member.items():
+                            label = f"{key}: {val}"
+                            break
+                    
+                    if label:
+                        m_id = f"m_{app_id}_{label}"
                         if not any(n['id'] == m_id for n in nodes):
-                            nodes.append({"id": m_id, "label": str(val), "group": "member", "level": 5})
+                            nodes.append({"id": m_id, "label": label, "group": "member", "level": 5})
                         edges.append({"from": app_uid, "to": m_id})
 
     except Exception as e:
         print(f"❌ [CARLA-CF] Graph Build Error: {e}")
 
     return {"nodes": nodes, "edges": edges}
+
+def _build_cf_index(mapping: dict) -> dict:
+    """Baut einen exakten IP:PORT-Index aus dem CF Tunnel-Mapping.
+    Keys: 'host_ip:port' (z.B. '10.7.0.1:1014') und 'localhost:port'.
+    """
+    index = {}
+    for svc_url, entries in mapping.items():
+        normalized = svc_url if "://" in svc_url else "http://" + svc_url
+        try:
+            p = urlparse(normalized)
+            host = (p.hostname or "").lower()
+            port = p.port
+            if host and port:
+                index.setdefault(f"{host}:{port}", []).extend(entries)
+                # localhost-Aliase
+                if host in ("127.0.0.1", "::1"):
+                    index.setdefault(f"localhost:{port}", []).extend(entries)
+        except Exception:
+            pass
+    return index
+
+
+def _match_container_to_cf(container: dict, cf_index: dict, access_info: dict) -> list:
+    """Findet CF-Domains per exaktem IP:PORT-Match gegen die Container-Port-Bindings."""
+    matched = []
+
+    for binding in container.get("port_bindings", []):
+        host_ip = binding.get("host_ip", "")
+        hp = binding.get("host_port")
+        if not hp:
+            continue
+        # Exakter Match: z.B. '10.7.0.1:1014'
+        if host_ip:
+            matched.extend(cf_index.get(f"{host_ip}:{hp}", []))
+        # Fallback: 0.0.0.0 bindet an alle Interfaces → auch localhost und andere IPs prüfen
+        if host_ip in ("0.0.0.0", "", "::"):
+            for key, entries in cf_index.items():
+                if key.endswith(f":{hp}"):
+                    matched.extend(entries)
+
+    # Deduplizieren nach Domain + Access-Info anhängen
+    seen = set()
+    result = []
+    for entry in matched:
+        domain = entry["hostname"]
+        if domain not in seen:
+            seen.add(domain)
+            result.append({
+                "public_domain": domain,
+                "tunnel_name": entry["tunnel"],
+                "allowed_emails": access_info.get(domain, [])
+            })
+    return result
+
 
 def _fetch_and_cache_task():
     global is_fetching
@@ -93,51 +166,87 @@ def _fetch_and_cache_task():
         is_fetching = True
 
     print("\n" + "="*60)
-    print("⏳ [CARLA] Live-Abfrage (SSH & Cloudflare) im Hintergrund gestartet...")
+    print("⏳ [CARLA] Live-Abfrage im Hintergrund gestartet...")
     print("="*60)
 
     try:
-        docker_data = ssh_docker.fetch_docker_data(
-            config.SSH_HOST,
-            config.SSH_USER,
-            config.SSH_PASS,
-            config.GITHUB_TOKEN,
-        )
+        # Stufe 1: Docker-Daten holen und sofort cachen
+        docker_data = docker_service.fetch_docker_data(config.GITHUB_TOKEN)
 
-        cf = cloudflare.CloudflareClient(config.CF_API_TOKEN, config.CF_ACCOUNT_ID)
-        mapping = cf.get_tunnel_mapping()
-        access_info = cf.get_access_info()
+        try:
+            docker_data["vhosts"] = vhost_server.list_sites()
+            docker_data["redirects"] = redirect_service.list_redirects()
+        except Exception as e:
+            print(f"⚠️ [CARLA] vhosts/redirects Fehler: {e}")
+            docker_data["vhosts"] = []
+            docker_data["redirects"] = []
+
+        # Local-URLs für CARLA-eigene Container setzen
+        try:
+            site_ports = {s["name"]: s["port"] for s in static_server.list_sites()}
+        except Exception:
+            site_ports = {}
 
         for stack in docker_data["stacks"].values():
             for container in stack:
                 container["cloudflares"] = []
-                l_url = container["local_url"].rstrip("/")
-                if l_url in mapping:
-                    for entry in mapping[l_url]:
-                        container["cloudflares"].append({
-                            "public_domain": entry["hostname"],
-                            "tunnel_name": entry["tunnel"],
-                            "allowed_emails": access_info.get(entry["hostname"], [])
-                        })
+                c_name = container["name"]
+                if c_name == "carla-vhost":
+                    container["local_url"] = "http://localhost:10050"
+                    container["host_ports"] = [10050]
+                elif c_name.startswith("redirect-"):
+                    try:
+                        port = int(c_name.split("-")[1])
+                        container["local_url"] = f"http://localhost:{port}"
+                        container["host_ports"] = [port]
+                    except Exception:
+                        pass
+                elif c_name.startswith("carla-site-"):
+                    site_name = c_name[len("carla-site-"):]
+                    port = site_ports.get(site_name)
+                    if port:
+                        container["local_url"] = f"http://localhost:{port}"
+                        container["host_ports"] = [port]
 
-        # 3. Baue Cloudflare Dashboard Graph Struktur direkt mit:
-        cf_graph = _build_cf_graph_data(cf)
-        
-        # Kombiniere Docker- und Cloudflare-Daten
-        full_data = docker_data
-        full_data["cf_graph"] = cf_graph
-        
-        # In den JSON-Cache!
-        cache.save(CACHE_KEY, full_data)
+        docker_data["cf_graph"] = {}
+        cache.save(CACHE_KEY, docker_data)
+        print("✅ [CARLA] Docker-Daten gecacht.")
 
-        # Baseline zurücksetzen – Discovery soll nach diesem Fetch
-        # einen frischen Vergleichspunkt haben
+        # Stufe 2: Cloudflare-Daten laden und Container matchen
+        cf = _get_cf_client()
+        if cf:
+            try:
+                mapping = cf.get_tunnel_mapping()
+                access_info = cf.get_access_info()
+                cf_index = _build_cf_index(mapping)
+
+                print(f"☁️  [CARLA] CF Mapping: {len(mapping)} Service-URLs, Index-Keys: {len(cf_index)}")
+
+                matched_total = 0
+                for stack in docker_data["stacks"].values():
+                    for container in stack:
+                        container["cloudflares"] = _match_container_to_cf(
+                            container, cf_index, access_info
+                        )
+                        if container["cloudflares"]:
+                            domains = [c["public_domain"] for c in container["cloudflares"]]
+                            print(f"  ✓ {container['name']} → {domains}")
+                            matched_total += len(container["cloudflares"])
+
+                docker_data["cf_graph"] = _build_cf_graph_data(cf)
+                cache.save(CACHE_KEY, docker_data)
+                print(f"✅ [CARLA] CF-Matching abgeschlossen: {matched_total} Domain(s) zugeordnet.")
+            except Exception as e:
+                print(f"❌ [CARLA] CF-Matching fehlgeschlagen: {e}")
+        else:
+            print("⚠️  [CARLA] Cloudflare nicht konfiguriert – übersprungen.")
+
         try:
             discovery.force_reset_baseline()
         except Exception:
             pass
-        
-        print("✅ [CARLA] Hintergrund-Abfrage abgeschlossen! Daten im SQL-Cache abgelegt.\n")
+
+        print("✅ [CARLA] Hintergrund-Abfrage abgeschlossen!\n")
     except Exception as e:
         print(f"❌ [CARLA] Abfrage fehlgeschlagen: {e}\n")
     finally:
@@ -165,8 +274,15 @@ def start_background_fetch():
 @bp.route("/livemap")
 @bp.route("/ports")
 @bp.route("/filemanager")
+@bp.route("/redirects")
+@bp.route("/sites")
+@bp.route("/domains")
 def index(stack_name=None, name=None):
     return render_template("dashboard.html")
+
+@bp.route("/editor")
+def editor_view():
+    return render_template("editor.html")
 
 @bp.route("/api/timeline/snapshots", methods=["GET"])
 def api_timeline_list():
@@ -193,6 +309,38 @@ def get_full_infrastructure():
     data["_from_cache"] = True
     data["_is_updating"] = is_fetching
     return jsonify(data)
+
+@bp.route("/api/cf-debug-log")
+def api_cf_debug_log():
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare nicht konfiguriert (API Token oder Account ID fehlt)"})
+
+    try:
+        mapping = cf.get_tunnel_mapping()
+        access_info = cf.get_access_info()
+        cf_index = _build_cf_index(mapping)
+        docker_data = docker_service.fetch_docker_data(config.GITHUB_TOKEN)
+
+        container_matching = []
+        for stack_name, stack in docker_data.get("stacks", {}).items():
+            for container in stack:
+                matched = _match_container_to_cf(container, cf_index, access_info)
+                container_matching.append({
+                    "container_name": container["name"],
+                    "port_bindings": container.get("port_bindings", []),
+                    "matched_domains": [m["public_domain"] for m in matched],
+                })
+
+        return jsonify({
+            "cloudflare_configured": True,
+            "service_urls": list(mapping.keys()),
+            "cf_index_keys": sorted(cf_index.keys()),
+            "access_apps_count": len(access_info),
+            "container_matching": container_matching,
+        })
+    except Exception as e:
+        return jsonify({"error": f"Fehler: {e}"})
 
 @bp.route("/api/discovery/status", methods=["GET"])
 def api_discovery_status():
@@ -237,19 +385,19 @@ def api_stack_performance(stack_name):
 @bp.route("/api/container/<name>/logs", methods=["GET"])
 def api_container_logs(name):
     # Security: In Produktion sollte hier eine Validierung gegen den Cache erfolgen
-    logs = ssh_docker.fetch_container_logs(config.SSH_HOST, config.SSH_USER, config.SSH_PASS, name)
+    logs = docker_service.fetch_container_logs(name)
     return jsonify({"logs": logs})
 
 @bp.route("/api/container/<name>/logs-since-start", methods=["GET"])
 def api_container_logs_since_start(name):
-    logs = ssh_docker.fetch_container_logs_since_last_start(config.SSH_HOST, config.SSH_USER, config.SSH_PASS, name)
+    logs = docker_service.fetch_container_logs_since_last_start(name)
     return jsonify({"logs": logs})
 
 @bp.route("/api/container/<name>/exec", methods=["POST"])
 def api_container_exec(name):
     cmd = request.json.get("command")
     if not cmd: return jsonify({"error": "Kein Befehl gesendet"}), 400
-    output = ssh_docker.execute_container_command(config.SSH_HOST, config.SSH_USER, config.SSH_PASS, name, cmd)
+    output = docker_service.execute_container_command(name, cmd)
     return jsonify({"output": output})
 
 @bp.route("/api/container/<name>/<action>", methods=["POST"])
@@ -257,7 +405,7 @@ def api_container_action(name, action):
     allowed = ("start", "stop", "restart", "pause", "unpause")
     if action not in allowed:
         return jsonify({"error": f"Unerlaubte Aktion: {action}"}), 400
-    output = ssh_docker.container_action(name, action)
+    output = docker_service.container_action(name, action)
     has_error = output and ("Error" in output or "error" in output)
     return jsonify({"output": output, "action": action, "container": name, "success": not has_error})
 
@@ -266,7 +414,7 @@ def api_stack_action(name, action):
     allowed = ("start", "stop", "restart", "down", "update")
     if action not in allowed:
         return jsonify({"error": f"Unerlaubte Aktion: {action}"}), 400
-    output = ssh_docker.stack_action(name, action)
+    output = docker_service.stack_action(name, action)
     has_error = output and output.startswith("Fehler:")
     return jsonify({"output": output, "action": action, "stack": name, "success": not has_error})
 
@@ -291,7 +439,7 @@ def api_stack_deploy():
     if not re.match(r'^[a-zA-Z0-9_-]+$', stack_name):
         return jsonify({"error": "Stack-Name darf nur Buchstaben, Zahlen, - und _ enthalten."}), 400
 
-    result = ssh_docker.deploy_stack(stack_name, compose_content, env_content)
+    result = docker_service.deploy_stack(stack_name, compose_content, env_content)
     if result.get("ok"):
         start_background_fetch()
         return jsonify(result)
@@ -326,19 +474,11 @@ def api_setup_save():
     if not data:
         return jsonify({"error": "Keine Daten erhalten"}), 400
 
-    mode = data.get("mode")
-    if mode not in ("local", "ssh"):
-        return jsonify({"error": "Ungueltiger Modus"}), 400
-
-    if mode == "ssh" and not data.get("ssh_host"):
-        return jsonify({"error": "SSH Host ist erforderlich"}), 400
-
     setup.save_setup(data)
     config.reload()
 
     # Starte Hintergrund-Abfrage nach Setup
-    from services import metrics_worker, system_executor
-    system_executor.close_ssh()
+    from services import metrics_worker
     metrics_worker.start_daemon()
     updater.start_daemon()
     backup.start_scheduler()
@@ -376,7 +516,6 @@ def api_setup_keys_get():
         "gdrive_client_id": mask(data.get("gdrive_client_id", "")),
         "gdrive_client_secret": mask(data.get("gdrive_client_secret", "")),
         "gdrive_refresh_token": mask(data.get("gdrive_refresh_token", "")),
-        "mode": data.get("mode", "local"),
     })
 
 
@@ -405,8 +544,6 @@ def api_setup_keys_update():
 
     # Cache leeren damit neue Keys verwendet werden
     cache.clear(CACHE_KEY)
-    from services import system_executor
-    system_executor.close_ssh()
     start_background_fetch()
 
     return jsonify({"status": "ok", "message": "API-Keys aktualisiert."})
@@ -421,6 +558,49 @@ def _get_cf_client():
     if not config.CF_API_TOKEN or not config.CF_ACCOUNT_ID:
         return None
     return cloudflare.CloudflareClient(config.CF_API_TOKEN, config.CF_ACCOUNT_ID)
+
+
+@bp.route("/api/cf/access/groups", methods=["GET"])
+def api_cf_access_groups():
+    """Listet alle CF Access Groups (wiederverwendbare Zugriffsregeln)."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify([])
+    try:
+        return jsonify(cf.list_access_groups())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/cf/access/app", methods=["POST"])
+def api_cf_access_app_create():
+    """Erstellt eine CF Access Application für eine Domain."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"ok": False, "error": "Cloudflare nicht konfiguriert"}), 400
+    data = request.json or {}
+    domain = data.get("domain", "").strip()
+    group_ids = data.get("group_ids", [])
+    name = data.get("name", domain)
+    if not domain:
+        return jsonify({"ok": False, "error": "Domain erforderlich"}), 400
+    result = cf.create_access_app(name, domain, group_ids)
+    result["ok"] = result.get("success", False)
+    return jsonify(result)
+
+
+@bp.route("/api/cf/access/app", methods=["DELETE"])
+def api_cf_access_app_delete():
+    """Entfernt die CF Access Application für eine Domain."""
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"ok": False, "error": "Cloudflare nicht konfiguriert"}), 400
+    data = request.json or {}
+    domain = data.get("domain", "").strip()
+    if not domain:
+        return jsonify({"ok": False, "error": "Domain erforderlich"}), 400
+    success = cf.delete_access_app_by_domain(domain)
+    return jsonify({"ok": success})
 
 
 @bp.route("/api/cf/tunnels", methods=["GET"])
@@ -966,3 +1146,737 @@ def api_files_stack(stack_name):
 def api_files_stack_compose(stack_name):
     """Liest die Compose-Datei und parst Volumes/Bind-Mounts."""
     return jsonify(file_manager.get_stack_compose(stack_name))
+
+
+# ---------------------------------------------------------------
+# Redirect Server Endpoints
+# ---------------------------------------------------------------
+
+@bp.route("/api/redirects", methods=["GET"])
+def api_list_redirects():
+    return jsonify(redirect_service.list_redirects())
+
+
+@bp.route("/api/redirects", methods=["POST"])
+def api_create_redirect():
+    data = request.json
+    if not data:
+        return jsonify({"error": "Keine Daten empfangen"}), 400
+        
+    port_val = data.get("port")
+    rules = data.get("rules", [])
+    cloudflare_data = data.get("cloudflare", None)
+    
+    try:
+        port = int(port_val)
+    except (ValueError, TypeError):
+        return jsonify({"error": "Ungültiger Port. Port muss eine Zahl sein."}), 400
+        
+    if port < 1 or port > 65535:
+        return jsonify({"error": "Port muss zwischen 1 und 65535 liegen."}), 400
+        
+    if not rules:
+        return jsonify({"error": "Mindestens eine Weiterleitungsregel ist erforderlich."}), 400
+        
+    res = redirect_service.create_redirect(port, rules, cloudflare_data)
+    if res.get("ok"):
+        start_background_fetch()
+        return jsonify({"success": True, "port": port})
+    else:
+        return jsonify({"error": res.get("error", "Fehler beim Erstellen der Weiterleitung.")}), 500
+
+
+@bp.route("/api/redirects/<int:port>", methods=["DELETE"])
+def api_delete_redirect(port):
+    res = redirect_service.delete_redirect(port)
+    if res.get("ok"):
+        start_background_fetch()
+        return jsonify({"success": True})
+    else:
+        return jsonify({"error": res.get("error", "Fehler beim Löschen.")}), 500
+
+
+@bp.route("/api/redirects/<int:port>/<action>", methods=["POST"])
+def api_redirect_action(port, action):
+    res = redirect_service.execute_action(port, action)
+    if res.get("ok"):
+        start_background_fetch()
+        return jsonify({"success": True, "output": res.get("output", "")})
+    else:
+        return jsonify({"error": res.get("error", "Fehler bei der Ausführung."), "output": res.get("output", "")}), 500
+
+
+@bp.route("/api/cloudflare/tunnels", methods=["GET"])
+def api_cloudflare_tunnels():
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare ist nicht konfiguriert."}), 400
+    try:
+        tunnels = cf.list_tunnels()
+        return jsonify(tunnels)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------
+# Error Server Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/errorserver/status", methods=["GET"])
+def api_errorserver_status():
+    return jsonify(error_server.get_status())
+
+
+@bp.route("/api/errorserver/pages", methods=["GET"])
+def api_errorserver_list():
+    return jsonify(error_server.list_pages())
+
+
+@bp.route("/api/errorserver/pages", methods=["POST"])
+def api_errorserver_add():
+    data = request.json or {}
+    path = data.get("path", "").strip()
+    title = data.get("title", "").strip()
+    message = data.get("message", "").strip()
+    if not path or not title:
+        return jsonify({"ok": False, "error": "Pfad und Titel sind erforderlich."}), 400
+    result = error_server.add_page(
+        path=path, title=title, message=message,
+        code=data.get("code", ""), color=data.get("color", "#7c3aed")
+    )
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/errorserver/pages/<path:page_path>", methods=["PUT"])
+def api_errorserver_update(page_path):
+    data = request.json or {}
+    title = data.get("title", "").strip()
+    if not title:
+        return jsonify({"ok": False, "error": "Titel ist erforderlich."}), 400
+    result = error_server.update_page(
+        path=page_path, title=title,
+        message=data.get("message", "").strip(),
+        code=data.get("code", ""), color=data.get("color", "#7c3aed")
+    )
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/errorserver/pages/<path:page_path>", methods=["DELETE"])
+def api_errorserver_delete(page_path):
+    result = error_server.delete_page(page_path)
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/errorserver/ensure", methods=["POST"])
+def api_errorserver_ensure():
+    """Startet den Error-Server falls er nicht läuft."""
+    try:
+        error_server.ensure_server()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ---------------------------------------------------------------
+# Static Server Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/sites", methods=["GET"])
+def api_sites_list():
+    return jsonify(static_server.list_sites())
+
+
+@bp.route("/api/sites", methods=["POST"])
+def api_sites_create():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "Name ist erforderlich."}), 400
+    port = None
+    port_val = data.get("port")
+    if port_val:
+        try:
+            port = int(port_val)
+            if port < 1 or port > 65535:
+                return jsonify({"ok": False, "error": "Port muss zwischen 1 und 65535 liegen."}), 400
+        except (ValueError, TypeError):
+            return jsonify({"ok": False, "error": "Ungültiger Port."}), 400
+    result = static_server.create_site(
+        name=name, port=port,
+        spa=bool(data.get("spa", False)),
+        cloudflare_data=data.get("cloudflare")
+    )
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/sites/<name>", methods=["DELETE"])
+def api_sites_delete(name):
+    result = static_server.delete_site(name)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/sites/<name>/<action>", methods=["POST"])
+def api_sites_action(name, action):
+    result = static_server.execute_action(name, action)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 500
+
+
+@bp.route("/api/sites/<name>/config", methods=["PUT"])
+def api_sites_config(name):
+    data = request.json or {}
+    result = static_server.update_config(name, spa=bool(data.get("spa", False)))
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+# ---------------------------------------------------------------
+# Virtual Host Server Routes (geteilter nginx-Container)
+# ---------------------------------------------------------------
+
+@bp.route("/api/vhosts", methods=["GET"])
+def api_vhosts_list():
+    return jsonify(vhost_server.list_sites())
+
+
+@bp.route("/api/vhosts", methods=["POST"])
+def api_vhosts_add():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    domain_input = data.get("domain", "").strip()
+    tunnel_id = data.get("tunnel_id", "").strip()
+    spa = bool(data.get("spa", False))
+    if not name or not domain_input or not tunnel_id:
+        return jsonify({"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}), 400
+    extra = [h.strip() for h in data.get("extra_hostnames", []) if h.strip()]
+    result = vhost_server.add_site(name=name, domain_input=domain_input, tunnel_id=tunnel_id, spa=spa, extra_hostnames=extra)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/vhosts/<name>", methods=["DELETE"])
+def api_vhosts_delete(name):
+    result = vhost_server.remove_site(name)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/vhosts/<name>", methods=["PUT"])
+def api_vhosts_update(name):
+    data = request.json or {}
+    new_name = data.get("name", name).strip()
+    domain_input = data.get("domain", "").strip()
+    tunnel_id = data.get("tunnel_id", "").strip()
+    spa = bool(data.get("spa", False))
+    if not new_name or not domain_input or not tunnel_id:
+        return jsonify({"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}), 400
+    extra = [h.strip() for h in data.get("extra_hostnames", []) if h.strip()]
+    result = vhost_server.update_site(old_name=name, new_name=new_name, domain_input=domain_input, tunnel_id=tunnel_id, spa=spa, extra_hostnames=extra)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+# ---------------------------------------------------------------
+# Token Gate (Einmallinks)
+# ---------------------------------------------------------------
+
+@bp.route("/api/vhosts/<name>/token-only", methods=["POST"])
+def api_vhosts_token_only(name):
+    data       = request.json or {}
+    token_only = bool(data.get("token_only", False))
+    result     = vhost_server.set_token_only(name, token_only)
+    if result.get("ok"):
+        start_background_fetch()
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/vhosts/tokens", methods=["GET"])
+def api_tokens_list():
+    site_name = request.args.get("site")
+    return jsonify(token_gate.list_links(site_name or None))
+
+
+@bp.route("/api/vhosts/tokens", methods=["POST"])
+def api_tokens_create():
+    data         = request.json or {}
+    site_name    = data.get("site_name", "").strip()
+    if not site_name:
+        return jsonify({"ok": False, "error": "site_name ist erforderlich."}), 400
+    hostname      = data.get("hostname") or None
+    max_uses      = max(0, int(data.get("max_uses", 1)))  # 0 = unbegrenzt
+    use_subdomain = bool(data.get("use_subdomain", False))
+    base_domain   = data.get("base_domain") or None
+    tunnel_id     = data.get("tunnel_id") or None
+    token_length = max(16, min(256, int(data.get("token_length", 16))))
+    result = token_gate.create_link(
+        site_name=site_name,
+        hostname=hostname,
+        max_uses=max_uses,
+        use_subdomain=use_subdomain,
+        base_domain=base_domain,
+        tunnel_id=tunnel_id,
+        token_length=token_length,
+    )
+    return jsonify(result), 200 if result["ok"] else 400
+
+
+@bp.route("/api/vhosts/tokens/<token_code>", methods=["DELETE"])
+def api_tokens_delete(token_code):
+    result = token_gate.delete_link(token_code)
+    return jsonify(result), 200 if result["ok"] else 404
+
+
+@bp.route("/api/vhosts/tokens/<token_code>/reset", methods=["POST"])
+def api_tokens_reset(token_code):
+    result = token_gate.reset_link(token_code)
+    return jsonify(result), 200 if result["ok"] else 404
+
+
+# ---------------------------------------------------------------
+# Cloudflare Public Domains Management Routes
+# ---------------------------------------------------------------
+
+POLICIES_FILE = "data/domain_policies.json"
+
+def _load_domain_policies() -> dict:
+    import json
+    import os
+    if os.path.exists(POLICIES_FILE):
+        try:
+            with open(POLICIES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_domain_policies(policies: dict):
+    import json
+    import os
+    os.makedirs(os.path.dirname(POLICIES_FILE), exist_ok=True)
+    try:
+        with open(POLICIES_FILE, "w", encoding="utf-8") as f:
+            json.dump(policies, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"❌ [CARLA] Error saving domain policies: {e}")
+
+
+@bp.route("/api/cloudflare/domain-policies", methods=["GET"])
+def api_cloudflare_domain_policies_get():
+    return jsonify(_load_domain_policies())
+
+
+@bp.route("/api/cloudflare/domain-policies", methods=["POST"])
+def api_cloudflare_domain_policies_save():
+    data = request.json or {}
+    hostname = data.get("hostname", "").strip()
+    is_public_approved = bool(data.get("is_public_approved", False))
+    public_approved_reason = data.get("public_approved_reason", "").strip()
+    
+    if not hostname:
+        return jsonify({"ok": False, "error": "Hostname ist erforderlich."}), 400
+        
+    policies = _load_domain_policies()
+    policies[hostname] = {
+        "is_public_approved": is_public_approved,
+        "public_approved_reason": public_approved_reason
+    }
+    _save_domain_policies(policies)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/cloudflare/domains", methods=["GET"])
+def api_cloudflare_domains_list():
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare ist nicht konfiguriert."}), 400
+
+    try:
+        # 1. Fetch zones, tunnels, and access policies
+        tunnels = cf.list_tunnels()
+        access_info = cf.get_access_info()
+        policies = _load_domain_policies()
+        
+        # 2. Load cached infrastructure details for matching
+        infra_data, _ = cache.load(CACHE_KEY)
+        if infra_data is None:
+            infra_data = {}
+
+        domains = []
+        
+        # 3. Iterate over tunnels to retrieve ingress configurations
+        for tun in tunnels:
+            tun_id = tun["id"]
+            tun_name = tun["name"]
+            tun_status = tun.get("status", "unknown")
+            
+            # Fetch config for this specific tunnel
+            cfg = cf.get_tunnel_config(tun_id)
+            ingress_rules = cfg.get("config", {}).get("ingress", [])
+            
+            for rule in ingress_rules:
+                hostname = rule.get("hostname")
+                if not hostname:
+                    continue  # skip catchall
+                
+                service = rule.get("service", "")
+                
+                # Zero trust detection
+                zero_trust_emails = access_info.get(hostname, [])
+                has_zero_trust = hostname in access_info
+                
+                # Match Zone ID
+                zone_id = cf.find_zone_id(hostname)
+                
+                # Local service matching logic
+                matched_target = None
+                service_port = None
+                
+                normalized = service if "://" in service else "http://" + service
+                try:
+                    p = urlparse(normalized)
+                    service_port = p.port
+                except Exception:
+                    pass
+                
+                if service_port is not None:
+                    # a) Match against redirects
+                    for red in infra_data.get("redirects", []):
+                        if str(red.get("port")) == str(service_port):
+                            matched_target = {
+                                "type": "redirect",
+                                "name": f"Umleitung (Port {service_port})",
+                                "detail": f"→ {len(red.get('rules', []))} Pfade",
+                                "status": "running" if red.get("state") == "running" else "stopped"
+                            }
+                            break
+                    
+                    # b) Match against containers
+                    if not matched_target:
+                        for stack_name, stack in infra_data.get("stacks", {}).items():
+                            for container in stack:
+                                host_ports = [str(pt) for pt in container.get("host_ports", [])]
+                                if str(service_port) in host_ports:
+                                    matched_target = {
+                                        "type": "container",
+                                        "name": container.get("name"),
+                                        "stack": stack_name,
+                                        "detail": f"Stack: {stack_name}",
+                                        "status": container.get("state", "unknown")
+                                    }
+                                    break
+                                
+                                for binding in container.get("port_bindings", []):
+                                    if str(binding.get("host_port")) == str(service_port):
+                                        matched_target = {
+                                            "type": "container",
+                                            "name": container.get("name"),
+                                            "stack": stack_name,
+                                            "detail": f"Stack: {stack_name}",
+                                            "status": container.get("state", "unknown")
+                                        }
+                                        break
+                                if matched_target:
+                                    break
+                            if matched_target:
+                                break
+                    
+                    # c) Match against sites (nginx vhosts)
+                    if not matched_target:
+                        for site in infra_data.get("vhosts", []):
+                            if site.get("hostname") == hostname or hostname in site.get("extra_hostnames", []):
+                                matched_target = {
+                                    "type": "vhost",
+                                    "name": f"Site: {site.get('name')}",
+                                    "detail": f"Nginx-Pfad: {site.get('path', '/')}",
+                                    "status": "running" if site.get("state") == "running" else "stopped"
+                                }
+                                break
+                
+                pol = policies.get(hostname, {})
+                is_public_approved = pol.get("is_public_approved", False)
+                public_approved_reason = pol.get("public_approved_reason", "")
+
+                domains.append({
+                    "hostname": hostname,
+                    "tunnel_id": tun_id,
+                    "tunnel_name": tun_name,
+                    "tunnel_status": tun_status,
+                    "service": service,
+                    "zero_trust": has_zero_trust,
+                    "access_policies": zero_trust_emails,
+                    "zone_id": zone_id,
+                    "matched_target": matched_target,
+                    "is_public_approved": is_public_approved,
+                    "public_approved_reason": public_approved_reason
+                })
+                
+        return jsonify(domains)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/cloudflare/domains", methods=["DELETE"])
+def api_cloudflare_domains_delete():
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"ok": False, "error": "Cloudflare ist nicht konfiguriert."}), 400
+
+    data = request.json or {}
+    hostname = data.get("hostname", "").strip()
+    tunnel_id = data.get("tunnel_id", "").strip()
+    zone_id = data.get("zone_id", "").strip()
+    delete_dns = bool(data.get("delete_dns", True))
+    delete_access = bool(data.get("delete_access", True))
+
+    if not hostname or not tunnel_id:
+        return jsonify({"ok": False, "error": "Hostname und Tunnel-ID sind erforderlich."}), 400
+
+    try:
+        errors = []
+        
+        # 1. Remove ingress rule from tunnel config
+        rules = cf.get_tunnel_ingress(tunnel_id)
+        # Filter out rules matching this hostname
+        new_rules = [r for r in rules if r.get("hostname") != hostname]
+        
+        update_res = cf.update_tunnel_ingress(tunnel_id, new_rules)
+        if not update_res.get("success"):
+            update_errs = update_res.get("errors", [])
+            err_msg = update_errs[0].get("message", "Fehler beim Aktualisieren des Ingress") if update_errs else "Fehler beim Ingress-Update"
+            errors.append(f"Tunnel-Ingress: {err_msg}")
+
+        # 2. Delete CNAME record if requested (non-fatal)
+        if delete_dns:
+            if not zone_id:
+                # Find Zone ID dynamically if not provided
+                zone_id = cf.find_zone_id(hostname)
+            
+            if zone_id:
+                cf.delete_cname_record(zone_id, hostname)
+            else:
+                print(f"⚠️ [CARLA] DNS Zonen-ID für {hostname} nicht gefunden. DNS-Löschen übersprungen.")
+
+        # 3. Delete Access App if requested
+        if delete_access:
+            cf.delete_access_app_by_domain(hostname)
+
+        if errors:
+            return jsonify({"ok": False, "error": "; ".join(errors)}), 400
+
+        # Success - clean cache and trigger refresh in background
+        cache.clear(CACHE_KEY)
+        start_background_fetch()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@bp.route("/api/cloudflare/domains/check-status", methods=["GET"])
+def api_cloudflare_domains_check_status():
+    import requests
+    domain = request.args.get("domain", "").strip()
+    if not domain:
+        return jsonify({"ok": False, "error": "Domain ist erforderlich."}), 400
+
+    url = f"https://{domain}"
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        resp = requests.get(url, headers=headers, timeout=5, allow_redirects=True, verify=False)
+        status_code = resp.status_code
+        
+        text_preview = resp.text[:2000].lower()
+        is_cloudflare_error = False
+        cloudflare_error_code = None
+        is_cf_server = "cloudflare" in resp.headers.get("Server", "").lower() or "cf-ray" in resp.headers
+        
+        if status_code >= 400:
+            if "502 bad gateway" in text_preview or "error code 502" in text_preview or "bad gateway" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 502
+            elif "504 gateway timeout" in text_preview or "error code 504" in text_preview or "gateway timeout" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 504
+            elif "521" in text_preview or "web server is down" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 521
+            elif "522" in text_preview or "connection timed out" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 522
+            elif "523" in text_preview or "origin is unreachable" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 523
+            elif "524" in text_preview or "a timeout occurred" in text_preview:
+                is_cloudflare_error = True
+                cloudflare_error_code = 524
+        
+        return jsonify({
+            "ok": True,
+            "status_code": status_code,
+            "is_cloudflare_error": is_cloudflare_error,
+            "cloudflare_error_code": cloudflare_error_code,
+            "is_cf_server": is_cf_server,
+            "error_msg": None
+        })
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "ok": True,
+            "status_code": 0,
+            "is_cloudflare_error": False,
+            "cloudflare_error_code": None,
+            "is_cf_server": False,
+            "error_msg": "Timeout (5s)"
+        })
+    except Exception as e:
+        return jsonify({
+            "ok": True,
+            "status_code": 0,
+            "is_cloudflare_error": False,
+            "cloudflare_error_code": None,
+            "is_cf_server": False,
+            "error_msg": str(e)
+        })
+
+
+
+# ---------------------------------------------------------------
+# Cloudflare Zero Trust Access Applications Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/cloudflare/access-apps", methods=["GET"])
+def api_cloudflare_access_apps_list():
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare ist nicht konfiguriert."}), 400
+    
+    try:
+        apps = cf.fetch("access/apps")
+        # Ensure apps is a list
+        if not isinstance(apps, list):
+            apps = []
+            
+        access_info = cf.get_access_info()
+        
+        result = []
+        for app in apps:
+            domain = app.get("domain", "")
+            result.append({
+                "id": app.get("id"),
+                "name": app.get("name"),
+                "domain": domain,
+                "created_at": app.get("created_at"),
+                "updated_at": app.get("updated_at"),
+                "policies": access_info.get(domain, [])
+            })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/cloudflare/access-apps/<app_id>", methods=["DELETE"])
+def api_cloudflare_access_apps_delete(app_id):
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"ok": False, "error": "Cloudflare ist nicht konfiguriert."}), 400
+    try:
+        import requests
+        url = f"{cf.base_url}/accounts/{cf.account_id}/access/apps/{app_id}"
+        res = requests.delete(url, headers=cf.headers, timeout=10)
+        resp = res.json()
+        cf._cache.pop("access/apps", None) # clear cache
+        return jsonify({"ok": resp.get("success", False), "error": resp.get("errors")})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@bp.route("/api/cloudflare/access-apps/<app_id>/policies", methods=["GET"])
+def api_cloudflare_access_apps_policies_get(app_id):
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"error": "Cloudflare ist nicht konfiguriert."}), 400
+    try:
+        import requests
+        policies_url = f"{cf.base_url}/accounts/{cf.account_id}/access/apps/{app_id}/policies"
+        res = requests.get(policies_url, headers=cf.headers, timeout=10)
+        policies = res.json().get("result", [])
+        if not isinstance(policies, list):
+            policies = []
+            
+        selected_groups = []
+        for policy in policies:
+            for inc in policy.get("include", []):
+                if "group" in inc:
+                    g_id = inc["group"].get("id")
+                    if g_id:
+                        selected_groups.append(g_id)
+        
+        return jsonify({"group_ids": selected_groups})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/api/cloudflare/access-apps/<app_id>/policies", methods=["PUT"])
+def api_cloudflare_access_apps_policies_update(app_id):
+    cf = _get_cf_client()
+    if not cf:
+        return jsonify({"ok": False, "error": "Cloudflare ist nicht konfiguriert."}), 400
+    
+    data = request.json or {}
+    group_ids = data.get("group_ids", [])
+    
+    try:
+        import requests
+        policies_url = f"{cf.base_url}/accounts/{cf.account_id}/access/apps/{app_id}/policies"
+        res = requests.get(policies_url, headers=cf.headers, timeout=10)
+        policies = res.json().get("result", [])
+        
+        if not isinstance(policies, list):
+            policies = []
+            
+        if policies:
+            policy_id = policies[0]["id"]
+            policy_payload = {
+                "name": "Ausgewählte Gruppen",
+                "decision": "allow",
+                "include": [{"group": {"id": gid}} for gid in group_ids]
+            }
+            put_res = requests.put(
+                f"{policies_url}/{policy_id}",
+                headers=cf.headers,
+                json=policy_payload,
+                timeout=10
+            )
+            ok = put_res.json().get("success", False)
+            err = put_res.json().get("errors")
+        else:
+            policy_payload = {
+                "name": "Ausgewählte Gruppen",
+                "decision": "allow",
+                "include": [{"group": {"id": gid}} for gid in group_ids]
+            }
+            post_res = requests.post(
+                policies_url,
+                headers=cf.headers,
+                json=policy_payload,
+                timeout=10
+            )
+            ok = post_res.json().get("success", False)
+            err = post_res.json().get("errors")
+            
+        cf._cache.clear()
+        return jsonify({"ok": ok, "error": err})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500

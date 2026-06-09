@@ -1,6 +1,5 @@
 flask
 requests
-paramiko
 urllib3
 websocket-client
 python-socketio[client]
