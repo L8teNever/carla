@@ -2114,6 +2114,7 @@
                 <div class="tabs-nav" style="margin-bottom: 20px;">
                     <button class="tab-btn active" id="domains-tab-btn-tunnels" onclick="switchDomainsSubTab('tunnels')">Tunnel Routen</button>
                     <button class="tab-btn" id="domains-tab-btn-access" onclick="switchDomainsSubTab('access')">Zero Trust Apps</button>
+                    <button class="tab-btn" id="domains-tab-btn-create" onclick="switchDomainsSubTab('create')">Route erstellen</button>
                 </div>
 
                 <!-- 1. Tunnel Routes Sub-Tab -->
@@ -2192,6 +2193,79 @@
                                 <!-- Injected dynamically -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- 3. Create Route Sub-Tab -->
+                <div id="domains-tab-create" class="tab-panel" style="display: none;">
+                    <div style="max-width: 650px; background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 30px; margin-top: 10px;">
+                        <div class="section-title" style="margin-bottom: 5px;">Neue Cloudflare Route veröffentlichen</div>
+                        <div class="section-subtitle" style="margin-bottom: 25px; color: var(--text-muted); font-size: 13px;">
+                            Verbinde einen beliebigen internen Dienst (IP und Port) über einen Cloudflare Tunnel mit einer öffentlichen Domain/Subdomain und schütze ihn optional mit Zero Trust.
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 20px;">
+                            <!-- Hostname / Domain -->
+                            <div class="form-group">
+                                <label class="form-label" for="cf-create-hostname">Öffentliche Domain / Subdomain</label>
+                                <input type="text" id="cf-create-hostname" class="input mono" placeholder="z.B. app.meine-domain.de" oninput="updateCreateRoutePreview()">
+                                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                    Die Domain muss in deinem Cloudflare-Account als Zone registriert sein.
+                                </div>
+                            </div>
+
+                            <!-- Target / Service (IP & Port) -->
+                            <div class="form-group">
+                                <label class="form-label" for="cf-create-service">Interner Dienst (Ziel-Adresse)</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="text" id="cf-create-service" class="input mono" placeholder="z.B. http://192.168.1.50:8080" style="flex: 1;" oninput="updateCreateRoutePreview()">
+                                    <select id="cf-create-service-suggest" class="select" style="max-width: 200px; font-size: 12.5px; padding: 8px;" onchange="selectServiceSuggestion(this.value)">
+                                        <option value="">-- Dienst auswählen --</option>
+                                    </select>
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                    Format: <code>http://IP:PORT</code>. Wähle einen erkannten Dienst aus der Liste oder trage manuell IP und Port ein.
+                                </div>
+                            </div>
+
+                            <!-- Tunnel Selection -->
+                            <div class="form-group">
+                                <label class="form-label" for="cf-create-tunnel">Cloudflare Tunnel</label>
+                                <select id="cf-create-tunnel" class="select mono"></select>
+                                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                    Wähle den Tunnel aus, über den der Dienst getunnelt werden soll.
+                                </div>
+                            </div>
+
+                            <!-- Zero Trust Access Option -->
+                            <div class="form-group" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--r-md); padding: 15px;">
+                                <label style="display: flex; align-items: center; gap: 10px; font-weight: 600; cursor: pointer; user-select: none; margin-bottom: 10px;">
+                                    <input type="checkbox" id="cf-create-zerotrust-enable" onchange="toggleCreateZeroTrustSection()" style="width: 18px; height: 18px; cursor: pointer;">
+                                    🛡️ Cloudflare Zero Trust Schutz aktivieren
+                                </label>
+                                <div id="cf-create-zerotrust-section" style="display: none; flex-direction: column; gap: 15px; margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 12px;">
+                                    <div>
+                                        <label class="form-label" style="font-size: 12px; margin-bottom: 6px;">Zugriffsberechtigung (E-Mails oder ganze Domains)</label>
+                                        <textarea id="cf-create-zt-emails" class="input mono" rows="3" placeholder="z.B. ich@gmail.com&#10;@meine-firma.de" style="resize: vertical; font-size: 12px; line-height: 1.4; padding: 8px;"></textarea>
+                                        <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 4px;">
+                                            Eine E-Mail-Adresse oder Domain (mit @) pro Zeile. Leer lassen, um allen Identitäten der Organisation den Zugriff zu erlauben.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Preview / Live-Feedback -->
+                            <div id="cf-create-preview" style="font-family: var(--font-mono); font-size: 12px; color: var(--primary); background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(124, 58, 237, 0.2); padding: 12px 16px; border-radius: var(--r-md); display: none;">
+                                Routing-Vorschau: ...
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                                <button onclick="submitCreateRoute()" class="btn btn-primary" id="cf-create-submit-btn" style="padding: 10px 24px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                                    Route veröffentlichen
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -5661,6 +5735,143 @@
                 document.getElementById('domains-tab-access').style.display = 'block';
                 document.getElementById('domains-tab-btn-access').classList.add('active');
                 loadAccessAppsView(false);
+            } else if (tabId === 'create') {
+                document.getElementById('domains-tab-create').style.display = 'block';
+                document.getElementById('domains-tab-btn-create').classList.add('active');
+                loadCreateRouteView();
+            }
+        }
+
+        function toggleCreateZeroTrustSection() {
+            const enabled = document.getElementById('cf-create-zerotrust-enable').checked;
+            document.getElementById('cf-create-zerotrust-section').style.display = enabled ? 'flex' : 'none';
+        }
+
+        function updateCreateRoutePreview() {
+            const hostname = document.getElementById('cf-create-hostname').value.trim();
+            const service = document.getElementById('cf-create-service').value.trim();
+            const preview = document.getElementById('cf-create-preview');
+
+            if (hostname && service) {
+                preview.textContent = `Vorschau: https://${hostname}  ➔  ${service}`;
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        function selectServiceSuggestion(val) {
+            if (val) {
+                document.getElementById('cf-create-service').value = val;
+                updateCreateRoutePreview();
+            }
+        }
+
+        async function loadCreateRouteView() {
+            // Reset form
+            document.getElementById('cf-create-hostname').value = '';
+            document.getElementById('cf-create-service').value = '';
+            document.getElementById('cf-create-service-suggest').value = '';
+            document.getElementById('cf-create-zerotrust-enable').checked = false;
+            document.getElementById('cf-create-zt-emails').value = '';
+            document.getElementById('cf-create-preview').style.display = 'none';
+            toggleCreateZeroTrustSection();
+
+            // Load tunnels select dropdown
+            const sel = document.getElementById('cf-create-tunnel');
+            sel.innerHTML = '<option>Lade Tunnel...</option>';
+            try {
+                const r = await fetch('/api/cf/tunnels');
+                const tunnels = r.ok ? await r.json() : [];
+                if (tunnels.length === 0) {
+                    sel.innerHTML = '<option value="">Keine Tunnel gefunden</option>';
+                } else {
+                    sel.innerHTML = tunnels.map(t => `<option value="${t.id}">${t.name} (${t.status})</option>`).join('');
+                }
+            } catch(e) {
+                sel.innerHTML = '<option value="">Fehler beim Laden der Tunnel</option>';
+            }
+
+            // Load service suggestions dropdown
+            const sug = document.getElementById('cf-create-service-suggest');
+            sug.innerHTML = '<option value="">Lade Dienste...</option>';
+            try {
+                const r = await fetch('/api/ports');
+                const portsList = r.ok ? await r.json() : [];
+                sug.innerHTML = '<option value="">-- Dienst auswählen --</option>';
+                portsList.forEach(p => {
+                    let label = '';
+                    if (p.is_docker && p.container) {
+                        label = `[Docker] ${p.container} (Port ${p.port})`;
+                    } else if (p.process) {
+                        label = `[${p.process}] Port ${p.port}`;
+                    } else {
+                        label = `Port ${p.port}`;
+                    }
+                    
+                    let url = p.local_url || `http://localhost:${p.port}`;
+                    url = url.replace('0.0.0.0', 'localhost').replace('::', 'localhost').replace('*', 'localhost');
+                    
+                    sug.innerHTML += `<option value="${url}">${label}</option>`;
+                });
+            } catch(e) {
+                sug.innerHTML = '<option value="">Fehler beim Laden</option>';
+            }
+        }
+
+        async function submitCreateRoute() {
+            const hostname = document.getElementById('cf-create-hostname').value.trim();
+            const service = document.getElementById('cf-create-service').value.trim();
+            const tunnel_id = document.getElementById('cf-create-tunnel').value;
+            const ztEnabled = document.getElementById('cf-create-zerotrust-enable').checked;
+            
+            if (!hostname) return showToast('Hostname ist erforderlich.', 'error');
+            if (!service) return showToast('Interner Dienst (Ziel-Adresse) ist erforderlich.', 'error');
+            if (!tunnel_id) return showToast('Cloudflare Tunnel ist erforderlich.', 'error');
+
+            if (!service.startsWith('http://') && !service.startsWith('https://') && !service.startsWith('tcp://')) {
+                return showToast('Ziel-Adresse muss mit http://, https:// oder tcp:// beginnen.', 'error');
+            }
+
+            let access_emails = [];
+            if (ztEnabled) {
+                const ztEmailsRaw = document.getElementById('cf-create-zt-emails').value;
+                access_emails = ztEmailsRaw.split('\n').map(e => e.trim()).filter(Boolean);
+                if (access_emails.length === 0) {
+                    access_emails = [""];
+                }
+            }
+
+            const body = {
+                tunnel_id: tunnel_id,
+                hostname: hostname,
+                service: service,
+                access_emails: access_emails
+            };
+
+            const btn = document.getElementById('cf-create-submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Veröffentliche...';
+
+            try {
+                showToast('Erstelle Cloudflare Route & DNS-Eintrag...', 'info');
+                const r = await fetch('/api/cf/publish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const res = await r.json();
+                if (r.ok && res.status === 'ok') {
+                    showToast(`Route für '${hostname}' erfolgreich erstellt!`, 'success');
+                    switchDomainsSubTab('tunnels');
+                } else {
+                    showToast(res.error || 'Fehler beim Erstellen der Route.', 'error');
+                }
+            } catch(e) {
+                showToast(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Route veröffentlichen';
             }
         }
 
