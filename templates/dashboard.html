@@ -5749,10 +5749,13 @@
 
         function updateCreateRoutePreview() {
             const hostname = document.getElementById('cf-create-hostname').value.trim();
-            const service = document.getElementById('cf-create-service').value.trim();
+            let service = document.getElementById('cf-create-service').value.trim();
             const preview = document.getElementById('cf-create-preview');
 
             if (hostname && service) {
+                if (!service.startsWith('http://') && !service.startsWith('https://') && !service.startsWith('tcp://')) {
+                    service = 'http://' + service;
+                }
                 preview.textContent = `Vorschau: https://${hostname}  ➔  ${service}`;
                 preview.style.display = 'block';
             } else {
@@ -5829,8 +5832,9 @@
             if (!service) return showToast('Interner Dienst (Ziel-Adresse) ist erforderlich.', 'error');
             if (!tunnel_id) return showToast('Cloudflare Tunnel ist erforderlich.', 'error');
 
-            if (!service.startsWith('http://') && !service.startsWith('https://') && !service.startsWith('tcp://')) {
-                return showToast('Ziel-Adresse muss mit http://, https:// oder tcp:// beginnen.', 'error');
+            let serviceUrl = service;
+            if (!serviceUrl.startsWith('http://') && !serviceUrl.startsWith('https://') && !serviceUrl.startsWith('tcp://')) {
+                serviceUrl = 'http://' + serviceUrl;
             }
 
             let access_emails = [];
@@ -5845,7 +5849,7 @@
             const body = {
                 tunnel_id: tunnel_id,
                 hostname: hostname,
-                service: service,
+                service: serviceUrl,
                 access_emails: access_emails
             };
 
