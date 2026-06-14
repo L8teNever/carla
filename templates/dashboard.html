@@ -2481,11 +2481,17 @@
                 <div class="view-title">Datei-Manager</div>
                 <div class="view-subtitle">Host-Dateien durchsuchen und Container-Konfigurationen editieren</div>
 
-                <div class="fm-container">
+                <div class="fm-container" style="position:relative;">
+                    <!-- Drag & Drop Overlay -->
+                    <div id="fm-drop-overlay" style="display:none; position:absolute; inset:0; background:rgba(124,58,237,0.12); border:2px dashed var(--primary,#7c3aed); border-radius:12px; z-index:20; align-items:center; justify-content:center; flex-direction:column; gap:10px; pointer-events:none;">
+                        <div style="font-size:48px; line-height:1;">📂</div>
+                        <div style="font-size:15px; font-weight:600; color:var(--primary,#7c3aed);">Dateien hier ablegen zum Hochladen</div>
+                    </div>
+
                     <div class="fm-toolbar">
                         <!-- Breadcrumbs -->
                         <div class="fm-breadcrumbs" id="fm-breadcrumbs-container"></div>
-                        
+
                         <!-- Safer context-action bar (only rename/delete visible when file is selected) -->
                         <div class="fm-action-bar">
                             <button onclick="fmOpenNewFolderModal()" class="btn btn-sm">📁 Neuer Ordner</button>
@@ -2788,6 +2794,8 @@
             } else if (path === '/ports') {
                 navigateTo('ports');
             } else if (path === '/filemanager') {
+                const fmPath = new URLSearchParams(window.location.search).get('path');
+                if (fmPath) fmCurrentPath = fmPath;
                 navigateTo('filemanager');
             } else if (path === '/redirects') {
                 navigateTo('redirects');
@@ -2801,19 +2809,30 @@
         }
 
         function navigateTo(pageId) {
-            const url = pageId === 'dashboard' ? '/' : `/${pageId}`;
             if (pageId === 'carla' || pageId === 'livemap') {
                 window.history.pushState({ pageId: 'infrastructure' }, '', '/infrastructure');
                 switchPage('infrastructure');
                 return;
             }
+            if (pageId === 'filemanager') {
+                // URL wird von fmNavigate verwaltet (inkl. ?path=)
+                switchPage(pageId);
+                return;
+            }
+            const url = pageId === 'dashboard' ? '/' : `/${pageId}`;
             window.history.pushState({ pageId }, '', url);
             switchPage(pageId);
         }
 
         window.onpopstate = (event) => {
-            if (event.state && event.state.pageId) switchPage(event.state.pageId);
-            else handleRouting();
+            if (event.state && event.state.pageId === 'filemanager' && event.state.fmPath) {
+                switchPage('filemanager');
+                fmNavigate(event.state.fmPath, false);
+            } else if (event.state && event.state.pageId) {
+                switchPage(event.state.pageId);
+            } else {
+                handleRouting();
+            }
         };
 
         function switchPage(pageId) {
@@ -4563,7 +4582,12 @@
         let fmSelectedFilePath = "";
         let fmSelectedNode = null; // Currently selected file/folder card
 
+        let _fmDragDropInitialized = false;
         async function loadFileManagerView() {
+            if (!_fmDragDropInitialized) {
+                fmInitDragDrop();
+                _fmDragDropInitialized = true;
+            }
             fmNavigate(fmCurrentPath);
         }
 
@@ -4582,8 +4606,15 @@
             document.getElementById('fm-action-delete').style.display = 'inline-flex';
         }
 
-        async function fmNavigate(path) {
+        async function fmNavigate(path, updateHistory = true) {
             fmCurrentPath = path;
+            if (updateHistory) {
+                window.history.pushState(
+                    { pageId: 'filemanager', fmPath: path },
+                    '',
+                    '/filemanager?path=' + encodeURIComponent(path)
+                );
+            }
             const grid = document.getElementById('fm-directory-items');
             grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted);">Lade Ordner...</div>';
 
@@ -4799,9 +4830,11 @@
             document.getElementById('fm-upload-input').click();
         }
 
-        async function fmDoUpload(input) {
-            const files = input.files;
-            if (!files.length) return;
+        function fmDoUpload(input) {
+            if (input.files.length) fmUploadFiles(input.files);
+        }
+
+        async function fmUploadFiles(files) {
             const formData = new FormData();
             formData.append('path', fmCurrentPath);
             for (const file of files) formData.append('files', file);
@@ -4818,6 +4851,35 @@
             } catch (e) {
                 showToast('Upload fehlgeschlagen.', 'error');
             }
+        }
+
+        function fmInitDragDrop() {
+            const container = document.querySelector('#view-filemanager .fm-container');
+            const overlay = document.getElementById('fm-drop-overlay');
+            let dragCounter = 0;
+
+            container.addEventListener('dragenter', (e) => {
+                if (!e.dataTransfer.types.includes('Files')) return;
+                e.preventDefault();
+                dragCounter++;
+                overlay.style.display = 'flex';
+            });
+            container.addEventListener('dragleave', () => {
+                dragCounter--;
+                if (dragCounter <= 0) { dragCounter = 0; overlay.style.display = 'none'; }
+            });
+            container.addEventListener('dragover', (e) => {
+                if (!e.dataTransfer.types.includes('Files')) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dragCounter = 0;
+                overlay.style.display = 'none';
+                const files = e.dataTransfer.files;
+                if (files.length) fmUploadFiles(files);
+            });
         }
 
         async function fmDeleteSelected() {
