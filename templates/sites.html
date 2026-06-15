@@ -125,7 +125,22 @@
                 <label class="form-label" style="font-size:10px;">Cloudflare Tunnel</label>
                 <select id="site-cf-tunnel" class="select" style="padding:8px 12px;font-size:13px;"></select>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
+            <!-- Server-Typ Auswahl -->
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:10px;">Server-Typ</label>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" id="site-type-static-btn" onclick="setSiteType('static')"
+                        class="btn btn-sm" style="flex:1;border:1px solid var(--success);color:var(--success);">📄 Statisch (HTML/CSS/JS)</button>
+                    <button type="button" id="site-type-php-btn" onclick="setSiteType('php')"
+                        class="btn btn-sm" style="flex:1;border:1px solid var(--border);color:var(--text-muted);">🐘 PHP (php:apache)</button>
+                </div>
+                <div id="site-type-php-hint" style="display:none;font-size:11px;color:var(--text-muted);margin-top:6px;background:rgba(124,58,237,0.07);border-radius:var(--r-md);padding:7px 10px;">
+                    Startet einen eigenen <code style="background:rgba(255,255,255,0.06);border-radius:3px;padding:1px 4px;">php:8.2-apache</code> Container. PHP-Dateien unter <code style="background:rgba(255,255,255,0.06);border-radius:3px;padding:1px 4px;">www/</code> bearbeiten. SPA-Modus nicht verfügbar.
+                </div>
+            </div>
+            <input type="hidden" id="site-type" value="static">
+
+            <div id="site-spa-row" style="display:flex;align-items:center;gap:10px;">
                 <input type="checkbox" id="site-spa" style="width:16px;height:16px;">
                 <label for="site-spa" style="font-size:13px;cursor:pointer;">SPA-Modus (React/Vue/etc. — alle Routen → index.html)</label>
             </div>
@@ -144,10 +159,47 @@
                 </div>
                 <div id="site-zt-section" style="display:none;flex-direction:column;gap:6px;">
                     <div id="site-zt-loading" style="font-size:12px;color:var(--text-muted);">Lade Zugriffsregeln...</div>
-                    <select id="site-zt-group" class="select" multiple size="4"
+                    <select id="site-zt-group" class="select" multiple size="3"
                         style="padding:6px 10px;font-size:12px;display:none;"></select>
-                    <div style="font-size:10px;color:var(--text-muted);">
-                        Strg/Cmd zum Mehrfach-Auswählen · Nur ausgewählte Gruppen erhalten Zugang
+                    <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">
+                        Strg/Cmd zum Mehrfach-Auswählen
+                    </div>
+                    <div style="margin-top:8px;">
+                        <label class="form-label" style="font-size:11px;">E-Mail-Adressen <span style="color:var(--text-muted);font-weight:400;">(eine pro Zeile · @domain.de für ganze Domain)</span></label>
+                        <textarea id="site-zt-emails" class="input mono" rows="3"
+                            placeholder="user@example.com&#10;admin@company.de&#10;@myteam.de"
+                            style="resize:vertical;padding:8px 12px;font-size:12px;line-height:1.5;"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GitHub Auto-Deploy -->
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:10px;">GitHub Auto-Deploy <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+                <input type="text" id="site-github-repo" class="input mono" placeholder="https://github.com/user/repo" style="margin-bottom:8px;" oninput="updateGithubSection()">
+                <div id="site-github-options" style="display:none;flex-direction:column;gap:8px;">
+                    <div style="display:flex;gap:8px;">
+                        <div style="flex:1;">
+                            <label class="form-label" style="font-size:10px;">Branch</label>
+                            <input type="text" id="site-github-branch" class="input mono" value="main" style="height:34px;padding:0 10px;">
+                        </div>
+                        <div style="flex:1;">
+                            <label class="form-label" style="font-size:10px;">Auto-Update</label>
+                            <select id="site-github-interval" class="select" style="height:34px;padding:0 10px;font-size:12px;">
+                                <option value="0">Deaktiviert</option>
+                                <option value="5">Alle 5 Min</option>
+                                <option value="15">Alle 15 Min</option>
+                                <option value="30">Alle 30 Min</option>
+                                <option value="60">Stündlich</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label" style="font-size:10px;">Token <span style="color:var(--text-muted);font-weight:400;">(optional, für private Repos)</span></label>
+                        <input type="password" id="site-github-token" class="input mono" placeholder="ghp_..." style="height:34px;padding:0 10px;">
+                    </div>
+                    <div style="font-size:11px;color:var(--text-muted);background:rgba(255,255,255,0.02);border-radius:var(--r-md);padding:7px 10px;">
+                        ℹ Repo wird beim Erstellen geklont — bestehende Dateien werden überschrieben.
                     </div>
                 </div>
             </div>
@@ -168,6 +220,54 @@
 <script>
     let editingSiteName = null;
     let siteAccessMode = 'public';
+    let siteType = 'static';
+
+    function updateGithubSection() {
+        const repo = document.getElementById('site-github-repo').value.trim();
+        const opts = document.getElementById('site-github-options');
+        opts.style.display = repo ? 'flex' : 'none';
+    }
+
+    async function pullSite(name, btn) {
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+            const r = await fetch(`/api/vhosts/${name}/pull`, { method: 'POST' });
+            const res = await r.json();
+            if (res.ok) {
+                showToast(`Deployed: ${res.commit || 'ok'}`, 'success');
+                loadSitesView();
+            } else {
+                showToast(res.error || 'Deploy fehlgeschlagen.', 'error');
+            }
+        } catch(e) { showToast(e.message, 'error'); }
+        finally { btn.disabled = false; btn.textContent = '↓ Pull'; }
+    }
+
+    function setSiteType(type) {
+        siteType = type;
+        const staticBtn = document.getElementById('site-type-static-btn');
+        const phpBtn    = document.getElementById('site-type-php-btn');
+        const phpHint   = document.getElementById('site-type-php-hint');
+        const spaRow    = document.getElementById('site-spa-row');
+        document.getElementById('site-type').value = type;
+        if (type === 'php') {
+            phpBtn.style.borderColor   = '#a78bfa';
+            phpBtn.style.color         = '#a78bfa';
+            staticBtn.style.borderColor = 'var(--border)';
+            staticBtn.style.color       = 'var(--text-muted)';
+            phpHint.style.display = 'block';
+            spaRow.style.display  = 'none';
+            document.getElementById('site-spa').checked = false;
+        } else {
+            staticBtn.style.borderColor = 'var(--success)';
+            staticBtn.style.color       = 'var(--success)';
+            phpBtn.style.borderColor   = 'var(--border)';
+            phpBtn.style.color         = 'var(--text-muted)';
+            phpHint.style.display = 'none';
+            spaRow.style.display  = 'flex';
+        }
+    }
     let _tokenSite = '', _tokenHostname = '', _tokenTunnelId = '', _tokenOnly = false;
 
     async function initPage(data) {
@@ -240,6 +340,12 @@
                             <div style="font-weight:600;font-size:15px;color:var(--text);">${site.name}</div>
                             <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">${site.hostname}${site.path && site.path !== '/' ? site.path : ''}${site.spa ? ' • SPA' : ''}</div>
                         </div>
+                        <span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;flex-shrink:0;
+                            ${site.site_type === 'php'
+                                ? 'background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);color:#a78bfa;'
+                                : 'background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text-muted);'}">
+                            ${site.site_type === 'php' ? '🐘 PHP' : '📄 HTML'}
+                        </span>
                     </div>
 
                     ${site.hostname ? `
@@ -258,6 +364,17 @@
                     <div onclick="openSiteFiles('${site.www_path}')" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);background:rgba(255,255,255,0.03);border-radius:var(--r-md);padding:8px 10px;cursor:pointer;" title="Im File Manager öffnen">
                         📁 ${site.www_path}
                     </div>
+
+                    ${site.github_repo ? `
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--r-md);padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                        <div style="min-width:0;">
+                            <div style="font-size:10px;color:var(--text-muted);font-weight:600;letter-spacing:.04em;">GITHUB</div>
+                            <div style="font-size:11px;color:var(--text);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${site.github_repo}">${site.github_repo.replace('https://github.com/', '')}</div>
+                            ${site.last_commit ? `<div style="font-size:10px;color:var(--primary);font-family:var(--font-mono);">@ ${site.last_commit}</div>` : ''}
+                            ${site.auto_deploy_interval ? `<div style="font-size:10px;color:var(--text-muted);">Auto-Deploy: alle ${site.auto_deploy_interval} Min</div>` : ''}
+                        </div>
+                        <button onclick="pullSite('${site.name}', this)" class="btn btn-sm" style="flex-shrink:0;" title="Jetzt deployen">↓ Pull</button>
+                    </div>` : ''}
 
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
                         <span class="badge ${isRunning ? 'success' : 'danger'}">${isRunning ? 'RUNNING' : 'STOPPED'}</span>
@@ -286,7 +403,14 @@
         document.getElementById('site-cf-hostname').value = `${site.hostname}${site.path && site.path !== '/' ? site.path : ''}`;
         document.getElementById('site-extra-domains').value = (site.extra_hostnames || []).join('\n');
         document.getElementById('site-spa').checked = site.spa || false;
-        
+        document.getElementById('site-github-repo').value = site.github_repo || '';
+        document.getElementById('site-github-branch').value = site.github_branch || 'main';
+        document.getElementById('site-github-token').value = site.github_token || '';
+        document.getElementById('site-github-interval').value = String(site.auto_deploy_interval || 0);
+        updateGithubSection();
+        document.getElementById('site-zt-emails').value = '';
+        setSiteType(site.site_type || 'static');
+
         updateSitePreview();
         loadSiteTunnels(site.tunnel_id);
         document.getElementById('site-modal').classList.add('active');
@@ -301,6 +425,13 @@
         document.getElementById('site-extra-domains').value = '';
         document.getElementById('site-domain-preview').textContent = '';
         document.getElementById('site-spa').checked = false;
+        document.getElementById('site-github-repo').value = '';
+        document.getElementById('site-github-branch').value = 'main';
+        document.getElementById('site-github-token').value = '';
+        document.getElementById('site-github-interval').value = '0';
+        document.getElementById('site-github-options').style.display = 'none';
+        document.getElementById('site-zt-emails').value = '';
+        setSiteType('static');
         setSiteAccess('public');
         loadSiteTunnels();
         document.getElementById('site-modal').classList.add('active');
@@ -360,7 +491,14 @@
         
         const url = editingSiteName ? `/api/vhosts/${editingSiteName}` : '/api/vhosts';
         const method = editingSiteName ? 'PUT' : 'POST';
-        const body = { name, domain: hostname, tunnel_id: tunnel, spa, extra_hostnames };
+        const github_repo = document.getElementById('site-github-repo').value.trim();
+        const github_branch = document.getElementById('site-github-branch').value.trim() || 'main';
+        const github_token = document.getElementById('site-github-token').value.trim();
+        const auto_deploy_interval = parseInt(document.getElementById('site-github-interval').value) || 0;
+        const body = {
+            name, domain: hostname, tunnel_id: tunnel, spa, extra_hostnames, site_type: siteType,
+            github_repo, github_branch, github_token, auto_deploy_interval,
+        };
 
         const btn = document.getElementById('site-submit-btn');
         btn.disabled = true;
@@ -372,11 +510,13 @@
                 if (siteAccessMode === 'zerotrust' && !editingSiteName) {
                     const ztSel = document.getElementById('site-zt-group');
                     const groupIds = Array.from(ztSel.selectedOptions).map(o => o.value);
-                    if (groupIds.length > 0) {
+                    const emailsRaw = document.getElementById('site-zt-emails').value;
+                    const emails = emailsRaw.split('\n').map(e => e.trim()).filter(Boolean);
+                    if (groupIds.length > 0 || emails.length > 0) {
                         await fetch('/api/cf/access/app', {
                             method: 'POST',
                             headers: {'Content-Type':'application/json'},
-                            body: JSON.stringify({ domain: hostname, name: name, group_ids: groupIds })
+                            body: JSON.stringify({ domain: hostname, name: name, group_ids: groupIds, emails })
                         });
                     }
                 }

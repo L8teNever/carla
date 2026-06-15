@@ -670,10 +670,11 @@ def api_cf_access_app_create():
     data = request.json or {}
     domain = data.get("domain", "").strip()
     group_ids = data.get("group_ids", [])
+    emails = [e.strip() for e in data.get("emails", []) if e.strip()]
     name = data.get("name", domain)
     if not domain:
         return jsonify({"ok": False, "error": "Domain erforderlich"}), 400
-    result = cf.create_access_app(name, domain, group_ids)
+    result = cf.create_access_app(name, domain, group_ids, emails)
     result["ok"] = result.get("success", False)
     return jsonify(result)
 
@@ -1490,7 +1491,19 @@ def api_vhosts_add():
     if not name or not domain_input or not tunnel_id:
         return jsonify({"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}), 400
     extra = [h.strip() for h in data.get("extra_hostnames", []) if h.strip()]
-    result = vhost_server.add_site(name=name, domain_input=domain_input, tunnel_id=tunnel_id, spa=spa, extra_hostnames=extra)
+    site_type = data.get("site_type", "static")
+    if site_type not in ("static", "php"):
+        site_type = "static"
+    github_repo = data.get("github_repo", "").strip()
+    github_branch = data.get("github_branch", "main").strip() or "main"
+    github_token = data.get("github_token", "").strip()
+    auto_deploy_interval = int(data.get("auto_deploy_interval", 0))
+    result = vhost_server.add_site(
+        name=name, domain_input=domain_input, tunnel_id=tunnel_id, spa=spa,
+        extra_hostnames=extra, site_type=site_type,
+        github_repo=github_repo, github_branch=github_branch,
+        github_token=github_token, auto_deploy_interval=auto_deploy_interval,
+    )
     if result.get("ok"):
         start_background_fetch()
     return jsonify(result), 200 if result["ok"] else 400
@@ -1514,10 +1527,33 @@ def api_vhosts_update(name):
     if not new_name or not domain_input or not tunnel_id:
         return jsonify({"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}), 400
     extra = [h.strip() for h in data.get("extra_hostnames", []) if h.strip()]
-    result = vhost_server.update_site(old_name=name, new_name=new_name, domain_input=domain_input, tunnel_id=tunnel_id, spa=spa, extra_hostnames=extra)
+    site_type = data.get("site_type", "static")
+    if site_type not in ("static", "php"):
+        site_type = "static"
+    github_repo = data.get("github_repo", "").strip()
+    github_branch = data.get("github_branch", "main").strip() or "main"
+    github_token = data.get("github_token", "").strip()
+    auto_deploy_interval = int(data.get("auto_deploy_interval", 0))
+    result = vhost_server.update_site(
+        old_name=name, new_name=new_name, domain_input=domain_input,
+        tunnel_id=tunnel_id, spa=spa, extra_hostnames=extra, site_type=site_type,
+        github_repo=github_repo, github_branch=github_branch,
+        github_token=github_token, auto_deploy_interval=auto_deploy_interval,
+    )
     if result.get("ok"):
         start_background_fetch()
     return jsonify(result), 200 if result["ok"] else 400
+
+
+# ---------------------------------------------------------------
+# GitHub Deploy
+# ---------------------------------------------------------------
+
+@bp.route("/api/vhosts/<name>/pull", methods=["POST"])
+def api_vhosts_pull(name):
+    """Pullt das verknüpfte GitHub-Repo manuell."""
+    result = vhost_server.pull_site(name)
+    return jsonify(result), 200 if result.get("ok") else 400
 
 
 # ---------------------------------------------------------------

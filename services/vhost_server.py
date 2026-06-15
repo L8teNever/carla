@@ -8,8 +8,9 @@
 import json
 import base64
 import re
+import time
 from urllib.parse import urlparse
-from services import system_executor
+from services import system_executor, github_deploy
 from services.cloudflare import CloudflareClient
 import config
 
@@ -18,6 +19,11 @@ VHOST_NAME = "carla-vhost"
 VHOST_PORT = 10050
 SITES_DIR = f"{VHOST_DIR}/sites"
 META_FILE = f"{VHOST_DIR}/sites.json"
+
+PHP_DIR_PREFIX = "/opt/stacks/carla-php-"
+PHP_CONTAINER_PREFIX = "carla-php-"
+PHP_PORT_RANGE_START = 10200
+PHP_PORT_RANGE_END = 10299
 
 
 def normalize_name(name: str) -> str:
@@ -35,6 +41,101 @@ def normalize_name(name: str) -> str:
     name = re.sub(r'_+', '_', name)
     name = re.sub(r'-+', '-', name)
     return name.strip('_').strip('-')
+
+
+def _find_free_php_port() -> int:
+    out = system_executor.execute_command(
+        "ss -tlnp 2>/dev/null | awk 'NR>1 {print $4}' | grep -oE '[0-9]+$'"
+    )
+    used = set()
+    for line in out.splitlines():
+        try:
+            used.add(int(line.strip()))
+        except ValueError:
+            pass
+    for s in _load_meta():
+        if s.get("php_port"):
+            used.add(s["php_port"])
+    for port in range(PHP_PORT_RANGE_START, PHP_PORT_RANGE_END):
+        if port not in used:
+            return port
+    raise RuntimeError("Keine freien PHP-Ports im Bereich 10200-10299 verfügbar.")
+
+
+def _php_dir(name: str) -> str:
+    return f"{PHP_DIR_PREFIX}{name}"
+
+
+def _start_php_container(name: str, port: int):
+    php_dir = _php_dir(name)
+    site_dir = f"{SITES_DIR}/{name}"
+    system_executor.execute_command(f"mkdir -p {php_dir}")
+
+    ports_conf = f"Listen {port}\n"
+    encoded = base64.b64encode(ports_conf.encode()).decode()
+    system_executor.execute_command(f"echo '{encoded}' | base64 -d > {php_dir}/ports.conf")
+
+    vhost_conf = f"""<VirtualHost *:{port}>
+    DocumentRoot /var/www/html
+    <Directory /var/www/html>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+"""
+    encoded = base64.b64encode(vhost_conf.encode()).decode()
+    system_executor.execute_command(f"echo '{encoded}' | base64 -d > {php_dir}/vhost.conf")
+
+    compose = f"""services:
+  php:
+    image: php:8.2-apache
+    container_name: {PHP_CONTAINER_PREFIX}{name}
+    restart: always
+    network_mode: host
+    volumes:
+      - {site_dir}:/var/www/html
+      - {php_dir}/ports.conf:/etc/apache2/ports.conf:ro
+      - {php_dir}/vhost.conf:/etc/apache2/sites-enabled/000-default.conf:ro
+"""
+    encoded = base64.b64encode(compose.encode()).decode()
+    system_executor.execute_command(f"echo '{encoded}' | base64 -d > {php_dir}/docker-compose.yml")
+    system_executor.execute_command(f"cd {php_dir} && docker compose up -d 2>&1", timeout=180)
+
+
+def _stop_php_container(name: str):
+    php_dir = _php_dir(name)
+    system_executor.execute_command(f"cd {php_dir} && docker compose down 2>&1", timeout=60)
+    system_executor.execute_command(f"rm -rf {php_dir}")
+
+
+def _default_index_php(name: str) -> str:
+    return f"""<?php
+$php_version = phpversion();
+?><!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{name}</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#0d0d0d;color:#ccc;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh}}
+.box{{text-align:center;padding:2rem}}
+h1{{font-size:2rem;color:#7c3aed;margin-bottom:.8rem}}
+p{{color:#666;font-size:.95rem;line-height:1.6}}
+code{{background:#1a1a1a;padding:.2rem .5rem;border-radius:4px;color:#a78bfa;font-size:.85rem}}
+.badge{{display:inline-block;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);border-radius:4px;padding:.2rem .6rem;font-size:.8rem;color:#a78bfa;margin-top:.8rem}}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>{name}</h1>
+<div class="badge">PHP <?php echo $php_version; ?></div>
+<p style="margin-top:1rem;">Dateien unter<br><code>{SITES_DIR}/{name}/</code><br>im File Manager bearbeiten.</p>
+</div>
+</body>
+</html>"""
 
 
 def _get_cf_client():
@@ -140,6 +241,20 @@ def _generate_nginx_conf(sites: list) -> str:
                     "    }",
                     ""
                 ]
+            elif site.get("site_type") == "php":
+                php_port = site.get("php_port")
+                lines += [
+                    f"    location = {path_no_slash} {{",
+                    "        return 302 $uri/$is_args$args;",
+                    "    }",
+                    f"    location {path_slash} {{",
+                    f"        proxy_pass http://127.0.0.1:{php_port}/;",
+                    "        proxy_set_header Host $host;",
+                    "        proxy_set_header X-Real-IP $remote_addr;",
+                    "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+                    "    }",
+                    ""
+                ]
             else:
                 spa = site.get("spa", False)
                 site_dir = f"{SITES_DIR}/{name}"
@@ -173,6 +288,17 @@ def _generate_nginx_conf(sites: list) -> str:
                     f"        proxy_pass http://127.0.0.1:{TOKEN_GATE_PORT};",
                     "        proxy_set_header X-Forwarded-Host $host;",
                     "        proxy_set_header X-Forwarded-Uri $request_uri;",
+                    "    }",
+                    ""
+                ]
+            elif root_site.get("site_type") == "php":
+                php_port = root_site.get("php_port")
+                lines += [
+                    "    location / {",
+                    f"        proxy_pass http://127.0.0.1:{php_port}/;",
+                    "        proxy_set_header Host $host;",
+                    "        proxy_set_header X-Real-IP $remote_addr;",
+                    "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
                     "    }",
                     ""
                 ]
@@ -274,10 +400,47 @@ def ensure_server(sites: list = None):
         _reload()
 
 
+def pull_site(name: str) -> dict:
+    """Pullt das verknüpfte GitHub-Repo für eine Site."""
+    sites = _load_meta()
+    site = next((s for s in sites if s.get("name") == name), None)
+    if not site:
+        return {"ok": False, "error": f"Site '{name}' nicht gefunden."}
+    repo_url = site.get("github_repo", "")
+    if not repo_url:
+        return {"ok": False, "error": "Kein GitHub-Repo verknüpft."}
+
+    site_dir = f"{SITES_DIR}/{name}"
+    res = github_deploy.pull_repo(
+        site_dir, repo_url,
+        site.get("github_branch", "main"),
+        site.get("github_token", ""),
+    )
+    if res.get("ok"):
+        for s in sites:
+            if s["name"] == name:
+                s["last_deployed_at"] = int(time.time())
+                s["last_commit"] = res.get("commit", "")
+                break
+        _save_meta(sites)
+    return res
+
+
 def list_sites() -> list:
     sites = _load_meta()
+    vhost_state = system_executor.execute_command(
+        f"docker inspect --format '{{{{.State.Status}}}}' {VHOST_NAME} 2>/dev/null"
+    ).strip()
     for s in sites:
         s["www_path"] = f"{SITES_DIR}/{s['name']}"
+        s.setdefault("site_type", "static")
+        if s["site_type"] == "php":
+            php_state = system_executor.execute_command(
+                f"docker inspect --format '{{{{.State.Status}}}}' {PHP_CONTAINER_PREFIX}{s['name']} 2>/dev/null"
+            ).strip()
+            s["state"] = php_state if php_state and "Error" not in php_state else "stopped"
+        else:
+            s["state"] = vhost_state if vhost_state and "Error" not in vhost_state else "stopped"
     return sites
 
 
@@ -307,7 +470,9 @@ def _setup_cf_hostname(cf, tunnel_id: str, hostname: str, host_ip: str) -> dict 
 
 
 def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
-             extra_hostnames: list = None, token_only: bool = False) -> dict:
+             extra_hostnames: list = None, token_only: bool = False, site_type: str = "static",
+             github_repo: str = "", github_branch: str = "main", github_token: str = "",
+             auto_deploy_interval: int = 0) -> dict:
     """domain_input kann 'host.de' oder 'host.de/pfad/xy' sein."""
     name = normalize_name(name)
     if not name or not domain_input or not tunnel_id:
@@ -375,12 +540,31 @@ def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
         if result and not result.get("ok"):
             return result  # Abbruch bei Fehler
 
-    # Site-Verzeichnis + Standard-index.html
+    # Site-Verzeichnis + Inhalt
     site_dir = f"{SITES_DIR}/{name}"
     system_executor.execute_command(f"mkdir -p {site_dir}")
-    html = _default_index(name)
-    encoded = base64.b64encode(html.encode()).decode()
-    system_executor.execute_command(f"echo '{encoded}' | base64 -d > {site_dir}/index.html")
+
+    last_commit = ""
+    last_deployed_at = 0
+
+    if github_repo:
+        # Repo klonen, überschreibt Standard-Index
+        clone_res = github_deploy.clone_repo(site_dir, github_repo, github_branch, github_token)
+        if not clone_res.get("ok"):
+            system_executor.execute_command(f"rm -rf {site_dir}")
+            return {"ok": False, "error": f"GitHub Clone fehlgeschlagen: {clone_res.get('error', '')}"}
+        last_commit = clone_res.get("commit", "")
+        last_deployed_at = int(time.time())
+    else:
+        # Standard-Willkommensseite
+        if site_type == "php":
+            index_content = _default_index_php(name)
+            index_file = "index.php"
+        else:
+            index_content = _default_index(name)
+            index_file = "index.html"
+        encoded = base64.b64encode(index_content.encode()).decode()
+        system_executor.execute_command(f"echo '{encoded}' | base64 -d > {site_dir}/{index_file}")
 
     # Metadata speichern
     site_entry = {
@@ -388,7 +572,23 @@ def add_site(name: str, domain_input: str, tunnel_id: str, spa: bool = False,
         "tunnel_id": tunnel_id, "spa": spa,
         "extra_hostnames": extra_hostnames,
         "token_only": token_only,
+        "site_type": site_type,
+        "github_repo": github_repo,
+        "github_branch": github_branch,
+        "github_token": github_token,
+        "auto_deploy_interval": auto_deploy_interval,
+        "last_commit": last_commit,
+        "last_deployed_at": last_deployed_at,
     }
+
+    if site_type == "php":
+        try:
+            php_port = _find_free_php_port()
+        except RuntimeError as e:
+            return {"ok": False, "error": str(e)}
+        site_entry["php_port"] = php_port
+        _start_php_container(name, php_port)
+
     sites.append(site_entry)
     _save_meta(sites)
 
@@ -463,6 +663,9 @@ def remove_site(name: str) -> dict:
             old_domains = [site.get("hostname")] + site.get("extra_hostnames", [])
             _cleanup_cf_hostnames(cf, tunnel_id, old_domains, new_sites)
 
+    if site.get("site_type") == "php":
+        _stop_php_container(name)
+
     system_executor.execute_command(f"rm -rf {SITES_DIR}/{name}")
     _save_meta(new_sites)
     ensure_server(new_sites)
@@ -471,7 +674,9 @@ def remove_site(name: str) -> dict:
 
 
 def update_site(old_name: str, new_name: str, domain_input: str, tunnel_id: str, spa: bool = False,
-                extra_hostnames: list = None, token_only: bool = False) -> dict:
+                extra_hostnames: list = None, token_only: bool = False, site_type: str = "static",
+                github_repo: str = "", github_branch: str = "main", github_token: str = "",
+                auto_deploy_interval: int = 0) -> dict:
     """Aktualisiert eine bestehende Virtual Host Site."""
     if not old_name or not new_name or not domain_input or not tunnel_id:
         return {"ok": False, "error": "Name, Domain und Tunnel sind erforderlich."}
@@ -552,13 +757,44 @@ def update_site(old_name: str, new_name: str, domain_input: str, tunnel_id: str,
     if old_name != new_name:
         system_executor.execute_command(f"mv {old_dir} {new_dir}")
 
-    # 4. Metadata updaten
+    # 4. PHP-Container-Lifecycle
+    old_type = old_site.get("site_type", "static")
+    # Behalte deploy-Status aus altem Eintrag wenn sich Repo nicht ändert
+    old_repo = old_site.get("github_repo", "")
+    keep_deploy_status = (github_repo == old_repo and github_repo)
     updated_entry = {
         "name": new_name, "hostname": hostname, "path": path,
         "tunnel_id": tunnel_id, "spa": spa,
         "extra_hostnames": extra_hostnames_clean,
         "token_only": token_only,
+        "site_type": site_type,
+        "github_repo": github_repo,
+        "github_branch": github_branch,
+        "github_token": github_token,
+        "auto_deploy_interval": auto_deploy_interval,
+        "last_commit": old_site.get("last_commit", "") if keep_deploy_status else "",
+        "last_deployed_at": old_site.get("last_deployed_at", 0) if keep_deploy_status else 0,
     }
+
+    if old_type == "php" and site_type != "php":
+        _stop_php_container(old_name)
+    elif site_type == "php" and old_type != "php":
+        try:
+            php_port = _find_free_php_port()
+        except RuntimeError as e:
+            return {"ok": False, "error": str(e)}
+        updated_entry["php_port"] = php_port
+        _start_php_container(new_name, php_port)
+    elif site_type == "php" and old_type == "php":
+        if old_name != new_name:
+            _stop_php_container(old_name)
+            php_port = old_site.get("php_port") or _find_free_php_port()
+            updated_entry["php_port"] = php_port
+            _start_php_container(new_name, php_port)
+        else:
+            updated_entry["php_port"] = old_site.get("php_port")
+
+    # 5. Metadata updaten
     sites[site_idx] = updated_entry
     _save_meta(sites)
 

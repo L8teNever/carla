@@ -181,8 +181,8 @@ class CloudflareClient:
             return []
         return [{"id": g["id"], "name": g["name"]} for g in groups]
 
-    def create_access_app(self, name: str, domain: str, group_ids: list) -> dict:
-        """Erstellt eine CF Access Application und hängt die gewählten Gruppen als Policy an."""
+    def create_access_app(self, name: str, domain: str, group_ids: list, emails: list = None) -> dict:
+        """Erstellt eine CF Access Application mit Gruppen- und/oder E-Mail-Policy."""
         try:
             payload = {
                 "name": name,
@@ -205,11 +205,21 @@ class CloudflareClient:
             result = resp.get("result", {})
             app_id = result.get("uid") or result.get("id")
 
-            if group_ids and app_id:
+            include = [{"group": {"id": gid}} for gid in (group_ids or [])]
+            for e in (emails or []):
+                e = e.strip()
+                if not e:
+                    continue
+                if e.startswith("@"):
+                    include.append({"email_domain": {"domain": e[1:]}})
+                else:
+                    include.append({"email": {"email": e}})
+
+            if include and app_id:
                 policy_payload = {
-                    "name": "Ausgewählte Gruppen",
+                    "name": "Zugangskontrolle",
                     "decision": "allow",
-                    "include": [{"group": {"id": gid}} for gid in group_ids],
+                    "include": include,
                 }
                 requests.post(
                     f"{self.base_url}/accounts/{self.account_id}/access/apps/{app_id}/policies",

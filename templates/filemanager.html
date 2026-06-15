@@ -96,7 +96,9 @@
     let fmSelectedNode = null; // Currently selected file/folder card
 
     async function initPage(data) {
-        // Load initial directory
+        const params = new URLSearchParams(window.location.search);
+        const startPath = params.get('path');
+        if (startPath) fmCurrentPath = startPath;
         loadFileManagerView();
     }
 
