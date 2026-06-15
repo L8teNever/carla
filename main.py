@@ -16,7 +16,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from flask import Flask
 from routes import bp, start_background_fetch
-from services import cache, metrics_worker, setup, backup, discovery, github_deploy
+from services import cache, metrics_worker, setup, backup, discovery, github_deploy, live_preview
 import config
 
 app = Flask(__name__)
@@ -33,6 +33,7 @@ if setup.is_setup_done():
     updater.start_daemon()
     backup.start_scheduler()
     github_deploy.start_daemon()
+    live_preview.start_daemon()
 
     # Auto-Discovery: erkennt neue Container/Ports/Hosts ohne Neustart
     discovery.set_change_callback(start_background_fetch)

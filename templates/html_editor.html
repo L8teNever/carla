@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CARLA — HTML Editor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" data-name="vs/editor/editor.main"
+        href="https://cdn.jsdelivr.net/npm/monaco-editor@0.46.0/min/vs/editor/editor.main.css">
+    <style>
+        :root {
+            --bg-0: #1e1e1e;
+            --bg-1: #252526;
+            --bg-2: #2d2d30;
+            --bg-3: #3c3c3c;
+            --bg-4: #484848;
+            --line: #3c3c3c;
+            --line-2: #454545;
+            --text: #d4d4d4;
+            --text-dim: #969696;
+            --text-mute: #858585;
+            --accent: #007acc;
+            --accent-2: #1177bb;
+            --green: #4ec9b0;
+            --danger: #f48771;
+            --orange: #ce9178;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%;
+            background: var(--bg-0);
+            color: var(--text);
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            font-size: 13px;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        button, input, a { font-family: inherit; color: inherit; }
+
+        .app {
+            display: grid;
+            grid-template-columns: 48px 1fr;
+            grid-template-rows: 1fr 22px;
+            height: 100vh;
+        }
+
+        /* ── Activity Bar ── */
+        .activity-bar {
+            grid-column: 1;
+            grid-row: 1 / 3;
+            background: #333333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-right: 1px solid var(--line);
+            z-index: 20;
+        }
+        .act-top { display: flex; flex-direction: column; align-items: center; width: 100%; flex: 1; }
+        .act-bottom { display: flex; flex-direction: column; align-items: center; width: 100%; padding-bottom: 6px; }
+        .act-btn {
+            width: 48px; height: 48px;
+            border: none; background: transparent;
+            color: #858585; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            position: relative; transition: color 0.12s; padding: 0;
+            text-decoration: none;
+        }
+        .act-btn:hover { color: #cccccc; }
+        .act-btn.active { color: #cccccc; }
+        .act-btn.active::before {
+            content: '';
+            position: absolute; left: 0; top: 0; bottom: 0;
+            width: 2px; background: var(--accent);
+        }
+        .act-btn svg { width: 24px; height: 24px; stroke-width: 1.4; }
+        .act-badge {
+            position: absolute; top: 7px; right: 6px;
+            background: var(--accent); color: #fff;
+            font-size: 9px; font-weight: 700;
+            min-width: 14px; height: 14px;
+            border-radius: 7px; padding: 0 3px;
+            display: flex; align-items: center; justify-content: center;
+            line-height: 1;
+        }
+        .act-badge:empty { display: none; }
+
+        /* ── Main ── */
+        .main-wrap {
+            grid-column: 2; grid-row: 1;
+            display: flex; flex-direction: row;
+            min-height: 0; overflow: hidden;
+        }
+
+        /* ── Live Sidebar ── */
+        .live-sidebar {
+            width: 0; overflow: hidden;
+            display: flex; flex-direction: column;
+            background: var(--bg-1);
+            border-right: 1px solid var(--line);
+            transition: width 0.2s cubic-bezier(0.4,0,0.2,1);
+            flex-shrink: 0;
+        }
+        .live-sidebar.open { width: 260px; }
+        .live-sidebar-head {
+            display: flex; align-items: center; justify-content: space-between;
+            height: 36px; padding: 0 12px;
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: #cccccc; border-bottom: 1px solid var(--line);
+            flex-shrink: 0;
+        }
+        .live-sidebar-head button {
+            border: none; background: transparent;
+            color: var(--text-mute); cursor: pointer;
+            width: 22px; height: 22px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 3px;
+        }
+        .live-sidebar-head button:hover { background: var(--bg-2); color: var(--text); }
+        .live-sidebar-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+        .live-session-card {
+            margin: 4px 8px; padding: 10px;
+            background: var(--bg-2); border: 1px solid var(--line-2);
+            border-radius: 5px; cursor: default;
+        }
+        .live-session-card .ls-title {
+            font-size: 12px; font-weight: 600; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+        .live-session-card .ls-timer {
+            font-size: 10.5px; color: var(--text-mute);
+            font-family: "JetBrains Mono", monospace;
+            margin-bottom: 8px;
+        }
+        .live-session-card .ls-timer.expiring { color: var(--orange); }
+        .live-session-card .ls-link {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 10px; color: var(--accent);
+            font-family: "JetBrains Mono", monospace;
+            word-break: break-all; margin-bottom: 8px;
+            cursor: pointer; text-decoration: none;
+        }
+        .live-session-card .ls-link:hover { text-decoration: underline; }
+        .live-session-card .ls-actions { display: flex; gap: 6px; }
+        .ls-btn {
+            flex: 1; height: 24px; border: 1px solid var(--line-2);
+            background: var(--bg-3); color: var(--text-dim);
+            border-radius: 3px; font-size: 11px;
+            cursor: pointer; display: flex; align-items: center;
+            justify-content: center; gap: 4px; transition: all 0.1s;
+        }
+        .ls-btn:hover { background: var(--bg-4); color: var(--text); }
+        .ls-btn.danger:hover { background: rgba(244,135,113,0.15); color: var(--danger); border-color: var(--danger); }
+        .ls-empty {
+            padding: 24px 16px; text-align: center;
+            color: var(--text-mute); font-size: 12px; line-height: 1.6;
+        }
+        .ls-empty svg { width: 32px; height: 32px; opacity: .35; margin-bottom: 10px; display: block; margin: 0 auto 10px; }
+
+        /* ── Editor+Preview Area ── */
+        .editor-area {
+            flex: 1; min-width: 0;
+            display: grid;
+            grid-template-columns: 1fr 6px 1fr;
+            min-height: 0; overflow: hidden;
+        }
+
+        .editor-pane { display: flex; flex-direction: column; min-width: 0; background: var(--bg-0); }
+        .tabs-wrap {
+            display: flex; align-items: stretch;
+            background: var(--bg-1); border-bottom: 1px solid var(--line);
+            height: 38px; flex-shrink: 0; overflow: hidden;
+        }
+        .tab {
+            display: flex; align-items: center; gap: 8px;
+            padding: 0 14px; height: 38px;
+            border-right: 1px solid var(--line);
+            color: var(--text); font-size: 12.5px;
+            font-family: "JetBrains Mono", monospace;
+            position: relative; white-space: nowrap;
+            background: var(--bg-0); flex-shrink: 0;
+        }
+        .tab::after {
+            content: ''; position: absolute;
+            left: 0; right: 0; top: 0;
+            height: 2px; background: var(--accent);
+        }
+        .tab .dirty {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--orange); flex-shrink: 0; display: none;
+        }
+        .tab.is-dirty .dirty { display: block; }
+        .tab-actions {
+            margin-left: auto; display: flex; align-items: center;
+            gap: 8px; padding: 0 10px; flex-shrink: 0;
+        }
+        .live-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            height: 26px; padding: 0 14px;
+            border: none; border-radius: 3px;
+            font-size: 12px; font-weight: 500; cursor: pointer;
+            transition: all 0.12s; flex-shrink: 0;
+        }
+        .live-btn.create { background: #2d6a2f; color: #a8d5a2; }
+        .live-btn.create:hover { background: #3a8a3d; color: #fff; }
+        .live-btn.update { background: var(--accent); color: #fff; }
+        .live-btn.update:hover { background: var(--accent-2); }
+        .live-btn svg { width: 12px; height: 12px; }
+        .live-indicator {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11px; color: var(--green); flex-shrink: 0;
+        }
+        .live-indicator .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--green); animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        #editor-host { flex: 1; min-height: 0; }
+        .monaco-editor, .monaco-editor-background, .monaco-editor .margin {
+            background-color: var(--bg-0) !important;
+        }
+
+        .resize-handle {
+            background: transparent; position: relative;
+            cursor: col-resize; z-index: 10; user-select: none;
+        }
+        .resize-handle::before {
+            content: ''; position: absolute;
+            top: 0; bottom: 0; left: 50%;
+            width: 1px; background: var(--line);
+            transform: translateX(-0.5px);
+            transition: background 0.15s, width 0.15s;
+        }
+        .resize-handle:hover::before, .resize-handle.dragging::before {
+            background: var(--accent); width: 2px;
+        }
+        body.resizing { cursor: col-resize; user-select: none; }
+        body.resizing iframe { pointer-events: none; }
+
+        .preview-pane {
+            display: flex; flex-direction: column;
+            min-width: 0; background: var(--bg-1); overflow: hidden;
+        }
+        .preview-bar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 0 10px; height: 38px;
+            background: var(--bg-1); border-bottom: 1px solid var(--line);
+            flex-shrink: 0;
+        }
+        .urlbar {
+            flex: 1; height: 26px;
+            background: var(--bg-3); border: 1px solid var(--line);
+            border-radius: 3px; padding: 0 10px;
+            display: flex; align-items: center; gap: 8px;
+            color: var(--text-dim); font-size: 11.5px;
+            font-family: "JetBrains Mono", monospace;
+            overflow: hidden; min-width: 0;
+        }
+        .urlbar .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+        .urlbar .val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .pbtn {
+            width: 28px; height: 26px;
+            border: 1px solid var(--line-2); background: var(--bg-2);
+            color: var(--text-dim); border-radius: 3px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.12s;
+        }
+        .pbtn:hover { background: var(--bg-3); color: var(--accent); }
+        .pbtn svg { width: 13px; height: 13px; }
+        .device-switch {
+            display: inline-flex; background: var(--bg-2);
+            border: 1px solid var(--line-2); border-radius: 3px;
+            padding: 2px; gap: 2px;
+        }
+        .dev-btn {
+            width: 28px; height: 22px; border: none; background: transparent;
+            color: var(--text-mute); border-radius: 3px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.12s;
+        }
+        .dev-btn svg { width: 13px; height: 13px; }
+        .dev-btn:hover { color: var(--text); }
+        .dev-btn.active { background: var(--accent); color: #fff; }
+        .preview-frame-wrap {
+            flex: 1; min-height: 0; background: #2d2d30;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0; transition: padding 0.25s; position: relative;
+        }
+        .preview-frame-wrap.tablet { padding: 18px; }
+        .preview-frame-wrap.mobile { padding: 18px; }
+        .device-frame {
+            background: white; width: 100%; height: 100%;
+            overflow: hidden; border: none;
+            transition: max-width 0.25s, max-height 0.25s, border-radius 0.25s, box-shadow 0.25s;
+        }
+        .preview-frame-wrap.tablet .device-frame {
+            max-width: 820px; aspect-ratio: 4/3; max-height: 100%;
+            border-radius: 14px;
+            box-shadow: 0 30px 60px -25px rgba(0,0,0,.7), 0 0 0 1px #2a3142;
+        }
+        .preview-frame-wrap.mobile .device-frame {
+            max-width: 380px; aspect-ratio: 9/19; max-height: 100%;
+            border-radius: 26px;
+            box-shadow: 0 30px 60px -25px rgba(0,0,0,.7), 0 0 0 1px #2a3142;
+        }
+        #preview { width: 100%; height: 100%; border: none; display: block; background: white; }
+
+        /* ── Status Bar ── */
+        .statusbar {
+            grid-column: 2; grid-row: 2;
+            background: var(--accent);
+            display: flex; align-items: center;
+            padding: 0; color: rgba(255,255,255,0.9);
+            font-size: 11px; font-family: "JetBrains Mono", monospace;
+        }
+        .st-spacer { flex: 1; }
+        .st-item {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 0 8px; height: 22px; cursor: default; white-space: nowrap;
+        }
+        .st-item:hover { background: rgba(255,255,255,0.12); }
+        .st-live-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #fff; animation: pulse 2s infinite;
+        }
+
+        /* ── Share Modal ── */
+        .modal-bg {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+            z-index: 1000; align-items: center; justify-content: center;
+            padding: 24px;
+        }
+        .modal-bg.open { display: flex; }
+        .modal {
+            background: var(--bg-1); border: 1px solid var(--line-2);
+            border-radius: 10px; width: 100%; max-width: 460px;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.6);
+            overflow: hidden;
+            animation: mfade 0.18s cubic-bezier(0.16,1,0.3,1);
+        }
+        @keyframes mfade {
+            from { opacity: 0; transform: translateY(12px) scale(0.97); }
+            to   { opacity: 1; transform: none; }
+        }
+        .modal-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; border-bottom: 1px solid var(--line-2);
+        }
+        .modal-head h3 { font-size: 14px; font-weight: 700; color: var(--text); }
+        .modal-close {
+            border: none; background: transparent; color: var(--text-mute);
+            font-size: 18px; cursor: pointer; width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 4px;
+        }
+        .modal-close:hover { background: var(--bg-2); color: var(--text); }
+        .modal-body { padding: 20px; }
+
+        /* QR + Info */
+        .share-layout { display: flex; gap: 16px; align-items: flex-start; }
+        .qr-box {
+            flex-shrink: 0; width: 140px; height: 140px;
+            background: #fff; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        .qr-box canvas { display: block; }
+        .share-info { flex: 1; min-width: 0; }
+        .share-info .label {
+            font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--text-mute); margin-bottom: 5px;
+        }
+        .share-url {
+            display: flex; align-items: center; gap: 6px;
+            background: var(--bg-2); border: 1px solid var(--line-2);
+            border-radius: 4px; padding: 7px 10px; margin-bottom: 12px;
+        }
+        .share-url .url-text {
+            flex: 1; font-size: 10.5px;
+            font-family: "JetBrains Mono", monospace;
+            color: var(--accent); word-break: break-all;
+        }
+        .copy-btn {
+            flex-shrink: 0; width: 26px; height: 22px;
+            border: 1px solid var(--line-2); background: var(--bg-3);
+            color: var(--text-dim); border-radius: 3px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.1s;
+        }
+        .copy-btn:hover { background: var(--bg-4); color: var(--text); }
+        .copy-btn svg { width: 11px; height: 11px; }
+        .expires-row {
+            font-size: 11.5px; color: var(--text-mute);
+            margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+        }
+        .expires-row .timer-val { color: var(--text-dim); font-family: "JetBrains Mono", monospace; }
+        .auto-update-row {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 12px; color: var(--text-dim); margin-bottom: 0;
+        }
+        .toggle {
+            position: relative; width: 32px; height: 17px;
+            flex-shrink: 0; cursor: pointer;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute; inset: 0;
+            background: var(--bg-3); border-radius: 17px;
+            transition: background 0.2s;
+        }
+        .toggle-slider::before {
+            content: ''; position: absolute;
+            width: 13px; height: 13px; left: 2px; bottom: 2px;
+            background: white; border-radius: 50%;
+            transition: transform 0.2s;
+        }
+        .toggle input:checked + .toggle-slider { background: var(--accent); }
+        .toggle input:checked + .toggle-slider::before { transform: translateX(15px); }
+
+        .modal-footer {
+            display: flex; gap: 8px; padding: 14px 20px;
+            border-top: 1px solid var(--line-2);
+        }
+        .mfbtn {
+            flex: 1; height: 32px; border-radius: 4px;
+            border: 1px solid var(--line-2); background: var(--bg-2);
+            color: var(--text-dim); font-size: 12px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: all 0.12s;
+        }
+        .mfbtn:hover { background: var(--bg-3); color: var(--text); }
+        .mfbtn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .mfbtn.primary:hover { background: var(--accent-2); }
+        .mfbtn.danger:hover { background: rgba(244,135,113,0.15); color: var(--danger); border-color: var(--danger); }
+        .mfbtn svg { width: 12px; height: 12px; }
+
+        /* Tooltip */
+        [data-tip] { position: relative; }
+        [data-tip]::after {
+            content: attr(data-tip);
+            position: absolute; top: calc(100% + 8px); left: 50%;
+            transform: translateX(-50%) translateY(-4px);
+            background: var(--bg-2); color: var(--text);
+            font-size: 11.5px; font-family: "Segoe UI", system-ui, sans-serif;
+            padding: 5px 9px; border-radius: 3px;
+            border: 1px solid var(--line-2); white-space: nowrap;
+            pointer-events: none; opacity: 0;
+            transition: opacity 0.12s ease 0s, transform 0.15s ease 0s;
+            box-shadow: 0 6px 14px -4px rgba(0,0,0,.5); z-index: 500;
+        }
+        [data-tip]:hover::after {
+            opacity: 1; transform: translateX(-50%) translateY(0);
+            transition-delay: 0.4s;
+        }
+
+        * { scrollbar-width: thin; scrollbar-color: #3c3c3c transparent; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3c3c3c; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    </style>
+</head>
+<body>
+<div class="app">
+
+    <!-- Activity Bar -->
+    <div class="activity-bar">
+        <div class="act-top">
+            <button class="act-btn active" id="act-editor" data-tip="Editor" title="Editor">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+                </svg>
+            </button>
+            <button class="act-btn" id="act-live" data-tip="Live Sessions" title="Live Sessions">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="2"/>
+                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+                </svg>
+                <span class="act-badge" id="act-live-badge"></span>
+            </button>
+        </div>
+        <div class="act-bottom">
+            <a class="act-btn" href="/" data-tip="Zurück zu CARLA" title="Zurück">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Wrap -->
+    <div class="main-wrap">
+
+        <!-- Live Sidebar -->
+        <div class="live-sidebar" id="live-sidebar">
+            <div class="live-sidebar-head">
+                <span>Live Sessions</span>
+                <button onclick="toggleSidebar(false)" title="Schließen">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 4 4 12M4 4l8 8"/></svg>
+                </button>
+            </div>
+            <div class="live-sidebar-body" id="live-sidebar-body">
+                <div class="ls-empty" id="ls-empty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+                    Keine aktiven Live-Sessions
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor + Preview -->
+        <div class="editor-area" id="editor-area">
+
+            <!-- Editor Pane -->
+            <section class="editor-pane">
+                <div class="tabs-wrap">
+                    <div class="tab" id="tab-label">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e44d26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                        index.html
+                        <div class="dirty"></div>
+                    </div>
+                    <div class="tab-actions">
+                        <span class="live-indicator" id="live-indicator" style="display:none">
+                            <span class="dot"></span>Live
+                        </span>
+                        <button class="live-btn create" id="live-btn" onclick="goLive()">
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="8" cy="8" r="2"/>
+                                <path d="M12.24 3.76a6 6 0 0 1 0 8.48m-8.48 0a6 6 0 0 1 0-8.48"/>
+                            </svg>
+                            Live machen
+                        </button>
+                    </div>
+                </div>
+                <div id="editor-host"></div>
+            </section>
+
+            <div class="resize-handle" id="rh"></div>
+
+            <!-- Preview Pane -->
+            <section class="preview-pane">
+                <div class="preview-bar">
+                    <button class="pbtn" id="btn-refresh" data-tip="Vorschau neu laden">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 1 0 1.5-3.5L3 6"/><path d="M3 3v3h3"/></svg>
+                    </button>
+                    <div class="urlbar">
+                        <div class="dot"></div>
+                        <span class="val">Lokale Vorschau</span>
+                    </div>
+                    <div class="device-switch">
+                        <button class="dev-btn active" data-device="desktop" data-tip="Desktop">
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="8" rx="1"/><path d="M6 13h4M8 11v2"/></svg>
+                        </button>
+                        <button class="dev-btn" data-device="tablet" data-tip="Tablet">
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="1.5" width="10" height="13" rx="1.3"/><path d="M7.2 12.5h1.6"/></svg>
+                        </button>
+                        <button class="dev-btn" data-device="mobile" data-tip="Handy">
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="1.5" width="7" height="13" rx="1.4"/><path d="M7.4 12.6h1.2"/></svg>
+                        </button>
+                    </div>
+                    <button class="pbtn" id="btn-open" data-tip="In neuem Tab öffnen">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3v10h10v-3"/><path d="M9 3h4v4"/><path d="M7 9l6-6"/></svg>
+                    </button>
+                </div>
+                <div class="preview-frame-wrap" id="preview-wrap">
+                    <div class="device-frame">
+                        <iframe id="preview" sandbox="allow-scripts allow-forms allow-modals allow-same-origin" title="Vorschau"></iframe>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <footer class="statusbar">
+        <span class="st-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" style="opacity:.8">
+                <path d="M5 5.372v.878c.456.077.761.295.761.578 0 .338-.425.612-.961.612-.536 0-.961-.274-.961-.612 0-.283.305-.501.761-.578v-.878c-.456-.077-.761-.295-.761-.578C3.839 4.44 4.264 4.166 4.8 4.166c.536 0 .961.274.961.612 0 .283-.305.501-.761.578ZM4.8 4a2 2 0 0 1 2 2v5.5a.5.5 0 0 0 1 0v-5.5a2 2 0 1 1 1 0v5.5a1.5 1.5 0 0 1-3 0V6a2 2 0 0 1-1-1.732Z"/>
+            </svg>
+            HTML Editor
+        </span>
+        <span class="st-item" id="st-live-status" style="display:none">
+            <span class="st-live-dot"></span>
+            <span id="st-live-count">0</span> Live
+        </span>
+        <div class="st-spacer"></div>
+        <span class="st-item" id="st-pos">Ln 1, Col 1</span>
+        <span class="st-item">HTML</span>
+        <span class="st-item">UTF-8</span>
+    </footer>
+</div>
+
+<!-- Share Modal -->
+<div class="modal-bg" id="share-modal">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>Live Preview</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="share-layout">
+                <div class="qr-box" id="qr-box">
+                    <canvas id="qr-canvas"></canvas>
+                </div>
+                <div class="share-info">
+                    <div class="label">Öffentlicher Link</div>
+                    <div class="share-url">
+                        <span class="url-text" id="share-url-text"></span>
+                        <button class="copy-btn" onclick="copyUrl()" data-tip="Kopieren">
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="8" height="9" rx="1"/><path d="M4 4V3a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H12"/></svg>
+                        </button>
+                    </div>
+                    <div class="expires-row">
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+                        Läuft ab in <span class="timer-val" id="expires-countdown">24:00:00</span>
+                    </div>
+                    <label class="auto-update-row">
+                        <label class="toggle">
+                            <input type="checkbox" id="auto-update-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        Automatisch aktualisieren
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="mfbtn" onclick="openLiveTab()" data-tip="Im Browser öffnen">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3v10h10v-3"/><path d="M9 3h4v4"/><path d="M7 9l6-6"/></svg>
+                Öffnen
+            </button>
+            <button class="mfbtn primary" onclick="pushUpdate()">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v8M5 8l3-5 3 5"/></svg>
+                Aktualisieren
+            </button>
+            <button class="mfbtn danger" onclick="stopLive()">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="8" height="8" rx="1"/></svg>
+                Beenden
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>var require={paths:{'vs':'https://cdn.jsdelivr.net/npm/monaco-editor@0.46.0/min/vs'}};</script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.46.0/min/vs/loader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+const STARTER_HTML = `<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Meine Seite</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { color: #007acc; }
+  </style>
+</head>
+<body>
+  <h1>Hallo Welt!</h1>
+  <p>Bearbeite diesen Code und klicke auf <strong>Live machen</strong>, um die Seite öffentlich zu teilen.</p>
+</body>
+</html>`;
+
+let editor, isDirty = false;
+let currentToken = null;
+let currentExpiresAt = null;
+let autoUpdateTimer = null;
+let countdownTimer = null;
+let sessionRefreshTimer = null;
+
+// ── Monaco Init ──
+require(['vs/editor/editor.main'], () => {
+    monaco.editor.defineTheme('vscode-dark-plus', {
+        base: 'vs-dark', inherit: true, rules: [],
+        colors: {
+            'editor.background': '#1e1e1e',
+            'editor.lineHighlightBackground': '#2d2d30',
+            'editorLineNumber.foreground': '#858585',
+            'editorLineNumber.activeForeground': '#c6c6c6',
+            'editor.selectionBackground': '#264f78',
+        }
+    });
+
+    editor = monaco.editor.create(document.getElementById('editor-host'), {
+        value: STARTER_HTML,
+        language: 'html',
+        theme: 'vscode-dark-plus',
+        fontSize: 14,
+        fontFamily: '"JetBrains Mono", "Consolas", monospace',
+        fontLigatures: true,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        wordWrap: 'off',
+        tabSize: 2,
+        insertSpaces: true,
+        automaticLayout: true,
+        lineNumbers: 'on',
+        renderLineHighlight: 'all',
+        smoothScrolling: true,
+        cursorBlinking: 'blink',
+        bracketPairColorization: { enabled: true },
+        padding: { top: 8 },
+    });
+
+    editor.onDidChangeCursorPosition(e => {
+        document.getElementById('st-pos').textContent =
+            `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
+    });
+
+    editor.onDidChangeModelContent(() => {
+        if (!isDirty) {
+            isDirty = true;
+            document.getElementById('tab-label').classList.add('is-dirty');
+        }
+        schedulePreview();
+        if (currentToken && document.getElementById('auto-update-toggle').checked) {
+            clearTimeout(autoUpdateTimer);
+            autoUpdateTimer = setTimeout(() => pushUpdate(true), 1500);
+        }
+    });
+
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+        isDirty = false;
+        document.getElementById('tab-label').classList.remove('is-dirty');
+        if (currentToken) pushUpdate(true);
+    });
+
+    schedulePreview();
+    loadActiveSessions();
+    // Refresh session list every 30s
+    sessionRefreshTimer = setInterval(loadActiveSessions, 30000);
+});
+
+// ── Preview ──
+let previewTimer;
+function schedulePreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(updatePreview, 600);
+}
+function updatePreview() {
+    const frame = document.getElementById('preview');
+    frame.srcdoc = editor ? editor.getValue() : '';
+}
+document.getElementById('btn-refresh').addEventListener('click', updatePreview);
+document.getElementById('btn-open').addEventListener('click', () => {
+    const blob = new Blob([editor.getValue()], { type: 'text/html' });
+    window.open(URL.createObjectURL(blob), '_blank');
+});
+
+// Device switcher
+document.querySelectorAll('.dev-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.dev-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const wrap = document.getElementById('preview-wrap');
+        wrap.className = 'preview-frame-wrap ' + (btn.dataset.device === 'desktop' ? '' : btn.dataset.device);
+    });
+});
+
+// ── Resize Handle ──
+const rh = document.getElementById('rh');
+const edArea = document.getElementById('editor-area');
+let resizing = false, startX, startA, startB;
+rh.addEventListener('mousedown', e => {
+    resizing = true; startX = e.clientX;
+    const cols = getComputedStyle(edArea).gridTemplateColumns.split(' ');
+    startA = parseFloat(cols[0]); startB = parseFloat(cols[2]);
+    rh.classList.add('dragging'); document.body.classList.add('resizing');
+    e.preventDefault();
+});
+document.addEventListener('mousemove', e => {
+    if (!resizing) return;
+    const dx = e.clientX - startX, total = startA + startB;
+    const newA = Math.max(200, Math.min(total - 200, startA + dx));
+    edArea.style.gridTemplateColumns = `${newA}px 6px 1fr`;
+});
+document.addEventListener('mouseup', () => {
+    if (!resizing) return;
+    resizing = false; rh.classList.remove('dragging'); document.body.classList.remove('resizing');
+});
+
+// ── Activity Bar ──
+function toggleSidebar(open) {
+    const sb = document.getElementById('live-sidebar');
+    const actLive = document.getElementById('act-live');
+    if (open === undefined) open = !sb.classList.contains('open');
+    sb.classList.toggle('open', open);
+    actLive.classList.toggle('active', open);
+    document.getElementById('act-editor').classList.toggle('active', !open);
+    if (open) loadActiveSessions();
+}
+document.getElementById('act-live').addEventListener('click', () => toggleSidebar());
+document.getElementById('act-editor').addEventListener('click', () => toggleSidebar(false));
+
+// ── Live Sessions ──
+async function loadActiveSessions() {
+    try {
+        const r = await fetch('/api/preview/list');
+        const data = await r.json();
+        if (!data.ok) return;
+        renderSessions(data.previews);
+        updateBadge(data.previews.length);
+    } catch(e) {}
+}
+
+function renderSessions(previews) {
+    const body = document.getElementById('live-sidebar-body');
+    const empty = document.getElementById('ls-empty');
+
+    // Remove existing cards but keep empty placeholder
+    body.querySelectorAll('.live-session-card').forEach(el => el.remove());
+
+    if (!previews || previews.length === 0) {
+        empty.style.display = '';
+        return;
+    }
+    empty.style.display = 'none';
+
+    previews.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'live-session-card';
+        card.dataset.token = p.token;
+        const url = `${location.origin}/token/${p.token}`;
+        const h = Math.floor(p.remaining_seconds / 3600);
+        const m = Math.floor((p.remaining_seconds % 3600) / 60);
+        const timeStr = `${h}h ${m}m verbleibend`;
+        const isExpiring = p.remaining_seconds < 3600;
+        const isCurrent = p.token === currentToken;
+        card.innerHTML = `
+            <div class="ls-title">${isCurrent ? '● ' : ''}${escHtml(p.title)}</div>
+            <div class="ls-timer${isExpiring ? ' expiring' : ''}">${timeStr}</div>
+            <a class="ls-link" href="${url}" target="_blank" rel="noopener">
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 3H3v10h10v-3"/><path d="M9 3h4v4"/><path d="M7 9l6-6"/></svg>
+                /token/${p.token.slice(0, 16)}…
+            </a>
+            <div class="ls-actions">
+                <button class="ls-btn" onclick="showQrForToken('${p.token}','${escHtml(p.title)}',${p.expires_at})">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx=".8"/><rect x="9" y="1" width="6" height="6" rx=".8"/><rect x="1" y="9" width="6" height="6" rx=".8"/><rect x="9" y="9" width="4" height="4" rx=".6"/></svg>
+                    QR-Code
+                </button>
+                <button class="ls-btn danger" onclick="stopSession('${p.token}')">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="4" width="8" height="8" rx=".8"/></svg>
+                    Beenden
+                </button>
+            </div>`;
+        body.insertBefore(card, empty);
+    });
+
+    // Status bar
+    const stLive = document.getElementById('st-live-status');
+    const stCount = document.getElementById('st-live-count');
+    stLive.style.display = previews.length > 0 ? '' : 'none';
+    stCount.textContent = previews.length;
+}
+
+function updateBadge(count) {
+    const badge = document.getElementById('act-live-badge');
+    badge.textContent = count > 0 ? count : '';
+}
+
+async function stopSession(token) {
+    await fetch(`/api/preview/${token}`, { method: 'DELETE' });
+    if (token === currentToken) {
+        currentToken = null; currentExpiresAt = null;
+        clearInterval(countdownTimer);
+        closeModal();
+        updateLiveBtnState(false);
+    }
+    loadActiveSessions();
+}
+
+// ── Go Live ──
+async function goLive() {
+    if (currentToken) {
+        // Already live — show modal
+        openShareModal(currentToken, currentExpiresAt);
+        return;
+    }
+    try {
+        const r = await fetch('/api/preview/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ html: editor.getValue(), title: 'CARLA Live Preview' })
+        });
+        const data = await r.json();
+        if (!data.ok) return;
+        currentToken = data.token;
+        currentExpiresAt = data.expires_at;
+        updateLiveBtnState(true);
+        openShareModal(data.token, data.expires_at);
+        loadActiveSessions();
+    } catch(e) { alert('Fehler: ' + e.message); }
+}
+
+function updateLiveBtnState(live) {
+    const btn = document.getElementById('live-btn');
+    const ind = document.getElementById('live-indicator');
+    if (live) {
+        btn.className = 'live-btn update';
+        btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M12.24 3.76a6 6 0 0 1 0 8.48m-8.48 0a6 6 0 0 1 0-8.48"/></svg> Live`;
+        btn.onclick = () => openShareModal(currentToken, currentExpiresAt);
+        ind.style.display = 'flex';
+    } else {
+        btn.className = 'live-btn create';
+        btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M12.24 3.76a6 6 0 0 1 0 8.48m-8.48 0a6 6 0 0 1 0-8.48"/></svg> Live machen`;
+        btn.onclick = goLive;
+        ind.style.display = 'none';
+    }
+}
+
+async function pushUpdate(silent = false) {
+    if (!currentToken) return;
+    const r = await fetch(`/api/preview/${currentToken}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: editor.getValue() })
+    });
+    const data = await r.json();
+    if (!data.ok) {
+        // Token expired/gone
+        currentToken = null; currentExpiresAt = null;
+        updateLiveBtnState(false);
+        closeModal();
+        loadActiveSessions();
+    }
+}
+
+// ── Share Modal ──
+function openShareModal(token, expiresAt) {
+    const url = `${location.origin}/token/${token}`;
+    document.getElementById('share-url-text').textContent = url;
+    document.getElementById('share-modal').classList.add('open');
+
+    // QR Code
+    const canvas = document.getElementById('qr-canvas');
+    QRCode.toCanvas(canvas, url, { width: 136, margin: 1, color: { dark: '#000', light: '#fff' } }, () => {});
+
+    // Countdown
+    clearInterval(countdownTimer);
+    function tick() {
+        const rem = expiresAt - Math.floor(Date.now() / 1000);
+        if (rem <= 0) {
+            document.getElementById('expires-countdown').textContent = 'Abgelaufen';
+            currentToken = null; currentExpiresAt = null;
+            updateLiveBtnState(false);
+            loadActiveSessions();
+            clearInterval(countdownTimer);
+            return;
+        }
+        const h = Math.floor(rem / 3600);
+        const m = Math.floor((rem % 3600) / 60);
+        const s = rem % 60;
+        document.getElementById('expires-countdown').textContent =
+            `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+}
+
+function showQrForToken(token, title, expiresAt) {
+    openShareModal(token, expiresAt);
+    // Temporary — show without setting currentToken
+    const url = `${location.origin}/token/${token}`;
+    document.getElementById('share-url-text').textContent = url;
+}
+
+function closeModal() {
+    document.getElementById('share-modal').classList.remove('open');
+    clearInterval(countdownTimer);
+}
+
+function openLiveTab() {
+    const url = document.getElementById('share-url-text').textContent;
+    if (url) window.open(url, '_blank');
+}
+
+async function stopLive() {
+    if (!currentToken) { closeModal(); return; }
+    await stopSession(currentToken);
+    closeModal();
+}
+
+function copyUrl() {
+    const url = document.getElementById('share-url-text').textContent;
+    navigator.clipboard.writeText(url).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="#4ec9b0" stroke-width="1.8" stroke-linecap="round"><path d="M3 8l4 4 6-6"/></svg>';
+        setTimeout(() => { btn.innerHTML = orig; }, 1500);
+    });
+}
+
+// Close modal on backdrop click
+document.getElementById('share-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('share-modal')) closeModal();
+});
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
