@@ -111,14 +111,31 @@
             <!-- Target / Service (IP & Port) -->
             <div class="form-group">
                 <label class="form-label" for="cf-create-service">Interner Dienst (Ziel-Adresse)</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="cf-create-service" class="input mono" placeholder="z.B. http://192.168.1.50:8080" style="flex: 1;" oninput="updateCreateRoutePreview()">
-                    <select id="cf-create-service-suggest" class="select" style="max-width: 200px; font-size: 12.5px; padding: 8px;" onchange="selectServiceSuggestion(this.value)">
-                        <option value="">-- Dienst auswählen --</option>
-                    </select>
+                <div style="display: flex; gap: 10px; margin-bottom: 8px;">
+                    <input type="text" id="cf-create-service" class="input mono" placeholder="z.B. http://localhost:8080" style="flex: 1;" oninput="updateCreateRoutePreview()">
+                    <button class="btn btn-secondary" onclick="toggleServicePicker(event)" id="btn-toggle-service-picker" style="white-space: nowrap; display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 10px 16px; border: 1px solid var(--border);">
+                        🔌 Dienst auswählen
+                    </button>
                 </div>
+                
+                <!-- Custom Service Picker Grid (toggled on/off) -->
+                <div id="service-picker-container" style="display: none; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); border-radius: var(--r-md); padding: 15px; margin-bottom: 12px; max-height: 380px; overflow-y: auto;">
+                    <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Erkannte Docker Stacks & Dienste</span>
+                        <button onclick="refreshServicePicker(event)" class="btn btn-sm" style="font-size: 10px; padding: 3px 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.01);">🔄 Aktualisieren</button>
+                    </div>
+                    
+                    <!-- Search input inside picker -->
+                    <input type="text" id="service-picker-search" class="input" placeholder="Dienst oder Port filtern..." style="padding: 8px 12px; font-size: 12.5px; margin-bottom: 12px; background: rgba(0,0,0,0.15);" oninput="filterServicePicker()">
+
+                    <!-- Grouped Services List -->
+                    <div id="service-picker-list" style="display: flex; flex-direction: column; gap: 12px;">
+                        <!-- Dynamically populated stacks & services -->
+                    </div>
+                </div>
+
                 <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                    Format: <code>http://IP:PORT</code>. Wähle einen erkannten Dienst aus der Liste oder trage manuell IP und Port ein.
+                    Format: <code>http://localhost:PORT</code> oder <code>http://IP:PORT</code>. Du kannst deinen Dienst direkt über den Button auswählen.
                 </div>
             </div>
 
@@ -431,20 +448,223 @@
         }
     }
 
-    function selectServiceSuggestion(val) {
-        if (val) {
-            document.getElementById('cf-create-service').value = val;
-            updateCreateRoutePreview();
+    let allAvailableServices = [];
+
+    async function fetchAndBuildServicePicker() {
+        const listEl = document.getElementById('service-picker-list');
+        listEl.innerHTML = '<div style="font-size:12px; color:var(--text-muted); padding:10px 0; text-align:center;">Lade Dienste...</div>';
+        
+        try {
+            const r = await fetch('/api/ports');
+            allAvailableServices = r.ok ? await r.json() : [];
+            buildServicePickerList(allAvailableServices);
+        } catch(e) {
+            listEl.innerHTML = '<div style="font-size:12px; color:var(--danger); padding:10px 0; text-align:center;">Dienste konnten nicht geladen werden.</div>';
         }
+    }
+
+    function toggleServicePicker(e) {
+        if (e) e.preventDefault();
+        const container = document.getElementById('service-picker-container');
+        const btn = document.getElementById('btn-toggle-service-picker');
+        if (container.style.display === 'none') {
+            container.style.display = 'block';
+            btn.innerHTML = '❌ Schließen';
+            document.getElementById('service-picker-search').focus();
+        } else {
+            container.style.display = 'none';
+            btn.innerHTML = '🔌 Dienst auswählen';
+        }
+    }
+
+    function refreshServicePicker(e) {
+        if (e) e.preventDefault();
+        fetchAndBuildServicePicker();
+    }
+
+    function buildServicePickerList(services) {
+        const listEl = document.getElementById('service-picker-list');
+        listEl.innerHTML = '';
+
+        const dockerStacks = {};
+        const systemServices = [];
+        const otherServices = [];
+
+        services.forEach(p => {
+            let url = p.local_url || `http://localhost:${p.port}`;
+            url = url.replace('0.0.0.0', 'localhost').replace('::', 'localhost').replace('*', 'localhost');
+            
+            const item = {
+                port: p.port,
+                protocol: p.protocol,
+                process: p.process,
+                is_docker: p.is_docker,
+                container: p.container,
+                stack: p.stack,
+                image: p.image,
+                state: p.state,
+                url: url
+            };
+
+            if (p.is_docker && p.stack) {
+                const stackName = p.stack;
+                const containerName = p.container || 'Unbekannt';
+                
+                if (!dockerStacks[stackName]) {
+                    dockerStacks[stackName] = {};
+                }
+                if (!dockerStacks[stackName][containerName]) {
+                    dockerStacks[stackName][containerName] = [];
+                }
+                dockerStacks[stackName][containerName].push(item);
+            } else if (p.process && p.process !== 'docker-proxy') {
+                systemServices.push(item);
+            } else {
+                otherServices.push(item);
+            }
+        });
+
+        // 1. Docker Stacks
+        const stackKeys = Object.keys(dockerStacks).sort();
+        if (stackKeys.length > 0) {
+            stackKeys.forEach(stackName => {
+                const stackCard = document.createElement('div');
+                stackCard.className = 'picker-stack-group';
+                stackCard.style.cssText = 'border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px; background: rgba(255,255,255,0.01); margin-bottom: 5px;';
+                
+                let containerHtml = '';
+                const containers = dockerStacks[stackName];
+                Object.keys(containers).sort().forEach(cName => {
+                    const portItems = containers[cName];
+                    const stateStyle = portItems[0].state === 'running' ? 'background: var(--success);' : 'background: var(--danger);';
+                    
+                    let portsButtonsHtml = '';
+                    portItems.forEach(p => {
+                        portsButtonsHtml += `
+                            <button onclick="selectPickedService('${p.url}', event)" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; background: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.2); color: var(--primary-light); cursor: pointer; transition: all 0.2s;">
+                                Port ${p.port} (${p.protocol}) ➔
+                            </button>
+                        `;
+                    });
+
+                    containerHtml += `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-top: 1px dashed rgba(255,255,255,0.05); margin-top: 5px; flex-wrap: wrap; gap: 8px;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="display:inline-block; width:6px; height:6px; border-radius:50%; ${stateStyle}"></span>
+                                <span style="font-size:12.5px; font-weight:600; color:var(--text);">${cName}</span>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                ${portsButtonsHtml}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                stackCard.innerHTML = `
+                    <div style="font-size:11px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                        📦 Stack: ${stackName}
+                    </div>
+                    ${containerHtml}
+                `;
+                listEl.appendChild(stackCard);
+            });
+        }
+
+        // 2. System-Dienste
+        if (systemServices.length > 0) {
+            const systemCard = document.createElement('div');
+            systemCard.style.cssText = 'border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px; background: rgba(255,255,255,0.01); margin-bottom: 5px;';
+            
+            let servicesHtml = '';
+            systemServices.forEach(p => {
+                servicesHtml += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-top: 1px dashed rgba(255,255,255,0.05); margin-top: 5px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-size:12.5px; font-weight:600; color:var(--text);">⚙️ ${p.process}</span>
+                        <button onclick="selectPickedService('${p.url}', event)" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: var(--info); cursor: pointer;">
+                            Port ${p.port} (${p.protocol}) ➔
+                        </button>
+                    </div>
+                `;
+            });
+
+            systemCard.innerHTML = `
+                <div style="font-size:11px; font-weight:700; color:var(--info); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">
+                    💻 Host System-Dienste
+                </div>
+                ${servicesHtml}
+            `;
+            listEl.appendChild(systemCard);
+        }
+
+        // 3. Sonstige Ports
+        if (otherServices.length > 0) {
+            const otherCard = document.createElement('div');
+            otherCard.style.cssText = 'border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px; background: rgba(255,255,255,0.01); margin-bottom: 5px;';
+            
+            let servicesHtml = '';
+            otherServices.forEach(p => {
+                servicesHtml += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-top: 1px dashed rgba(255,255,255,0.05); margin-top: 5px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-size:12.5px; color:var(--text-muted);">Port ${p.port} (${p.protocol})</span>
+                        <button onclick="selectPickedService('${p.url}', event)" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text); cursor: pointer;">
+                            Wählen ➔
+                        </button>
+                    </div>
+                `;
+            });
+
+            otherCard.innerHTML = `
+                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">
+                    🔌 Sonstige offene Ports
+                </div>
+                ${servicesHtml}
+            `;
+            listEl.appendChild(otherCard);
+        }
+    }
+
+    function selectPickedService(url, e) {
+        if (e) e.preventDefault();
+        document.getElementById('cf-create-service').value = url;
+        updateCreateRoutePreview();
+        document.getElementById('service-picker-container').style.display = 'none';
+        document.getElementById('btn-toggle-service-picker').innerHTML = '🔌 Dienst auswählen';
+        showToast("Dienst-Adresse übernommen!");
+    }
+
+    function filterServicePicker() {
+        const query = document.getElementById('service-picker-search').value.toLowerCase().trim();
+        if (!query) {
+            buildServicePickerList(allAvailableServices);
+            return;
+        }
+
+        const filtered = allAvailableServices.filter(p => {
+            const portStr = String(p.port);
+            const proc = (p.process || '').toLowerCase();
+            const cont = (p.container || '').toLowerCase();
+            const stk = (p.stack || '').toLowerCase();
+            const img = (p.image || '').toLowerCase();
+            
+            return portStr.includes(query) || 
+                   proc.includes(query) || 
+                   cont.includes(query) || 
+                   stk.includes(query) || 
+                   img.includes(query);
+        });
+
+        buildServicePickerList(filtered);
     }
 
     async function loadCreateRouteView() {
         document.getElementById('cf-create-hostname').value = '';
         document.getElementById('cf-create-service').value = '';
-        document.getElementById('cf-create-service-suggest').value = '';
         document.getElementById('cf-create-zerotrust-enable').checked = false;
         document.getElementById('cf-create-zt-emails').value = '';
         document.getElementById('cf-create-preview').style.display = 'none';
+        
+        document.getElementById('service-picker-container').style.display = 'none';
+        document.getElementById('btn-toggle-service-picker').innerHTML = '🔌 Dienst auswählen';
         toggleCreateZeroTrustSection();
 
         const sel = document.getElementById('cf-create-tunnel');
@@ -461,30 +681,7 @@
             sel.innerHTML = '<option value="">Fehler beim Laden der Tunnel</option>';
         }
 
-        const sug = document.getElementById('cf-create-service-suggest');
-        sug.innerHTML = '<option value="">Dienste laden...</option>';
-        try {
-            const r = await fetch('/api/ports');
-            const portsList = r.ok ? await r.json() : [];
-            sug.innerHTML = '<option value="">-- Dienst auswählen --</option>';
-            portsList.forEach(p => {
-                let label = '';
-                if (p.is_docker && p.container) {
-                    label = `[Docker] ${p.container} (Port ${p.port})`;
-                } else if (p.process) {
-                    label = `[${p.process}] Port ${p.port}`;
-                } else {
-                    label = `Port ${p.port}`;
-                }
-                
-                let url = p.local_url || `http://localhost:${p.port}`;
-                url = url.replace('0.0.0.0', 'localhost').replace('::', 'localhost').replace('*', 'localhost');
-                
-                sug.innerHTML += `<option value="${url}">${label}</option>`;
-            });
-        } catch(e) {
-            sug.innerHTML = '<option value="">Fehler beim Laden</option>';
-        }
+        await fetchAndBuildServicePicker();
     }
 
     async function submitCreateRoute() {
