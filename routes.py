@@ -262,23 +262,63 @@ def start_background_fetch():
 # ---------------------------------------------------------------
 
 @bp.route("/")
+def index():
+    return render_template("dashboard.html")
+
 @bp.route("/stack/<stack_name>")
+def stack_detail(stack_name):
+    return render_template("stack_details.html", stack_name=stack_name)
+
 @bp.route("/stack/<stack_name>/performance")
+def stack_performance(stack_name):
+    return render_template("stack_performance.html", stack_name=stack_name)
+
 @bp.route("/container/<name>/terminal")
+def container_terminal(name):
+    return render_template("terminal.html", container_name=name)
+
 @bp.route("/performance")
+def performance():
+    return render_template("performance.html")
+
 @bp.route("/timeline")
+def timeline():
+    return render_template("timeline.html")
+
 @bp.route("/carla")
 @bp.route("/infrastructure")
-@bp.route("/backup")
-@bp.route("/settings")
 @bp.route("/livemap")
+def infrastructure():
+    return render_template("infrastructure.html")
+
+@bp.route("/backup")
+def backup_route():
+    return render_template("backup.html")
+
+@bp.route("/settings")
+def settings_route():
+    return render_template("settings.html")
+
 @bp.route("/ports")
+def ports_route():
+    return render_template("ports.html")
+
 @bp.route("/filemanager")
+def filemanager_route():
+    return render_template("filemanager.html")
+
 @bp.route("/redirects")
+def redirects_route():
+    return render_template("redirects.html")
+
 @bp.route("/sites")
+def sites_route():
+    return render_template("sites.html")
+
 @bp.route("/domains")
-def index(stack_name=None, name=None):
-    return render_template("dashboard.html")
+def domains_route():
+    return render_template("domains.html")
+
 
 @bp.route("/editor")
 def editor_view():

@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="view-title">Performance</div>
+<div class="view-subtitle">Host-Ressourcenverbrauch und Auslastung der Container</div>
+
+<div class="grid-layout grid-2">
+    <div class="card">
+        <h4 class="card-title" style="margin-bottom: 15px;">CPU & RAM Auslastung</h4>
+        <div style="height: 250px; position: relative;">
+            <canvas id="chart-host-resources"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <h4 class="card-title" style="margin-bottom: 15px;">Speicherbelegung & Temperatur</h4>
+        <div style="height: 250px; position: relative;">
+            <canvas id="chart-host-storage-temp"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="table-container" style="margin-top: 25px;">
+    <div class="table-header-panel">
+        <span style="font-weight: 600;">Top Container nach CPU/RAM Auslastung</span>
+    </div>
+    <table class="table" id="performance-containers-table">
+        <thead>
+            <tr>
+                <th>Container</th>
+                <th>Compose Stack</th>
+                <th>CPU Auslastung</th>
+                <th>RAM Auslastung (MiB)</th>
+                <th>Netzwerk RX</th>
+                <th>Netzwerk TX</th>
+                <th>Uptime</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="7" class="text-center" style="color:var(--text-muted);">Lade Live-Metriken...</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const charts = {};
+    let metricsInterval = null;
+
+    async function initPage(data) {
+        startMetricsPolling();
+    }
+
+    // Clean up polling interval when navigating away
+    window.addEventListener('beforeunload', () => {
+        if (metricsInterval) {
+            clearInterval(metricsInterval);
+        }
+    });
+
+    function startMetricsPolling() {
+        renderMetricsView();
+        metricsInterval = setInterval(renderMetricsView, 4000);
+    }
+
+    async function renderMetricsView() {
+        try {
+            // Fetch server metrics history
+            const rServer = await fetch('/api/metrics/server?limit=40');
+            const history = rServer.ok ? await rServer.json() : [];
+            
+            const labels = history.map(h => {
+                const d = new Date(h.timestamp * 1000);
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            });
+            const cpuData = history.map(h => h.cpu_usage);
+            const ramData = history.map(h => (h.ram_usage / h.ram_total) * 100);
+            const storageData = history.map(h => (h.disk_used / h.disk_total) * 100);
+            const tempData = history.map(h => h.cpu_temp);
+
+            initHostResourceChart(labels, cpuData, ramData);
+            initHostStorageTempChart(labels, storageData, tempData);
+
+            // Fetch latest container resource consumption
+            const rContainers = await fetch('/api/metrics/containers');
+            const containers = rContainers.ok ? await rContainers.json() : [];
+            
+            // Sort by CPU usage descending
+            containers.sort((a,b) => b.cpu_usage - a.cpu_usage);
+            
+            const tbody = document.querySelector('#performance-containers-table tbody');
+            tbody.innerHTML = '';
+
+            if (containers.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color:var(--text-muted);">Keine Live-Metriken empfangen.</td></tr>`;
+                return;
+            }
+
+            containers.forEach(c => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-weight:600;">${c.container_name}</td>
+                    <td><span class="badge info">${c.stack_name}</span></td>
+                    <td style="font-family:var(--font-mono); font-weight:600;">${c.cpu_usage.toFixed(1)}%</td>
+                    <td style="font-family:var(--font-mono);">${c.ram_usage.toFixed(0)} MiB</td>
+                    <td style="font-family:var(--font-mono); color:var(--success);">${formatBytes(c.net_rx || 0)}</td>
+                    <td style="font-family:var(--font-mono); color:var(--primary);">${formatBytes(c.net_tx || 0)}</td>
+                    <td style="color:var(--text-muted); font-size:12.5px;">${c.uptime}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    function initHostResourceChart(labels, cpu, ram) {
+        const ctx = document.getElementById('chart-host-resources');
+        if (!ctx) return;
+        
+        if (charts.hostResources) {
+            charts.hostResources.data.labels = labels;
+            charts.hostResources.data.datasets[0].data = cpu;
+            charts.hostResources.data.datasets[1].data = ram;
+            charts.hostResources.update('none');
+            return;
+        }
+
+        charts.hostResources = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'CPU Auslastung (%)', data: cpu, borderColor: '#a78bfa', backgroundColor: 'rgba(167, 139, 250, 0.04)', fill: true, tension: 0.3 },
+                    { label: 'RAM Auslastung (%)', data: ram, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.03)', fill: true, tension: 0.3 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true, labels: { color: '#a1a1aa', font: { family: 'Outfit' } } } },
+                scales: {
+                    y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#8e8e9f' } },
+                    x: { grid: { display: false }, ticks: { display: false } }
+                }
+            }
+        });
+    }
+
+    function initHostStorageTempChart(labels, storage, temp) {
+        const ctx = document.getElementById('chart-host-storage-temp');
+        if (!ctx) return;
+
+        if (charts.hostStorageTemp) {
+            charts.hostStorageTemp.data.labels = labels;
+            charts.hostStorageTemp.data.datasets[0].data = storage;
+            charts.hostStorageTemp.data.datasets[1].data = temp;
+            charts.hostStorageTemp.update('none');
+            return;
+        }
+
+        charts.hostStorageTemp = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Disk Belegung (%)', data: storage, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.04)', fill: true, tension: 0.3 },
+                    { label: 'Temperatur (°C)', data: temp, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.03)', fill: true, tension: 0.3 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true, labels: { color: '#a1a1aa', font: { family: 'Outfit' } } } },
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#8e8e9f' } },
+                    x: { grid: { display: false }, ticks: { display: false } }
+                }
+            }
+        });
+    }
+
+    function formatBytes(bytes, decimals = 1) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+</script>
+{% endblock %}

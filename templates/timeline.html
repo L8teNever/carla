@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="view-title">Timeline</div>
+<div class="view-subtitle">Historische Zustände der Systeminfrastruktur betrachten (Zeitreise)</div>
+
+<div class="timeline-container">
+    <!-- Left: snapshot records list -->
+    <div class="timeline-sidebar" id="timeline-snapshots-list">
+        <!-- Dynamic items -->
+    </div>
+
+    <!-- Right: selected snapshot detail view -->
+    <div class="timeline-main">
+        <div class="card" id="timeline-detail-card" style="display: none;">
+            <div class="card-header">
+                <h3 class="card-title" id="timeline-detail-title">Snapshot-Zustand</h3>
+                <span class="badge info" id="timeline-detail-timestamp">--</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                <div class="stat-card" style="background: rgba(255,255,255,0.01);">
+                    <div class="stat-content">
+                        <span class="stat-label">CPU Auslastung</span>
+                        <span class="stat-value" id="tl-server-cpu">--</span>
+                    </div>
+                </div>
+                <div class="stat-card" style="background: rgba(255,255,255,0.01);">
+                    <div class="stat-content">
+                        <span class="stat-label">RAM Auslastung</span>
+                        <span class="stat-value" id="tl-server-ram">--</span>
+                    </div>
+                </div>
+                <div class="stat-card" style="background: rgba(255,255,255,0.01);">
+                    <div class="stat-content">
+                        <span class="stat-label">Disk belegt</span>
+                        <span class="stat-value" id="tl-server-disk">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header-panel">
+                    <span style="font-weight: 600;">Container Status in diesem Snapshot</span>
+                </div>
+                <table class="table" id="timeline-containers-table">
+                    <thead>
+                        <tr>
+                            <th>Container</th>
+                            <th>Compose Stack</th>
+                            <th>CPU (%)</th>
+                            <th>RAM (MB)</th>
+                            <th>Uptime</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Injected dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card text-center" id="timeline-placeholder-card" style="padding: 100px 0; justify-content:center; align-items:center;">
+            <div style="font-size: 36px; margin-bottom: 15px; opacity: 0.5;">⌛</div>
+            <h4 style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Kein Snapshot ausgewählt</h4>
+            <p style="font-size: 13px; color: var(--text-muted); max-width: 320px; margin: 0 auto; line-height:1.5;">Wähle links einen historischen Snapshot aus, um den Zustand des Systems zu diesem Zeitpunkt zu inspizieren.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function initPage(data) {
+        await loadTimelineView();
+    }
+
+    async function loadTimelineView() {
+        const listEl = document.getElementById('timeline-snapshots-list');
+        listEl.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">Lade Zeitpunkte...</div>';
+        
+        try {
+            const r = await fetch('/api/timeline/snapshots?limit=50');
+            const snapshots = r.ok ? await r.json() : [];
+
+            listEl.innerHTML = '';
+            if (snapshots.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">Keine historischen Snapshots vorhanden.</div>';
+                return;
+            }
+
+            snapshots.forEach(s => {
+                const d = new Date(s.timestamp * 1000);
+                const item = document.createElement('div');
+                item.className = 'timeline-item';
+                item.innerHTML = `
+                    <div style="font-weight:600; color:#fff;">${d.toLocaleDateString()} ${d.toLocaleTimeString()}</div>
+                    <div style="display:flex; justify-content:space-between; margin-top:5px; font-size:11px; opacity:0.7;">
+                        <span>CPU: ${s.cpu_usage.toFixed(1)}%</span>
+                    </div>
+                `;
+                item.onclick = () => selectTimelineSnapshot(s.timestamp, item);
+                listEl.appendChild(item);
+            });
+        } catch (e) {
+            console.error(e);
+            listEl.innerHTML = '<div style="text-align:center; padding:20px; color:var(--danger);">Fehler beim Laden.</div>';
+        }
+    }
+
+    async function selectTimelineSnapshot(ts, itemEl) {
+        document.querySelectorAll('.timeline-item').forEach(i => i.classList.remove('active'));
+        itemEl.classList.add('active');
+
+        try {
+            const r = await fetch(`/api/timeline/snapshot/${ts}`);
+            if (!r.ok) return;
+            const snap = await r.json();
+
+            document.getElementById('timeline-placeholder-card').style.display = 'none';
+            
+            const detailCard = document.getElementById('timeline-detail-card');
+            detailCard.style.display = 'block';
+
+            const d = new Date(snap.timestamp * 1000);
+            document.getElementById('timeline-detail-timestamp').innerText = `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+
+            if (snap.server) {
+                document.getElementById('tl-server-cpu').innerText = `${snap.server.cpu_usage.toFixed(1)}%`;
+                document.getElementById('tl-server-ram').innerText = `${(snap.server.ram_usage / snap.server.ram_total * 100).toFixed(0)}%`;
+                document.getElementById('tl-server-disk').innerText = `${(snap.server.disk_used / snap.server.disk_total * 100).toFixed(0)}%`;
+            }
+
+            const tbody = document.querySelector('#timeline-containers-table tbody');
+            tbody.innerHTML = '';
+
+            if (snap.containers && snap.containers.length > 0) {
+                snap.containers.forEach(c => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight:600;">${c.container_name}</td>
+                        <td><span class="badge info">${c.stack_name}</span></td>
+                        <td style="font-family:var(--font-mono);">${c.cpu_usage.toFixed(1)}%</td>
+                        <td style="font-family:var(--font-mono);">${c.ram_usage.toFixed(0)} MB</td>
+                        <td style="color:var(--text-muted); font-size:12.5px;">${c.uptime}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--text-muted);">Keine Containerdaten für diesen Zeitpunkt.</td></tr>`;
+            }
+        } catch (e) { console.error(e); }
+    }
+</script>
+{% endblock %}

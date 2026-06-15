@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="view-title">Weiterleitungsserver (Redirects)</div>
+<div class="view-subtitle">Hoste kleine Webserver auf bestimmten Ports, die URLs direkt auf andere Webseiten weiterleiten</div>
+
+<div class="section-header">
+    <div class="section-title">Aktive Port-Umleitungen</div>
+    <button onclick="openRedirectModal()" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 14px; height: 14px; margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Weiterleitung erstellen
+    </button>
+</div>
+
+<div class="grid-layout grid-2" id="redirects-grid">
+    <!-- Dynamic redirect cards -->
+</div>
+
+<!-- Create/Edit Redirect Modal -->
+<div id="redirect-modal" class="modal-backdrop">
+    <div class="modal" style="max-width: 520px;">
+        <div class="modal-header">
+            <h3 class="modal-title" id="redirect-modal-title">Weiterleitungsserver erstellen</h3>
+            <button onclick="closeRedirectModal()" class="modal-close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Host-Port</label>
+                <input type="number" id="redirect-port" class="input mono" placeholder="z.B. 8000" min="1" max="65535">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Weiterleitungsregeln</label>
+                <div id="redirect-rules-container" style="display:flex; flex-direction:column; gap: 10px; max-height: 200px; overflow-y: auto; padding-right: 5px;">
+                    <!-- Dynamic rule rows -->
+                </div>
+                <button onclick="addRedirectRuleRow()" class="btn btn-sm" style="margin-top: 10px; width: 100%;">
+                    + Regel hinzufügen
+                </button>
+            </div>
+            
+            <!-- Cloudflare Exposition -->
+            <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 15px;">
+                <label style="display:flex; align-items:center; gap: 10px; font-size:13px; cursor:pointer; font-weight:600; user-select:none;">
+                    <input type="checkbox" id="redirect-cf-enabled" onchange="toggleRedirectCloudflareFields(this.checked)">
+                    Über Cloudflare Tunnel freigeben
+                </label>
+                
+                <div id="redirect-cf-fields" style="display:none; flex-direction:column; gap: 12px; margin-top: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: var(--r-md);">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size:10px;">Cloudflare Tunnel</label>
+                        <select id="redirect-cf-tunnel" class="select" style="padding: 8px 12px; font-size:13px;"></select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size:10px;">Öffentlicher Hostname</label>
+                        <input type="text" id="redirect-cf-hostname" class="input mono" placeholder="z.B. app.meinedomain.de" style="padding: 8px 12px; font-size:13px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeRedirectModal()" class="btn">Abbrechen</button>
+            <button onclick="submitRedirectServer()" class="btn btn-primary" id="redirect-submit-btn">Erstellen &amp; Starten</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function initPage(data) {
+        loadRedirectsView();
+    }
+
+    async function loadRedirectsView() {
+        const grid = document.getElementById('redirects-grid');
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted);">Lade Weiterleitungsserver...</div>';
+        
+        try {
+            const r = await fetch('/api/redirects');
+            const redirects = r.ok ? await r.json() : [];
+            
+            grid.innerHTML = '';
+            if (redirects.length === 0) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted);">Keine Weiterleitungsserver konfiguriert. Erstelle einen mit dem Button oben!</div>';
+                return;
+            }
+            
+            redirects.forEach(red => {
+                const card = document.createElement('div');
+                card.className = 'card interactive stack-card';
+                
+                const isRunning = red.state === 'running';
+                const statusDotColor = isRunning ? 'var(--success)' : 'var(--danger)';
+                
+                let rulesHtml = '';
+                red.rules.forEach(rule => {
+                    rulesHtml += `
+                        <div style="display:flex; justify-content:space-between; font-size:12.5px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.02);">
+                            <strong style="color:var(--primary); font-family:var(--font-mono);">${rule.path}</strong>
+                            <span style="color:var(--text-muted); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:210px;" title="${rule.url}">${rule.url}</span>
+                        </div>
+                    `;
+                });
+
+                let cfHtml = '';
+                if (red.cloudflare && red.cloudflare.enabled) {
+                    cfHtml = `
+                        <div style="margin-top: 10px; padding: 10px; background: rgba(167, 139, 250, 0.04); border: 1px solid rgba(167, 139, 250, 0.15); border-radius: var(--r-md); display: flex; flex-direction: column; gap: 4px;" onclick="event.stopPropagation()">
+                            <div style="font-size:10px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Cloudflare Tunnel</div>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <a href="https://${red.cloudflare.hostname}" target="_blank" style="color:#fff; font-size:13px; font-weight:600; text-decoration:none; display:flex; align-items:center; gap: 4px;">
+                                    🌐 ${red.cloudflare.hostname}
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px; height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                const escapedObj = JSON.stringify(red).replace(/"/g, '&quot;');
+                
+                card.innerHTML = `
+                    <div class="stack-headline">
+                        <div>
+                            <h4 class="card-title" style="color:var(--primary); font-size:19px;">Port :${red.port}</h4>
+                            <span style="font-size:11.5px; color:var(--text-muted); font-family:var(--font-mono); margin-top:2px; display:block;">Container: redirect-${red.port}</span>
+                        </div>
+                        
+                        <div class="stack-quick-actions" onclick="event.stopPropagation()">
+                            <button onclick="executeRedirectAction(${red.port}, 'start')" class="btn-quick play" title="Starten" ${isRunning ? 'disabled style="opacity:0.3;"' : ''}>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            </button>
+                            <button onclick="executeRedirectAction(${red.port}, 'restart')" class="btn-quick restart" title="Neustarten">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                            </button>
+                            <button onclick="executeRedirectAction(${red.port}, 'stop')" class="btn-quick stop" title="Stoppen" ${!isRunning ? 'disabled style="opacity:0.3;"' : ''}>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 10px; display:flex; flex-direction:column; gap:4px;">
+                        <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:5px;">Weiterleitungen</div>
+                        ${rulesHtml || '<div style="font-size:12px; color:var(--text-muted);">Keine Regeln definiert.</div>'}
+                    </div>
+                    
+                    ${cfHtml}
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px; border-top: 1px solid var(--border); padding-top:12px;">
+                        <span class="badge ${isRunning ? 'success' : 'danger'}" style="font-size:10px;">
+                            ${red.state.toUpperCase()}
+                        </span>
+                        <div style="display:flex; gap: 8px;">
+                            <button onclick="event.stopPropagation(); deleteRedirectServer(${red.port})" class="btn btn-danger btn-sm">Löschen</button>
+                            <button onclick="event.stopPropagation(); editRedirectServer(${escapedObj})" class="btn btn-primary btn-sm">Anpassen</button>
+                        </div>
+                    </div>
+                `;
+                
+                card.onclick = () => editRedirectServer(red);
+                grid.appendChild(card);
+            });
+            
+        } catch(e) {
+            console.error("Error loading redirects:", e);
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--danger);">Fehler beim Laden der Port-Umleitungen.</div>';
+        }
+    }
+
+    function toggleRedirectCloudflareFields(enabled) {
+        const fields = document.getElementById('redirect-cf-fields');
+        fields.style.display = enabled ? 'flex' : 'none';
+    }
+
+    async function loadCloudflareTunnelsDropdown(selectedTunnelId = null) {
+        const select = document.getElementById('redirect-cf-tunnel');
+        const checkbox = document.getElementById('redirect-cf-enabled');
+        select.innerHTML = '<option value="">Lade Tunnels...</option>';
+        
+        try {
+            const r = await fetch('/api/cloudflare/tunnels');
+            if (!r.ok) {
+                throw new Error("Nicht konfiguriert");
+            }
+            const tunnels = await r.json();
+            
+            select.innerHTML = '';
+            if (!tunnels || tunnels.length === 0) {
+                select.innerHTML = '<option value="">Keine aktiven Tunnels gefunden</option>';
+                checkbox.disabled = true;
+                checkbox.checked = false;
+                toggleRedirectCloudflareFields(false);
+                return;
+            }
+            
+            checkbox.disabled = false;
+            tunnels.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.innerText = `${t.name} (${t.status})`;
+                if (selectedTunnelId && t.id === selectedTunnelId) {
+                    opt.selected = true;
+                }
+                select.appendChild(opt);
+            });
+        } catch(e) {
+            select.innerHTML = '<option value="">Cloudflare nicht konfiguriert oder Fehler</option>';
+            checkbox.disabled = true;
+            checkbox.checked = false;
+            toggleRedirectCloudflareFields(false);
+        }
+    }
+
+    function openRedirectModal() {
+        document.getElementById('redirect-modal-title').innerText = "Weiterleitungsserver erstellen";
+        const portInput = document.getElementById('redirect-port');
+        portInput.value = '';
+        portInput.disabled = false;
+        
+        const container = document.getElementById('redirect-rules-container');
+        container.innerHTML = '';
+        
+        addRedirectRuleRow('/', '');
+        
+        document.getElementById('redirect-cf-enabled').checked = false;
+        toggleRedirectCloudflareFields(false);
+        loadCloudflareTunnelsDropdown();
+        
+        document.getElementById('redirect-modal').classList.add('active');
+    }
+
+    function closeRedirectModal() {
+        document.getElementById('redirect-modal').classList.remove('active');
+    }
+
+    function addRedirectRuleRow(path = '', url = '') {
+        const container = document.getElementById('redirect-rules-container');
+        const row = document.createElement('div');
+        row.className = 'redirect-rule-row';
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.alignItems = 'center';
+        row.style.marginBottom = '4px';
+        
+        row.innerHTML = `
+            <input type="text" class="input rule-path mono" placeholder="z.B. /test" value="${path}" style="flex: 1; padding: 8px 12px; font-size:13px;">
+            <span style="color: var(--text-muted); font-size:14px; font-weight:600;">➔</span>
+            <input type="text" class="input rule-url mono" placeholder="z.B. https://xy.com" value="${url}" style="flex: 2; padding: 8px 12px; font-size:13px;">
+            <button onclick="this.parentElement.remove()" class="btn btn-danger btn-icon" style="height: 38px; width: 38px; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 14px; height: 14px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        `;
+        container.appendChild(row);
+    }
+
+    async function submitRedirectServer() {
+        const portInput = document.getElementById('redirect-port');
+        const port = parseInt(portInput.value.trim());
+        
+        if (isNaN(port) || port < 1 || port > 65535) {
+            showToast("Port muss eine gültige Zahl zwischen 1 und 65535 sein.", "error");
+            return;
+        }
+        
+        const ruleRows = document.querySelectorAll('.redirect-rule-row');
+        const rules = [];
+        
+        let hasInvalid = false;
+        ruleRows.forEach(row => {
+            const path = row.querySelector('.rule-path').value.trim();
+            const url = row.querySelector('.rule-url').value.trim();
+            if (!path || !url) {
+                hasInvalid = true;
+                return;
+            }
+            rules.push({ path, url });
+        });
+        
+        if (hasInvalid) {
+            showToast("Alle Regeln müssen einen Pfad und eine Ziel-URL besitzen.", "error");
+            return;
+        }
+        
+        if (rules.length === 0) {
+            showToast("Mindestens eine Weiterleitungsregel ist erforderlich.", "error");
+            return;
+        }
+        
+        const cfEnabled = document.getElementById('redirect-cf-enabled').checked;
+        let cloudflare = { enabled: false };
+        
+        if (cfEnabled) {
+            const tunnelId = document.getElementById('redirect-cf-tunnel').value;
+            const hostname = document.getElementById('redirect-cf-hostname').value.trim();
+            
+            if (!tunnelId) {
+                showToast("Bitte wähle einen Cloudflare Tunnel aus.", "error");
+                return;
+            }
+            if (!hostname) {
+                showToast("Bitte gib einen öffentlichen Hostname ein.", "error");
+                return;
+            }
+            
+            cloudflare = {
+                enabled: true,
+                tunnel_id: tunnelId,
+                hostname: hostname
+            };
+        }
+        
+        const submitBtn = document.getElementById('redirect-submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Erstelle...";
+        
+        try {
+            const resp = await fetch('/api/redirects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ port, rules, cloudflare })
+            });
+            
+            const data = await resp.json();
+            if (resp.ok) {
+                closeRedirectModal();
+                showToast(`Weiterleitungsserver auf Port ${port} erfolgreich gestartet!`);
+                loadRedirectsView();
+            } else {
+                throw new Error(data.error || "Fehler beim Erstellen.");
+            }
+        } catch (e) {
+            showToast(e.message, "error");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Erstellen & Starten";
+        }
+    }
+
+    async function deleteRedirectServer(port) {
+        if (!confirm(`Möchtest du den Weiterleitungsserver auf Port ${port} wirklich dauerhaft löschen?`)) return;
+        
+        showToast(`Lösche Weiterleitung auf Port ${port}...`, "info");
+        try {
+            const resp = await fetch(`/api/redirects/${port}`, { method: 'DELETE' });
+            if (resp.ok) {
+                showToast(`Port-Weiterleitung ${port} gelöscht.`);
+                loadRedirectsView();
+            } else {
+                const data = await resp.json();
+                throw new Error(data.error || "Fehler beim Löschen.");
+            }
+        } catch(e) {
+            showToast(e.message, "error");
+        }
+    }
+
+    function editRedirectServer(redirectObj) {
+        document.getElementById('redirect-modal-title').innerText = `Weiterleitungsserver Port :${redirectObj.port} anpassen`;
+        const portInput = document.getElementById('redirect-port');
+        portInput.value = redirectObj.port;
+        portInput.disabled = true;
+        
+        const container = document.getElementById('redirect-rules-container');
+        container.innerHTML = '';
+        
+        redirectObj.rules.forEach(rule => {
+            addRedirectRuleRow(rule.path, rule.url);
+        });
+        
+        if (redirectObj.rules.length === 0) {
+            addRedirectRuleRow('/', '');
+        }
+        
+        const cf = redirectObj.cloudflare || { enabled: false };
+        const checkbox = document.getElementById('redirect-cf-enabled');
+        checkbox.checked = cf.enabled;
+        
+        if (cf.enabled) {
+            toggleRedirectCloudflareFields(true);
+            document.getElementById('redirect-cf-hostname').value = cf.hostname || '';
+            loadCloudflareTunnelsDropdown(cf.tunnel_id);
+        } else {
+            toggleRedirectCloudflareFields(false);
+            document.getElementById('redirect-cf-hostname').value = '';
+            loadCloudflareTunnelsDropdown();
+        }
+        
+        document.getElementById('redirect-modal').classList.add('active');
+    }
+
+    async function executeRedirectAction(port, action) {
+        showToast(`Führe '${action}' auf Weiterleitungsserver :${port} aus...`, "info");
+        try {
+            const r = await fetch(`/api/redirects/${port}/${action}`, { method: 'POST' });
+            const data = await r.json();
+            if (data.success) {
+                showToast(`Weiterleitungsserver :${port} erfolgreich gestartet/gestoppt/neu gestartet.`);
+                loadRedirectsView();
+            } else {
+                showToast(data.output || "Fehler bei der Ausführung.", "error");
+            }
+        } catch(e) {
+            showToast(e.message, "error");
+        }
+    }
+</script>
+{% endblock %}

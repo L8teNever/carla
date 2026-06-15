@@ -1,0 +1,1404 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="view-title">Öffentliche Domains</div>
+<div class="view-subtitle">Übersicht aller über Cloudflare Tunnel freigegebenen Hostnames, ihrer lokalen Verbindungen und Zero-Trust Schutzstatus</div>
+
+<!-- Tab navigation -->
+<div class="tabs-nav" style="margin-bottom: 20px;">
+    <button class="tab-btn active" id="domains-tab-btn-tunnels" onclick="switchDomainsSubTab('tunnels')">Tunnel Routen</button>
+    <button class="tab-btn" id="domains-tab-btn-access" onclick="switchDomainsSubTab('access')">Zero Trust Apps</button>
+    <button class="tab-btn" id="domains-tab-btn-create" onclick="switchDomainsSubTab('create')">Route erstellen</button>
+</div>
+
+<!-- 1. Tunnel Routes Sub-Tab -->
+<div id="domains-tab-tunnels" class="tab-panel">
+    <div class="section-header">
+        <div class="section-title" id="domains-count-title">Aktive Domains (0)</div>
+        <div style="display:flex; gap:15px; align-items:center;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; user-select:none; color:var(--warning);">
+                <input type="checkbox" id="domains-orphan-only" onchange="filterDomains()" style="width:16px; height:16px; cursor:pointer;">
+                ⚠️ Nur verwaiste Domains (Löschvorschläge)
+            </label>
+            <input type="text" id="domains-search" class="input" placeholder="Nach Domain, Tunnel, Container suchen..." style="max-width:260px; padding: 8px 12px; font-size:13.5px;" oninput="filterDomains()">
+            <button onclick="loadDomainsView(true)" class="btn btn-icon" title="Aktualisieren">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 5px;">
+        <div style="display: flex; gap: 8px;">
+            <button onclick="bulkSelectAll()" class="btn btn-sm btn-secondary" style="font-size:12px; padding:6px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);">Alle markieren</button>
+            <button onclick="clearBulkSelection()" class="btn btn-sm btn-secondary" style="font-size:12px; padding:6px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);">Auswahl aufheben</button>
+        </div>
+        <div>
+            <button onclick="checkAllVisibleDomainsStatus()" class="btn btn-sm btn-secondary" style="font-size:12px; padding:6px 12px; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);">
+                🔍 Reichweite prüfen
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container" style="margin-top: 10px;">
+        <table class="table" id="domains-table">
+            <thead>
+                <tr>
+                    <th style="width: 35%;">Lokale Verbindung (Ziel &amp; Kontext)</th>
+                    <th style="width: 65%;">Zugeordnete Cloudflare Domains &amp; Status</th>
+                </tr>
+            </thead>
+            <tbody id="domains-tbody">
+                <!-- Injected dynamically -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 2. Zero Trust Apps Sub-Tab -->
+<div id="domains-tab-access" class="tab-panel" style="display: none;">
+    <div class="section-header">
+        <div class="section-title" id="access-count-title">Zero Trust Applikationen (0)</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <input type="text" id="access-search" class="input" placeholder="Nach App oder Domain suchen..." style="max-width:300px; padding: 8px 12px; font-size:13.5px;" oninput="filterAccessApps()">
+            <button onclick="loadAccessAppsView(true)" class="btn btn-icon" title="Aktualisieren">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container" style="margin-top: 15px;">
+        <table class="table" id="access-apps-table">
+            <thead>
+                <tr>
+                    <th>App-Name</th>
+                    <th>Domain</th>
+                    <th>Erstellt am</th>
+                    <th>Zugriffsregeln (Policies)</th>
+                    <th style="text-align: right;">Aktionen</th>
+                </tr>
+            </thead>
+            <tbody id="access-apps-tbody">
+                <!-- Injected dynamically -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 3. Create Route Sub-Tab -->
+<div id="domains-tab-create" class="tab-panel" style="display: none;">
+    <div style="max-width: 650px; background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 30px; margin-top: 10px;">
+        <div class="section-title" style="margin-bottom: 5px;">Neue Cloudflare Route veröffentlichen</div>
+        <div class="section-subtitle" style="margin-bottom: 25px; color: var(--text-muted); font-size: 13px;">
+            Verbinde einen beliebigen internen Dienst (IP und Port) über einen Cloudflare Tunnel mit einer öffentlichen Domain/Subdomain und schütze ihn optional mit Zero Trust.
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Hostname / Domain -->
+            <div class="form-group">
+                <label class="form-label" for="cf-create-hostname">Öffentliche Domain / Subdomain</label>
+                <input type="text" id="cf-create-hostname" class="input mono" placeholder="z.B. app.meine-domain.de" oninput="updateCreateRoutePreview()">
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                    Die Domain muss in deinem Cloudflare-Account als Zone registriert sein.
+                </div>
+            </div>
+
+            <!-- Target / Service (IP & Port) -->
+            <div class="form-group">
+                <label class="form-label" for="cf-create-service">Interner Dienst (Ziel-Adresse)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="cf-create-service" class="input mono" placeholder="z.B. http://192.168.1.50:8080" style="flex: 1;" oninput="updateCreateRoutePreview()">
+                    <select id="cf-create-service-suggest" class="select" style="max-width: 200px; font-size: 12.5px; padding: 8px;" onchange="selectServiceSuggestion(this.value)">
+                        <option value="">-- Dienst auswählen --</option>
+                    </select>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                    Format: <code>http://IP:PORT</code>. Wähle einen erkannten Dienst aus der Liste oder trage manuell IP und Port ein.
+                </div>
+            </div>
+
+            <!-- Tunnel Selection -->
+            <div class="form-group">
+                <label class="form-label" for="cf-create-tunnel">Cloudflare Tunnel</label>
+                <select id="cf-create-tunnel" class="select mono"></select>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                    Wähle den Tunnel aus, über den der Dienst getunnelt werden soll.
+                </div>
+            </div>
+
+            <!-- Zero Trust Access Option -->
+            <div class="form-group" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--r-md); padding: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 600; cursor: pointer; user-select: none; margin-bottom: 10px;">
+                    <input type="checkbox" id="cf-create-zerotrust-enable" onchange="toggleCreateZeroTrustSection()" style="width: 18px; height: 18px; cursor: pointer;">
+                    🛡️ Cloudflare Zero Trust Schutz aktivieren
+                </label>
+                <div id="cf-create-zerotrust-section" style="display: none; flex-direction: column; gap: 15px; margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 12px;">
+                    <div>
+                        <label class="form-label" style="font-size: 12px; margin-bottom: 6px;">Zugriffsberechtigung (E-Mails oder ganze Domains)</label>
+                        <textarea id="cf-create-zt-emails" class="input mono" rows="3" placeholder="z.B. ich@gmail.com&#10;@meine-firma.de" style="resize: vertical; font-size: 12px; line-height: 1.4; padding: 8px;"></textarea>
+                        <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 4px;">
+                            Eine E-Mail-Adresse oder Domain (mit @) pro Zeile. Leer lassen, um allen Identitäten der Organisation den Zugriff zu erlauben.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview / Live-Feedback -->
+            <div id="cf-create-preview" style="font-family: var(--font-mono); font-size: 12px; color: var(--primary); background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(124, 58, 237, 0.2); padding: 12px 16px; border-radius: var(--r-md); display: none;">
+                Routing-Vorschau: ...
+            </div>
+
+            <!-- Submit Button -->
+            <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                <button onclick="submitCreateRoute()" class="btn btn-primary" id="cf-create-submit-btn" style="padding: 10px 24px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                    Route veröffentlichen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Domain Modal -->
+<div id="delete-domain-modal" class="modal-backdrop">
+    <div class="modal" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3 class="modal-title" style="color: var(--danger);">Domain löschen</h3>
+            <button onclick="closeDeleteDomainModal()" class="modal-close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <p style="font-size:14px; line-height:1.5; color: var(--text);">
+                Bist du sicher, dass du die öffentliche Domain <strong id="delete-domain-name" class="mono" style="color:var(--primary);">domain.com</strong> dauerhaft löschen möchtest?
+            </p>
+            <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: var(--r-md); display:flex; flex-direction:column; gap:10px;">
+                <label style="display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; user-select:none;">
+                    <input type="checkbox" id="delete-domain-dns" checked>
+                    DNS CNAME-Eintrag bei Cloudflare löschen
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; user-select:none;">
+                    <input type="checkbox" id="delete-domain-access" checked>
+                    Zero Trust Access Application (falls vorhanden) löschen
+                </label>
+            </div>
+            <p style="font-size: 11.5px; color: var(--text-muted); line-height:1.4;">
+                Hinweis: Dadurch wird der Hostname aus der Ingress-Konfiguration des Tunnels entfernt. Der lokale Container bzw. Service läuft unberührt weiter.
+            </p>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeDeleteDomainModal()" class="btn">Abbrechen</button>
+            <button onclick="submitDeleteDomain()" class="btn btn-danger" id="delete-domain-submit-btn">Domain löschen</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Zero Trust Policies Modal -->
+<div id="edit-access-modal" class="modal-backdrop">
+    <div class="modal" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Zero Trust Richtlinien bearbeiten</h3>
+            <button onclick="closeEditAccessModal()" class="modal-close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <div>
+                <span class="mono" id="edit-access-domain" style="font-weight:600; color:var(--primary); font-size:15px;">domain.com</span>
+                <span id="edit-access-app-name" style="display:block; font-size:12px; color:var(--text-muted); margin-top:2px;">App-Name: ...</span>
+            </div>
+            
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Erlaubte Identitätsgruppen (Access Groups)</label>
+                <div id="edit-access-zt-loading" style="font-size:12px; color:var(--text-muted);">Lade Zugriffsregeln...</div>
+                <select id="edit-access-zt-group" class="select" multiple size="6" style="padding:6px 10px; font-size:12px; display:none;"></select>
+                <div style="font-size:10.5px; color:var(--text-muted); margin-top:6px; line-height:1.4;">
+                    Strg/Cmd gedrückt halten, um mehrere Gruppen auszuwählen.<br>
+                    Nur Mitglieder der ausgewählten Gruppen erhalten Zugriff.
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeEditAccessModal()" class="btn">Abbrechen</button>
+            <button onclick="submitEditAccessPolicies()" class="btn btn-primary" id="edit-access-submit-btn">Richtlinien speichern</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Domain Public Approval Modal -->
+<div id="edit-approval-modal" class="modal-backdrop">
+    <div class="modal" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Öffentliche Freigabe bearbeiten</h3>
+            <button onclick="closeEditApprovalModal()" class="modal-close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <div style="font-size: 14.5px; font-weight:600; color: var(--primary);" id="approval-modal-hostname">domain.com</div>
+            
+            <div style="display:flex; align-items:center; gap:10px;">
+                <input type="checkbox" id="approval-is-public" style="width:18px; height:18px; cursor:pointer;">
+                <label for="approval-is-public" style="font-size:13.5px; font-weight:600; cursor:pointer; user-select:none;">Darf öffentlich erreichbar sein (ohne Zero Trust)</label>
+            </div>
+            
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:11px;">Begründung / Zweck für die Freigabe</label>
+                <textarea id="approval-reason" class="input" rows="3" placeholder="z.B. Öffentlicher Blog, Landing Page, API-Endpunkt..." style="resize:vertical; font-size:13px; line-height:1.4; padding:8px 12px;"></textarea>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeEditApprovalModal()" class="btn">Abbrechen</button>
+            <button onclick="submitEditApproval()" class="btn btn-primary" id="approval-submit-btn">Freigabe speichern</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Delete Modal -->
+<div id="bulk-delete-modal" class="modal-backdrop">
+    <div class="modal" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3 class="modal-title" style="color: var(--danger);">Bulk-Löschen</h3>
+            <button onclick="closeBulkDeleteModal()" class="modal-close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <p style="font-size:14px; line-height:1.5; color: var(--text);">
+                Bist du sicher, dass du die folgenden <strong id="bulk-delete-count" style="color:var(--primary);">0</strong> ausgewählten Domains dauerhaft löschen möchtest?
+            </p>
+            
+            <div id="bulk-delete-domains-list" style="max-height: 120px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 12px; background: rgba(0,0,0,0.15);">
+                <!-- Populated dynamically -->
+            </div>
+            
+            <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: var(--r-md); display:flex; flex-direction:column; gap:10px;">
+                <label style="display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; user-select:none;">
+                    <input type="checkbox" id="bulk-delete-dns" checked>
+                    DNS CNAME-Einträge bei Cloudflare löschen
+                </label>
+                <label style="display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; user-select:none;">
+                    <input type="checkbox" id="bulk-delete-access" checked>
+                    Zero Trust Access Applications löschen (falls vorhanden)
+                </label>
+            </div>
+            
+            <!-- Progress Container -->
+            <div id="bulk-delete-progress-container" style="display: none; background:rgba(255,255,255,0.02); padding:12px; border-radius:var(--r-md); border:1px solid var(--border);">
+                <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom: 6px;">
+                    <span id="bulk-delete-progress-label">Lösche Domains...</span>
+                    <strong id="bulk-delete-progress-percent">0%</strong>
+                </div>
+                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: var(--r-full); overflow: hidden;">
+                    <div id="bulk-delete-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s;"></div>
+                </div>
+            </div>
+            
+            <p style="font-size: 11.5px; color: var(--text-muted); line-height:1.4;">
+                Hinweis: Die lokale Services (Docker Stack, nginx vhosts, etc.) bleiben unberührt.
+            </p>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeBulkDeleteModal()" class="btn">Abbrechen</button>
+            <button onclick="submitBulkDelete()" class="btn btn-danger" id="bulk-delete-submit-btn">Löschen starten</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Approval Modal -->
+<div id="bulk-approval-modal" class="modal-backdrop">
+    <div class="modal" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Bulk-Freigabe bearbeiten</h3>
+            <button onclick="closeBulkApprovalModal()" class="modal-close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 20px; height: 20px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <p style="font-size:14px; line-height:1.5; color: var(--text);">
+                Bearbeite die Freigabeeinstellungen für <strong id="bulk-approval-count" style="color:var(--primary);">0</strong> ausgewählte Domains.
+            </p>
+            
+            <div style="display:flex; align-items:center; gap:10px;">
+                <input type="checkbox" id="bulk-approval-is-public" style="width:18px; height:18px; cursor:pointer;">
+                <label for="bulk-approval-is-public" style="font-size:13.5px; font-weight:600; cursor:pointer; user-select:none;">Dürfen öffentlich erreichbar sein (ohne Zero Trust)</label>
+            </div>
+            
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:11px;">Begründung / Zweck für die Freigabe</label>
+                <textarea id="bulk-approval-reason" class="input" rows="3" placeholder="z.B. Öffentliche App, Landing Page, etc." style="resize:vertical; font-size:13px; line-height:1.4; padding:8px 12px;"></textarea>
+            </div>
+            
+            <!-- Progress Container -->
+            <div id="bulk-approval-progress-container" style="display: none; background:rgba(255,255,255,0.02); padding:12px; border-radius:var(--r-md); border:1px solid var(--border);">
+                <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom: 6px;">
+                    <span id="bulk-approval-progress-label">Speichere Freigaben...</span>
+                    <strong id="bulk-approval-progress-percent">0%</strong>
+                </div>
+                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: var(--r-full); overflow: hidden;">
+                    <div id="bulk-approval-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s;"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeBulkApprovalModal()" class="btn">Abbrechen</button>
+            <button onclick="submitBulkApproval()" class="btn btn-primary" id="bulk-approval-submit-btn">Freigabe speichern</button>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Bulk Actions Bar -->
+<div id="domains-bulk-bar">
+    <span id="bulk-selected-count" style="font-weight: 600; color: #fff; font-size: 13px;">0 Domains ausgewählt</span>
+    <div style="width: 1px; height: 20px; background: var(--border);"></div>
+    
+    <div style="display: flex; align-items: center; gap: 6px;">
+        <input type="text" id="bulk-pattern-input" class="input" placeholder="Muster (z.B. *.de, *test*)" style="padding: 6px 10px; font-size: 12px; width: 150px; height: 30px; background: rgba(0,0,0,0.2);" onkeydown="if(event.key==='Enter') bulkSelectByPattern()">
+        <button onclick="bulkSelectByPattern()" class="btn btn-sm" style="height: 30px; font-size: 11px; padding: 0 10px;" title="Domains passend zum Muster markieren">Markieren</button>
+    </div>
+    
+    <div style="width: 1px; height: 20px; background: var(--border);"></div>
+    
+    <button onclick="openBulkApprovalModal()" class="btn btn-sm btn-primary" style="height: 30px; font-size: 11px; padding: 0 12px;">🌐 Freigabe</button>
+    <button onclick="openBulkDeleteModal()" class="btn btn-sm btn-danger" style="height: 30px; font-size: 11px; padding: 0 12px;">🗑️ Löschen</button>
+    <button onclick="clearBulkSelection()" class="btn btn-sm btn-secondary" style="height: 30px; font-size: 11px; padding: 0 10px;">X</button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let allDomains = [];
+    let allAccessApps = [];
+    let selectedDomains = new Set();
+    let selectedDomainsData = {}; // hostname -> { tunnel_id, zone_id }
+    let domainStatusCache = {}; // hostname -> status details
+    let deleteDomainHostname = '';
+    let deleteDomainTunnelId = '';
+    let deleteDomainZoneId = '';
+    let editAccessAppId = '';
+    let editApprovalHostname = '';
+
+    async function initPage(data) {
+        // Default to tunnels view
+        switchDomainsSubTab('tunnels');
+    }
+
+    function switchDomainsSubTab(tabId) {
+        document.querySelectorAll('#domains-tab-tunnels, #domains-tab-access, #domains-tab-create').forEach(panel => {
+            panel.style.display = 'none';
+        });
+        document.querySelectorAll('.tabs-nav .tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        if (tabId === 'tunnels') {
+            document.getElementById('domains-tab-tunnels').style.display = 'block';
+            document.getElementById('domains-tab-btn-tunnels').classList.add('active');
+            loadDomainsView(false);
+        } else if (tabId === 'access') {
+            document.getElementById('domains-tab-access').style.display = 'block';
+            document.getElementById('domains-tab-btn-access').classList.add('active');
+            loadAccessAppsView(false);
+        } else if (tabId === 'create') {
+            document.getElementById('domains-tab-create').style.display = 'block';
+            document.getElementById('domains-tab-btn-create').classList.add('active');
+            loadCreateRouteView();
+        }
+    }
+
+    function toggleCreateZeroTrustSection() {
+        const enabled = document.getElementById('cf-create-zerotrust-enable').checked;
+        document.getElementById('cf-create-zerotrust-section').style.display = enabled ? 'flex' : 'none';
+    }
+
+    function updateCreateRoutePreview() {
+        const hostname = document.getElementById('cf-create-hostname').value.trim();
+        let service = document.getElementById('cf-create-service').value.trim();
+        const preview = document.getElementById('cf-create-preview');
+
+        if (hostname && service) {
+            if (!service.startsWith('http://') && !service.startsWith('https://') && !service.startsWith('tcp://')) {
+                service = 'http://' + service;
+            }
+            preview.textContent = `Vorschau: https://${hostname} ➔ ${service}`;
+            preview.style.display = 'block';
+        } else {
+            preview.style.display = 'none';
+        }
+    }
+
+    function selectServiceSuggestion(val) {
+        if (val) {
+            document.getElementById('cf-create-service').value = val;
+            updateCreateRoutePreview();
+        }
+    }
+
+    async function loadCreateRouteView() {
+        document.getElementById('cf-create-hostname').value = '';
+        document.getElementById('cf-create-service').value = '';
+        document.getElementById('cf-create-service-suggest').value = '';
+        document.getElementById('cf-create-zerotrust-enable').checked = false;
+        document.getElementById('cf-create-zt-emails').value = '';
+        document.getElementById('cf-create-preview').style.display = 'none';
+        toggleCreateZeroTrustSection();
+
+        const sel = document.getElementById('cf-create-tunnel');
+        sel.innerHTML = '<option>Tunnel laden...</option>';
+        try {
+            const r = await fetch('/api/cf/tunnels');
+            const tunnels = r.ok ? await r.json() : [];
+            if (tunnels.length === 0) {
+                sel.innerHTML = '<option value="">Keine Tunnel gefunden</option>';
+            } else {
+                sel.innerHTML = tunnels.map(t => `<option value="${t.id}">${t.name} (${t.status})</option>`).join('');
+            }
+        } catch(e) {
+            sel.innerHTML = '<option value="">Fehler beim Laden der Tunnel</option>';
+        }
+
+        const sug = document.getElementById('cf-create-service-suggest');
+        sug.innerHTML = '<option value="">Dienste laden...</option>';
+        try {
+            const r = await fetch('/api/ports');
+            const portsList = r.ok ? await r.json() : [];
+            sug.innerHTML = '<option value="">-- Dienst auswählen --</option>';
+            portsList.forEach(p => {
+                let label = '';
+                if (p.is_docker && p.container) {
+                    label = `[Docker] ${p.container} (Port ${p.port})`;
+                } else if (p.process) {
+                    label = `[${p.process}] Port ${p.port}`;
+                } else {
+                    label = `Port ${p.port}`;
+                }
+                
+                let url = p.local_url || `http://localhost:${p.port}`;
+                url = url.replace('0.0.0.0', 'localhost').replace('::', 'localhost').replace('*', 'localhost');
+                
+                sug.innerHTML += `<option value="${url}">${label}</option>`;
+            });
+        } catch(e) {
+            sug.innerHTML = '<option value="">Fehler beim Laden</option>';
+        }
+    }
+
+    async function submitCreateRoute() {
+        const hostname = document.getElementById('cf-create-hostname').value.trim();
+        const service = document.getElementById('cf-create-service').value.trim();
+        const tunnel_id = document.getElementById('cf-create-tunnel').value;
+        const ztEnabled = document.getElementById('cf-create-zerotrust-enable').checked;
+        
+        if (!hostname) return showToast('Hostname ist erforderlich.', 'error');
+        if (!service) return showToast('Interner Dienst (Ziel-Adresse) ist erforderlich.', 'error');
+        if (!tunnel_id) return showToast('Cloudflare Tunnel ist erforderlich.', 'error');
+
+        let serviceUrl = service;
+        if (!serviceUrl.startsWith('http://') && !serviceUrl.startsWith('https://') && !serviceUrl.startsWith('tcp://')) {
+            serviceUrl = 'http://' + serviceUrl;
+        }
+
+        let access_emails = [];
+        if (ztEnabled) {
+            const ztEmailsRaw = document.getElementById('cf-create-zt-emails').value;
+            access_emails = ztEmailsRaw.split('\n').map(e => e.trim()).filter(Boolean);
+            if (access_emails.length === 0) {
+                access_emails = [""];
+            }
+        }
+
+        const body = {
+            tunnel_id: tunnel_id,
+            hostname: hostname,
+            service: serviceUrl,
+            access_emails: access_emails
+        };
+
+        const btn = document.getElementById('cf-create-submit-btn');
+        btn.disabled = true;
+        btn.textContent = 'Veröffentliche...';
+
+        try {
+            showToast('Erstelle Cloudflare Route & DNS-Eintrag...', 'info');
+            const r = await fetch('/api/cf/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const res = await r.json();
+            if (r.ok && res.status === 'ok') {
+                showToast(`Route für '${hostname}' erfolgreich erstellt!`, 'success');
+                switchDomainsSubTab('tunnels');
+            } else {
+                showToast(res.error || 'Fehler beim Erstellen der Route.', 'error');
+            }
+        } catch(e) {
+            showToast(e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Route veröffentlichen';
+        }
+    }
+
+    async function loadDomainsView(forceRefresh = false) {
+        const tbody = document.getElementById('domains-tbody');
+        const countTitle = document.getElementById('domains-count-title');
+        
+        selectedDomains.clear();
+        selectedDomainsData = {};
+        updateBulkBar();
+        
+        tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:30px; color:var(--text-muted);">Lade Cloudflare Domains...</td></tr>';
+        countTitle.textContent = 'Aktive Domains (Lade...)';
+        
+        try {
+            if (forceRefresh) {
+                showToast('Aktualisiere Cloudflare Daten...', 'info');
+                await fetch('/api/refresh', { method: 'POST' });
+                await new Promise(r => setTimeout(r, 1500));
+            }
+
+            const r = await fetch('/api/cloudflare/domains');
+            if (!r.ok) {
+                const errData = await r.json();
+                throw new Error(errData.error || 'Fehler beim Laden der Domains.');
+            }
+            
+            allDomains = await r.json();
+            renderDomains(allDomains);
+        } catch(e) {
+            console.error(e);
+            tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; padding:30px; color:var(--danger); font-weight:600;">
+                ${e.message}<br>
+                <button class="btn btn-sm" onclick="window.location.href='/settings'" style="margin-top:12px;">Zu den Einstellungen</button>
+            </td></tr>`;
+            countTitle.textContent = 'Aktive Domains (Fehler)';
+        }
+    }
+
+    function getStatusBadgeHtml(hostname) {
+        const cached = domainStatusCache[hostname];
+        if (!cached) {
+            return `<span class="domain-status-badge badge" id="status-${hostname}" onclick="checkSingleDomainStatus('${hostname}')" style="font-size:10px; padding:3px 7px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: var(--r-full); cursor: pointer; user-select: none; color: var(--text-muted);" title="Klicken zum Prüfen">🔍 Status prüfen</span>`;
+        }
+        
+        let badgeStyle = 'font-size:10px; padding:3px 7px; border-radius: var(--r-full); cursor: pointer; user-select: none; font-weight: 600; text-transform: uppercase;';
+        let badgeText = '';
+        let badgeTitle = 'Klicken zum Aktualisieren';
+        
+        if (cached.checking) {
+            badgeStyle += ' background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--text);';
+            badgeText = '⌛ Prüft...';
+        } else if (cached.error_msg) {
+            badgeStyle += ' background: rgba(132, 132, 150, 0.15); border: 1px solid rgba(132, 132, 150, 0.3); color: var(--text-muted);';
+            badgeText = `⚠️ ${cached.error_msg}`;
+            badgeTitle = `Fehler: ${cached.error_msg}. Klicken zum Aktualisieren`;
+        } else if (cached.is_cloudflare_error) {
+            badgeStyle += ' background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: var(--danger);';
+            badgeText = `🔴 502 Gateway`;
+            if (cached.cloudflare_error_code) {
+                badgeText = `🔴 ${cached.cloudflare_error_code} CF`;
+            }
+            badgeTitle = `Cloudflare Gateway-Fehler. Klicken zum Aktualisieren`;
+        } else if (cached.status_code >= 200 && cached.status_code < 300) {
+            badgeStyle += ' background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--success);';
+            badgeText = `🟢 OK (${cached.status_code})`;
+            badgeTitle = `Erreichbar. Klicken zum Aktualisieren`;
+        } else if (cached.status_code >= 300 && cached.status_code < 400) {
+            badgeStyle += ' background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: var(--info);';
+            badgeText = `🔵 Redirect (${cached.status_code})`;
+            badgeTitle = `Weiterleitung. Klicken zum Aktualisieren`;
+        } else {
+            badgeStyle += ' background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: var(--danger);';
+            badgeText = `🔴 HTTP ${cached.status_code}`;
+            badgeTitle = `Fehler-Statuscode erhalten. Klicken zum Aktualisieren`;
+        }
+        
+        return `<span class="domain-status-badge badge" id="status-${hostname}" onclick="checkSingleDomainStatus('${hostname}')" style="${badgeStyle}" title="${badgeTitle}">${badgeText}</span>`;
+    }
+
+    function renderDomains(domains) {
+        const tbody = document.getElementById('domains-tbody');
+        const countTitle = document.getElementById('domains-count-title');
+        const orphanOnly = document.getElementById('domains-orphan-only').checked;
+        
+        const groups = {};
+        domains.forEach(d => {
+            const targetKey = d.service || 'extern';
+            if (!groups[targetKey]) {
+                groups[targetKey] = {
+                    target: d.service,
+                    matched: d.matched_target,
+                    domains: []
+                };
+            }
+            groups[targetKey].domains.push(d);
+        });
+        
+        let groupList = Object.values(groups);
+        
+        if (orphanOnly) {
+            groupList = groupList.filter(g => !g.matched);
+        }
+        
+        tbody.innerHTML = '';
+        
+        const totalDomains = groupList.reduce((acc, g) => acc + g.domains.length, 0);
+        countTitle.textContent = `Aktive Domains (${totalDomains})`;
+        
+        if (groupList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; padding:30px; color:var(--text-muted);">
+                ${orphanOnly ? 'Keine verwaisten Domains (Löschvorschläge) gefunden. Hervorragend!' : 'Keine Cloudflare Domains gefunden.'}
+            </td></tr>`;
+            return;
+        }
+        
+        groupList.forEach(group => {
+            const tr = document.createElement('tr');
+            
+            const tdLeft = document.createElement('td');
+            tdLeft.style.verticalAlign = 'top';
+            tdLeft.style.padding = '15px 12px';
+            
+            if (group.matched) {
+                const tgt = group.matched;
+                let icon = '📦';
+                if (tgt.type === 'redirect') icon = '🔄';
+                if (tgt.type === 'vhost') icon = '📄';
+                
+                const isRunning = tgt.status === 'running';
+                const statusDot = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${isRunning ? 'var(--success)' : 'var(--danger)'}; margin-right:6px;"></span>`;
+                
+                tdLeft.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <span style="font-weight:700; font-size:14.5px; color:#fff;">${icon} ${tgt.name}</span>
+                        <span style="font-size:11.5px; color:var(--text-muted); display:flex; align-items:center;">
+                            ${statusDot}${tgt.detail}
+                        </span>
+                        <span class="mono" style="font-size:11.5px; color:var(--primary); margin-top:4px;">${group.target}</span>
+                    </div>
+                `;
+            } else {
+                tdLeft.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <span style="font-weight:700; font-size:14.5px; color:var(--warning);">⚠️ Verwaist / Externer Host</span>
+                        <span style="font-size:11.5px; color:var(--text-muted);">Kein lokaler Service läuft auf diesem Ziel</span>
+                        <span class="mono" style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">${group.target !== 'extern' ? group.target : 'Unbekanntes Ziel'}</span>
+                    </div>
+                `;
+            }
+            tr.appendChild(tdLeft);
+            
+            const tdRight = document.createElement('td');
+            tdRight.style.verticalAlign = 'top';
+            tdRight.style.padding = '15px 12px';
+            
+            const domainsStack = document.createElement('div');
+            domainsStack.style.cssText = 'display:flex; flex-direction:column; gap:10px;';
+            
+            group.domains.forEach(domain => {
+                const domainItem = document.createElement('div');
+                domainItem.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(255,255,255,0.015); border:1px solid var(--border); border-radius:var(--r-md); gap:12px;';
+                
+                let badgeHtml = '';
+                if (domain.zero_trust) {
+                    const polText = domain.access_policies && domain.access_policies.length > 0
+                        ? `Zugang über Zero Trust: ${domain.access_policies.join(', ')}`
+                        : 'Geschützt über Zero Trust';
+                    badgeHtml = `<span class="badge success" style="font-size:10px; padding:3px 7px;" title="${polText}">🛡️ Zero Trust</span>`;
+                } else if (domain.is_public_approved) {
+                    const reasonText = domain.public_approved_reason 
+                        ? `Freigegeben: ${domain.public_approved_reason}`
+                        : 'Öffentliche Freigabe vorhanden';
+                    badgeHtml = `<span class="badge info" style="font-size:10px; padding:3px 7px;" title="${reasonText}">🌐 Öffentlich (Freigeb.)</span>`;
+                } else {
+                    badgeHtml = `<span class="badge danger" style="font-size:10px; padding:3px 7px;" title="Achtung: Diese Domain ist öffentlich erreichbar, aber nicht freigegeben!">⚠️ Öffentlich (Unfreigeb.)</span>`;
+                }
+                
+                const escapedReason = (domain.public_approved_reason || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                
+                const isChecked = selectedDomains.has(domain.hostname) ? 'checked' : '';
+                const statusBadgeHtml = getStatusBadgeHtml(domain.hostname);
+                
+                domainItem.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+                        <input type="checkbox" class="domain-checkbox" data-hostname="${domain.hostname}" data-tunnel-id="${domain.tunnel_id}" data-zone-id="${domain.zone_id || ''}" onchange="toggleDomainSelection('${domain.hostname}', this.checked, '${domain.tunnel_id}', '${domain.zone_id || ''}')" ${isChecked} style="width:16px; height:16px; cursor:pointer; flex-shrink:0;">
+                        <div style="display:flex; flex-direction:column; gap:3px; flex:1; min-width:0;">
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <a href="https://${domain.hostname}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none; font-size:13.5px; display:inline-flex; align-items:center; gap:4px;">
+                                    🌐 ${domain.hostname}
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px; height:11px; opacity:0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                </a>
+                                <span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">[☁️ ${domain.tunnel_name}]</span>
+                            </div>
+                            ${domain.public_approved_reason ? `
+                            <div style="font-size:11px; color:var(--text-muted); font-style:italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;" title="${domain.public_approved_reason}">
+                                Begründung: ${domain.public_approved_reason}
+                            </div>` : ''}
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">
+                        ${statusBadgeHtml}
+                        ${badgeHtml}
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn btn-sm btn-icon" onclick="editDomainApproval('${domain.hostname}', ${domain.is_public_approved}, '${escapedReason}')" title="Öffentliche Freigabe bearbeiten" style="padding: 4px 8px; font-size:11px;">⚙️</button>
+                            <button class="btn btn-danger btn-sm btn-icon" onclick="deleteDomain('${domain.hostname}', '${domain.tunnel_id}', '${domain.zone_id || ''}')" title="Domain löschen" style="padding: 4px 8px; font-size:11px;">🗑️</button>
+                        </div>
+                    </div>
+                `;
+                domainsStack.appendChild(domainItem);
+            });
+            
+            tdRight.appendChild(domainsStack);
+            tr.appendChild(tdRight);
+            tbody.appendChild(tr);
+        });
+    }
+
+    function toggleDomainSelection(hostname, checked, tunnelId, zoneId) {
+        if (checked) {
+            selectedDomains.add(hostname);
+            selectedDomainsData[hostname] = { tunnel_id: tunnelId, zone_id: zoneId };
+        } else {
+            selectedDomains.delete(hostname);
+            delete selectedDomainsData[hostname];
+        }
+        updateBulkBar();
+    }
+
+    function updateBulkBar() {
+        const bar = document.getElementById('domains-bulk-bar');
+        const countLabel = document.getElementById('bulk-selected-count');
+        
+        if (selectedDomains.size > 0) {
+            countLabel.textContent = `${selectedDomains.size} Domains ausgewählt`;
+            bar.classList.add('active');
+        } else {
+            bar.classList.remove('active');
+        }
+    }
+
+    function clearBulkSelection() {
+        selectedDomains.clear();
+        selectedDomainsData = {};
+        document.querySelectorAll('#domains-tbody .domain-checkbox').forEach(cb => cb.checked = false);
+        updateBulkBar();
+    }
+
+    function bulkSelectAll() {
+        const checkboxes = document.querySelectorAll('#domains-tbody .domain-checkbox');
+        if (checkboxes.length === 0) return;
+        
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        
+        checkboxes.forEach(cb => {
+            const hostname = cb.getAttribute('data-hostname');
+            cb.checked = !allChecked;
+            if (!allChecked) {
+                const tunnelId = cb.getAttribute('data-tunnel-id');
+                const zoneId = cb.getAttribute('data-zone-id');
+                selectedDomains.add(hostname);
+                selectedDomainsData[hostname] = { tunnel_id: tunnelId, zone_id: zoneId };
+            } else {
+                selectedDomains.delete(hostname);
+            }
+        });
+        
+        if (allChecked) {
+            selectedDomainsData = {};
+        }
+        
+        updateBulkBar();
+    }
+
+    function bulkSelectByPattern() {
+        const patternInput = document.getElementById('bulk-pattern-input');
+        const pattern = patternInput.value.trim().toLowerCase();
+        if (!pattern) {
+            showToast('Bitte ein Muster eingeben.', 'warning');
+            return;
+        }
+        
+        let regex;
+        if (!pattern.includes('*') && !pattern.includes('?')) {
+            regex = new RegExp(pattern.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+        } else {
+            const escaped = pattern.replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&');
+            const glob = '^' + escaped.replace(/\\\*/g, '.*').replace(/\\\?/g, '.') + '$';
+            regex = new RegExp(glob, 'i');
+        }
+        
+        const checkboxes = document.querySelectorAll('#domains-tbody .domain-checkbox');
+        let matchCount = 0;
+        
+        checkboxes.forEach(cb => {
+            const hostname = cb.getAttribute('data-hostname');
+            if (regex.test(hostname)) {
+                if (!cb.checked) {
+                    cb.checked = true;
+                    const tunnelId = cb.getAttribute('data-tunnel-id');
+                    const zoneId = cb.getAttribute('data-zone-id');
+                    selectedDomains.add(hostname);
+                    selectedDomainsData[hostname] = { tunnel_id: tunnelId, zone_id: zoneId };
+                }
+                matchCount++;
+            }
+        });
+        
+        updateBulkBar();
+        showToast(`${matchCount} passende Domains markiert.`, 'info');
+    }
+
+    async function checkSingleDomainStatus(domain) {
+        domainStatusCache[domain] = { checking: true };
+        const badge = document.getElementById(`status-${domain}`);
+        if (badge) {
+            badge.outerHTML = getStatusBadgeHtml(domain);
+        }
+        
+        try {
+            const r = await fetch(`/api/cloudflare/domains/check-status?domain=${encodeURIComponent(domain)}`);
+            if (!r.ok) throw new Error('HTTP Fehler');
+            const data = await r.json();
+            domainStatusCache[domain] = data;
+        } catch (e) {
+            domainStatusCache[domain] = {
+                ok: true,
+                status_code: 0,
+                is_cloudflare_error: false,
+                error_msg: e.message
+            };
+        }
+        
+        const badgeUpdated = document.getElementById(`status-${domain}`);
+        if (badgeUpdated) {
+            badgeUpdated.outerHTML = getStatusBadgeHtml(domain);
+        }
+    }
+
+    async function checkAllVisibleDomainsStatus() {
+        const checkboxes = document.querySelectorAll('#domains-tbody .domain-checkbox');
+        const hostnames = Array.from(checkboxes).map(cb => cb.getAttribute('data-hostname'));
+        
+        if (hostnames.length === 0) {
+            showToast('Keine Domains zum Prüfen sichtbar.', 'info');
+            return;
+        }
+        
+        showToast(`Prüfe Reichweite für ${hostnames.length} Domains...`, 'info');
+        
+        const throttle = 5;
+        let index = 0;
+        
+        async function worker() {
+            while (index < hostnames.length) {
+                const currentHost = hostnames[index++];
+                await checkSingleDomainStatus(currentHost);
+            }
+        }
+        
+        const workers = [];
+        for (let i = 0; i < Math.min(throttle, hostnames.length); i++) {
+            workers.push(worker());
+        }
+        await Promise.all(workers);
+        
+        showToast('Reichweitenprüfung abgeschlossen.', 'success');
+    }
+
+    function openBulkApprovalModal() {
+        if (selectedDomains.size === 0) return;
+        document.getElementById('bulk-approval-count').textContent = selectedDomains.size;
+        document.getElementById('bulk-approval-is-public').checked = false;
+        document.getElementById('bulk-approval-reason').value = '';
+        document.getElementById('bulk-approval-progress-container').style.display = 'none';
+        document.getElementById('bulk-approval-submit-btn').disabled = false;
+        document.getElementById('bulk-approval-modal').classList.add('active');
+    }
+    
+    function closeBulkApprovalModal() {
+        document.getElementById('bulk-approval-modal').classList.remove('active');
+    }
+    
+    async function submitBulkApproval() {
+        const isPublic = document.getElementById('bulk-approval-is-public').checked;
+        const reason = document.getElementById('bulk-approval-reason').value.trim();
+        const hostnames = Array.from(selectedDomains);
+        
+        document.getElementById('bulk-approval-progress-container').style.display = 'block';
+        document.getElementById('bulk-approval-submit-btn').disabled = true;
+        
+        const progressBar = document.getElementById('bulk-approval-progress-bar');
+        const progressPercent = document.getElementById('bulk-approval-progress-percent');
+        const progressLabel = document.getElementById('bulk-approval-progress-label');
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (let i = 0; i < hostnames.length; i++) {
+            const hostname = hostnames[i];
+            progressLabel.textContent = `Aktualisiere ${hostname}...`;
+            const pct = Math.round((i / hostnames.length) * 100);
+            progressBar.style.width = `${pct}%`;
+            progressPercent.textContent = `${pct}%`;
+            
+            try {
+                const r = await fetch('/api/cloudflare/domain-policies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        hostname: hostname,
+                        is_public_approved: isPublic,
+                        public_approved_reason: reason
+                    })
+                });
+                const res = await r.json();
+                if (res.ok) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (e) {
+                errorCount++;
+            }
+        }
+        
+        progressBar.style.width = '100%';
+        progressPercent.textContent = '100%';
+        progressLabel.textContent = 'Abgeschlossen!';
+        
+        await new Promise(r => setTimeout(r, 800));
+        closeBulkApprovalModal();
+        clearBulkSelection();
+        showToast(`${successCount} Domains erfolgreich aktualisiert.${errorCount > 0 ? ` (${errorCount} Fehler)` : ''}`, 'success');
+        loadDomainsView(false);
+    }
+
+    function openBulkDeleteModal() {
+        if (selectedDomains.size === 0) return;
+        document.getElementById('bulk-delete-count').textContent = selectedDomains.size;
+        
+        const listContainer = document.getElementById('bulk-delete-domains-list');
+        listContainer.innerHTML = '';
+        Array.from(selectedDomains).forEach(h => {
+            const li = document.createElement('div');
+            li.className = 'mono';
+            li.style.fontSize = '12px';
+            li.style.color = 'var(--primary)';
+            li.style.padding = '3px 0';
+            li.textContent = `• ${h}`;
+            listContainer.appendChild(li);
+        });
+        
+        document.getElementById('bulk-delete-dns').checked = true;
+        document.getElementById('bulk-delete-access').checked = true;
+        document.getElementById('bulk-delete-progress-container').style.display = 'none';
+        document.getElementById('bulk-delete-submit-btn').disabled = false;
+        document.getElementById('bulk-delete-modal').classList.add('active');
+    }
+    
+    function closeBulkDeleteModal() {
+        document.getElementById('bulk-delete-modal').classList.remove('active');
+    }
+    
+    async function submitBulkDelete() {
+        const deleteDns = document.getElementById('bulk-delete-dns').checked;
+        const deleteAccess = document.getElementById('bulk-delete-access').checked;
+        const hostnames = Array.from(selectedDomains);
+        
+        document.getElementById('bulk-delete-progress-container').style.display = 'block';
+        document.getElementById('bulk-delete-submit-btn').disabled = true;
+        
+        const progressBar = document.getElementById('bulk-delete-progress-bar');
+        const progressPercent = document.getElementById('bulk-delete-progress-percent');
+        const progressLabel = document.getElementById('bulk-delete-progress-label');
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (let i = 0; i < hostnames.length; i++) {
+            const hostname = hostnames[i];
+            progressLabel.textContent = `Lösche ${hostname}...`;
+            const pct = Math.round((i / hostnames.length) * 100);
+            progressBar.style.width = `${pct}%`;
+            progressPercent.textContent = `${pct}%`;
+            
+            const meta = selectedDomainsData[hostname] || {};
+            
+            try {
+                const r = await fetch('/api/cloudflare/domains', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        hostname: hostname,
+                        tunnel_id: meta.tunnel_id,
+                        zone_id: meta.zone_id || '',
+                        delete_dns: deleteDns,
+                        delete_access: deleteAccess
+                    })
+                });
+                const res = await r.json();
+                if (res.ok) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (e) {
+                errorCount++;
+            }
+        }
+        
+        progressBar.style.width = '100%';
+        progressPercent.textContent = '100%';
+        progressLabel.textContent = 'Abgeschlossen!';
+        
+        await new Promise(r => setTimeout(r, 800));
+        closeBulkDeleteModal();
+        clearBulkSelection();
+        showToast(`${successCount} Domains gelöscht.${errorCount > 0 ? ` (${errorCount} Fehler)` : ''}`, 'success');
+        loadDomainsView(false);
+    }
+
+    function filterDomains() {
+        const query = document.getElementById('domains-search').value.toLowerCase().trim();
+        
+        const filtered = allDomains.filter(domain => {
+            if (!query) return true;
+            
+            const hostMatch = domain.hostname.toLowerCase().includes(query);
+            const svcMatch = domain.service.toLowerCase().includes(query);
+            const tunMatch = domain.tunnel_name.toLowerCase().includes(query);
+            
+            let targetMatch = false;
+            if (domain.matched_target) {
+                targetMatch = domain.matched_target.name.toLowerCase().includes(query) || 
+                              (domain.matched_target.stack && domain.matched_target.stack.toLowerCase().includes(query));
+            }
+            
+            return hostMatch || svcMatch || tunMatch || targetMatch;
+        });
+        
+        renderDomains(filtered);
+    }
+
+    function deleteDomain(hostname, tunnelId, zoneId) {
+        deleteDomainHostname = hostname;
+        deleteDomainTunnelId = tunnelId;
+        deleteDomainZoneId = zoneId;
+        
+        document.getElementById('delete-domain-name').textContent = hostname;
+        document.getElementById('delete-domain-dns').checked = true;
+        document.getElementById('delete-domain-access').checked = true;
+        
+        document.getElementById('delete-domain-modal').classList.add('active');
+    }
+
+    function closeDeleteDomainModal() {
+        document.getElementById('delete-domain-modal').classList.remove('active');
+    }
+
+    async function submitDeleteDomain() {
+        const btn = document.getElementById('delete-domain-submit-btn');
+        const dnsChecked = document.getElementById('delete-domain-dns').checked;
+        const accessChecked = document.getElementById('delete-domain-access').checked;
+        
+        btn.disabled = true;
+        btn.textContent = 'Lösche...';
+        
+        try {
+            const r = await fetch('/api/cloudflare/domains', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    hostname: deleteDomainHostname,
+                    tunnel_id: deleteDomainTunnelId,
+                    zone_id: deleteDomainZoneId,
+                    delete_dns: dnsChecked,
+                    delete_access: accessChecked
+                })
+            });
+            
+            const res = await r.json();
+            if (res.ok) {
+                showToast(`Domain '${deleteDomainHostname}' erfolgreich gelöscht!`, 'success');
+                closeDeleteDomainModal();
+                loadDomainsView(false);
+            } else {
+                showToast(res.error || 'Fehler beim Löschen der Domain.', 'error');
+            }
+        } catch(e) {
+            showToast(e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Domain löschen';
+        }
+    }
+
+    function editDomainApproval(hostname, isApproved, reason) {
+        editApprovalHostname = hostname;
+        document.getElementById('approval-modal-hostname').textContent = hostname;
+        document.getElementById('approval-is-public').checked = isApproved;
+        document.getElementById('approval-reason').value = reason || '';
+        
+        document.getElementById('edit-approval-modal').classList.add('active');
+    }
+
+    function closeEditApprovalModal() {
+        document.getElementById('edit-approval-modal').classList.remove('active');
+    }
+
+    async function submitEditApproval() {
+        const btn = document.getElementById('approval-submit-btn');
+        const isApproved = document.getElementById('approval-is-public').checked;
+        const reason = document.getElementById('approval-reason').value.trim();
+        
+        btn.disabled = true;
+        btn.textContent = 'Speichere...';
+        
+        try {
+            const r = await fetch('/api/cloudflare/domain-policies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    hostname: editApprovalHostname,
+                    is_public_approved: isApproved,
+                    public_approved_reason: reason
+                })
+            });
+            
+            const res = await r.json();
+            if (res.ok) {
+                showToast(`Freigabe für '${editApprovalHostname}' gespeichert!`, 'success');
+                closeEditApprovalModal();
+                loadDomainsView(false);
+            } else {
+                showToast(res.error || 'Fehler beim Speichern der Freigabe.', 'error');
+            }
+        } catch(e) {
+            showToast(e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Freigabe speichern';
+        }
+    }
+
+    async function loadAccessAppsView(forceRefresh = false) {
+        const tbody = document.getElementById('access-apps-tbody');
+        const countTitle = document.getElementById('access-count-title');
+        
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--text-muted);">Lade Zero Trust Applikationen...</td></tr>';
+        countTitle.textContent = 'Zero Trust Applikationen (Lade...)';
+        
+        try {
+            if (forceRefresh) {
+                showToast('Aktualisiere Cloudflare Daten...', 'info');
+                await fetch('/api/refresh', { method: 'POST' });
+                await new Promise(r => setTimeout(r, 1500));
+            }
+
+            const r = await fetch('/api/cloudflare/access-apps');
+            if (!r.ok) {
+                const errData = await r.json();
+                throw new Error(errData.error || 'Fehler beim Laden der Zero Trust Apps.');
+            }
+            
+            allAccessApps = await r.json();
+            renderAccessApps(allAccessApps);
+        } catch(e) {
+            console.error(e);
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--danger); font-weight:600;">
+                ${e.message}
+            </td></tr>`;
+            countTitle.textContent = 'Zero Trust Applikationen (Fehler)';
+        }
+    }
+
+    function renderAccessApps(apps) {
+        const tbody = document.getElementById('access-apps-tbody');
+        const countTitle = document.getElementById('access-count-title');
+        
+        tbody.innerHTML = '';
+        countTitle.textContent = `Zero Trust Applikationen (${apps.length})`;
+        
+        if (apps.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--text-muted);">Keine Zero Trust Applikationen in Cloudflare konfiguriert.</td></tr>';
+            return;
+        }
+        
+        apps.forEach(app => {
+            const tr = document.createElement('tr');
+            
+            const tdName = document.createElement('td');
+            tdName.innerHTML = `<span style="font-weight:600; font-size:14px; color:var(--text);">${app.name}</span>`;
+            tr.appendChild(tdName);
+            
+            const tdDomain = document.createElement('td');
+            tdDomain.innerHTML = `
+                <a href="https://${app.domain}" target="_blank" style="color:var(--primary); font-weight:500; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                    🌐 ${app.domain}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px; height:11px; opacity:0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+            `;
+            tr.appendChild(tdDomain);
+            
+            const tdDate = document.createElement('td');
+            let formattedDate = 'N/A';
+            if (app.created_at) {
+                try {
+                    const d = new Date(app.created_at);
+                    formattedDate = d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                } catch(e) {}
+            }
+            tdDate.innerHTML = `<span style="font-size:12.5px; color:var(--text-muted);">${formattedDate}</span>`;
+            tr.appendChild(tdDate);
+            
+            const tdPol = document.createElement('td');
+            if (app.policies && app.policies.length > 0) {
+                tdPol.innerHTML = app.policies.map(p => {
+                    const isEmail = p.includes('@') && !p.startsWith('Gruppe:');
+                    const isGroup = p.startsWith('Gruppe:');
+                    let badgeClass = 'info';
+                    if (isGroup) badgeClass = 'success';
+                    else if (p === 'Jeder') badgeClass = 'warning';
+                    return `<span class="badge ${badgeClass}" style="font-size:10px; margin-right:4px; margin-bottom:4px; display:inline-block;">${p}</span>`;
+                }).join('');
+            } else {
+                tdPol.innerHTML = `<span class="badge danger" style="font-size:10px;">Keine Zugriffsregeln!</span>`;
+            }
+            tr.appendChild(tdPol);
+            
+            const tdAct = document.createElement('td');
+            tdAct.style.textAlign = 'right';
+            tdAct.innerHTML = `
+                <button class="btn btn-sm" onclick="editAccessApp('${app.id}', '${app.name.replace(/'/g, "\\'")}', '${app.domain}')" style="margin-right:6px; padding: 5px 10px;">
+                    Bearbeiten
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="deleteAccessApp('${app.id}', '${app.name.replace(/'/g, "\\'")}', '${app.domain}')" style="padding: 5px 10px;">
+                    Löschen
+                </button>
+            `;
+            tr.appendChild(tdAct);
+            
+            tbody.appendChild(tr);
+        });
+    }
+
+    function filterAccessApps() {
+        const query = document.getElementById('access-search').value.toLowerCase().trim();
+        if (!query) {
+            renderAccessApps(allAccessApps);
+            return;
+        }
+        
+        const filtered = allAccessApps.filter(app => {
+            const nameMatch = app.name.toLowerCase().includes(query);
+            const domainMatch = app.domain.toLowerCase().includes(query);
+            return nameMatch || domainMatch;
+        });
+        
+        renderAccessApps(filtered);
+    }
+
+    async function deleteAccessApp(appId, name, domain) {
+        if (!confirm(`Zero Trust Applikation '${name}' (${domain}) wirklich löschen?`)) return;
+        
+        try {
+            showToast(`Lösche Zero Trust App '${name}'...`, 'info');
+            const r = await fetch(`/api/cloudflare/access-apps/${appId}`, {
+                method: 'DELETE'
+            });
+            const res = await r.json();
+            if (res.ok) {
+                showToast(`Zero Trust App '${name}' erfolgreich gelöscht!`, 'success');
+                loadAccessAppsView(false);
+            } else {
+                const err = res.error ? JSON.stringify(res.error) : 'Unbekannter Fehler';
+                showToast(`Fehler beim Löschen: ${err}`, 'error');
+            }
+        } catch(e) {
+            showToast(e.message, 'error');
+        }
+    }
+
+    async function editAccessApp(appId, name, domain) {
+        editAccessAppId = appId;
+        
+        document.getElementById('edit-access-domain').textContent = domain;
+        document.getElementById('edit-access-app-name').textContent = `Applikation: ${name}`;
+        
+        const loading = document.getElementById('edit-access-zt-loading');
+        const sel = document.getElementById('edit-access-zt-group');
+        
+        loading.style.display = 'block';
+        sel.style.display = 'none';
+        document.getElementById('edit-access-modal').classList.add('active');
+        
+        try {
+            const grpResp = await fetch('/api/cf/access/groups');
+            const groups = grpResp.ok ? await grpResp.json() : [];
+            
+            if (!Array.isArray(groups) || groups.length === 0) {
+                loading.textContent = 'Keine CF Access Gruppen gefunden. Erstelle Gruppen im Cloudflare Dashboard.';
+                return;
+            }
+            
+            sel.innerHTML = groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+            
+            const polResp = await fetch(`/api/cloudflare/access-apps/${appId}/policies`);
+            const polData = polResp.ok ? await polResp.json() : { group_ids: [] };
+            
+            const selectedIds = polData.group_ids || [];
+            Array.from(sel.options).forEach(opt => {
+                opt.selected = selectedIds.includes(opt.value);
+            });
+            
+            loading.style.display = 'none';
+            sel.style.display = 'block';
+        } catch(e) {
+            loading.textContent = 'Fehler beim Laden der Richtliniendaten.';
+            console.error(e);
+        }
+    }
+
+    function closeEditAccessModal() {
+        document.getElementById('edit-access-modal').classList.remove('active');
+    }
+
+    async function submitEditAccessPolicies() {
+        const btn = document.getElementById('edit-access-submit-btn');
+        const sel = document.getElementById('edit-access-zt-group');
+        const groupIds = Array.from(sel.selectedOptions).map(opt => opt.value);
+        
+        btn.disabled = true;
+        btn.textContent = 'Speichere Richtlinien...';
+        
+        try {
+            const r = await fetch(`/api/cloudflare/access-apps/${editAccessAppId}/policies`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ group_ids: groupIds })
+            });
+            
+            const res = await r.json();
+            if (res.ok) {
+                showToast('Richtlinien erfolgreich aktualisiert!', 'success');
+                closeEditAccessModal();
+                loadAccessAppsView(false);
+            } else {
+                const err = res.error ? JSON.stringify(res.error) : 'Unbekannter Fehler';
+                showToast(`Fehler beim Aktualisieren: ${err}`, 'error');
+            }
+        } catch(e) {
+            showToast(e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Richtlinien speichern';
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="display:flex; align-items:center; gap: 15px; margin-bottom: 10px;">
+    <a href="/stack/{{ stack_name }}" class="btn btn-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </a>
+    <div class="view-title" id="stack-perf-title" style="margin-bottom: 0;">{{ stack_name }} | Performance</div>
+</div>
+<div class="view-subtitle">Ressourcenverbrauch und Auslastungshistorie der Container dieses Compose-Projekts</div>
+
+<div class="card" style="margin-top: 20px;">
+    <h4 class="card-title" style="margin-bottom: 15px;">Auslastungshistorie</h4>
+    <div style="height: 400px; position: relative;">
+        <canvas id="chart-stack-resources"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const stackName = "{{ stack_name }}";
+    let stackPerfInterval = null;
+    const charts = {};
+
+    async function initPage(data) {
+        pollStackPerformance();
+        stackPerfInterval = setInterval(pollStackPerformance, 4000);
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if (stackPerfInterval) {
+            clearInterval(stackPerfInterval);
+        }
+        if (charts.stackResources) {
+            charts.stackResources.destroy();
+            charts.stackResources = null;
+        }
+    });
+
+    async function pollStackPerformance() {
+        try {
+            const r = await fetch(`/api/metrics/stack/${stackName}?limit=40`);
+            const history = r.ok ? await r.json() : [];
+            
+            const labels = history.map(h => {
+                const d = new Date(h.timestamp * 1000);
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            });
+            const cpu = history.map(h => h.cpu_usage);
+            const ram = history.map(h => h.ram_usage);
+
+            const ctx = document.getElementById('chart-stack-resources');
+            if (!ctx) return;
+
+            if (charts.stackResources) {
+                charts.stackResources.data.labels = labels;
+                charts.stackResources.data.datasets[0].data = cpu;
+                charts.stackResources.data.datasets[1].data = ram;
+                charts.stackResources.update('none');
+                return;
+            }
+
+            charts.stackResources = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'CPU Gesamt (%)', data: cpu, borderColor: 'var(--primary)', backgroundColor: 'rgba(167, 139, 250, 0.05)', fill: true, tension: 0.3 },
+                        { label: 'RAM Gesamt (MiB)', data: ram, borderColor: 'var(--success)', backgroundColor: 'rgba(52, 211, 153, 0.05)', fill: true, tension: 0.3, yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#a1a1aa', font: { family: 'Outfit' } } } },
+                    scales: {
+                        y: { title: { display: true, text: 'CPU (%)', color: '#a1a1aa' }, ticks: { color: '#8e8e9f' }, grid: { color: 'rgba(255,255,255,0.03)' } },
+                        y1: { title: { display: true, text: 'RAM (MiB)', color: '#a1a1aa' }, position: 'right', ticks: { color: '#8e8e9f' }, grid: { drawOnChartArea: false } },
+                        x: { grid: { display: false }, ticks: { display: false } }
+                    }
+                }
+            });
+        } catch(e) { console.error(e); }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="view-title">Datei-Manager</div>
+<div class="view-subtitle">Host-Dateien durchsuchen und Container-Konfigurationen editieren</div>
+
+<div class="fm-container">
+    <div class="fm-toolbar">
+        <!-- Breadcrumbs -->
+        <div class="fm-breadcrumbs" id="fm-breadcrumbs-container"></div>
+        
+        <!-- Safer context-action bar (only rename/delete visible when file is selected) -->
+        <div class="fm-action-bar">
+            <button onclick="fmOpenNewFolderModal()" class="btn btn-sm">📁 Neuer Ordner</button>
+            <button onclick="fmOpenNewFileModal()" class="btn btn-sm">📄 Neue Datei</button>
+            <button id="fm-action-rename" onclick="fmOpenRenameSelected()" class="btn btn-sm" style="display: none;">Umbenennen</button>
+            <button id="fm-action-delete" onclick="fmDeleteSelected()" class="btn btn-sm btn-danger" style="display: none;">Löschen</button>
+        </div>
+    </div>
+
+    <!-- Directory grid items -->
+    <div class="fm-explorer-grid" id="fm-directory-items">
+        <!-- Directory listing -->
+    </div>
+
+    <!-- Floating inline code editor -->
+    <div class="editor-container" id="fm-editor-box" style="display: none; margin-top: 15px;">
+        <div class="editor-header">
+            <span class="editor-filepath" id="fm-editor-filepath">Datei</span>
+            <div style="display:flex; gap: 8px;">
+                <button class="btn btn-sm" onclick="fmCloseEditor()">Schließen</button>
+                <button class="btn btn-primary btn-sm" onclick="fmSaveEditor()">Datei Speichern</button>
+            </div>
+        </div>
+        <textarea class="editor-textarea" id="fm-editor-textarea" spellcheck="false"></textarea>
+    </div>
+</div>
+
+<!-- FM Modals -->
+<div id="fm-newfolder-modal" class="modal-backdrop">
+    <div class="modal" style="max-width: 420px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Neuer Ordner</h3>
+            <button onclick="document.getElementById('fm-newfolder-modal').classList.remove('active')" class="modal-close">×</button>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Ordnername</label>
+            <input type="text" id="fm-newfolder-name" class="input" placeholder="ordnername">
+        </div>
+        <div class="modal-actions">
+            <button class="btn" onclick="document.getElementById('fm-newfolder-modal').classList.remove('active')">Abbrechen</button>
+            <button class="btn btn-primary" onclick="fmDoCreateFolder()">Erstellen</button>
+        </div>
+    </div>
+</div>
+
+<div id="fm-newfile-modal" class="modal-backdrop">
+    <div class="modal" style="max-width: 420px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Neue Datei</h3>
+            <button onclick="document.getElementById('fm-newfile-modal').classList.remove('active')" class="modal-close">×</button>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Dateiname</label>
+            <input type="text" id="fm-newfile-name" class="input mono" placeholder="docker-compose.yml">
+        </div>
+        <div class="modal-actions">
+            <button class="btn" onclick="document.getElementById('fm-newfile-modal').classList.remove('active')">Abbrechen</button>
+            <button class="btn btn-primary" onclick="fmDoCreateFile()">Erstellen</button>
+        </div>
+    </div>
+</div>
+
+<div id="fm-rename-modal" class="modal-backdrop">
+    <div class="modal" style="max-width: 420px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Element umbenennen</h3>
+            <button onclick="document.getElementById('fm-rename-modal').classList.remove('active')" class="modal-close">×</button>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Neuer Name</label>
+            <input type="text" id="fm-rename-new-name" class="input" placeholder="neuer_name">
+        </div>
+        <div class="modal-actions">
+            <button class="btn" onclick="document.getElementById('fm-rename-modal').classList.remove('active')">Abbrechen</button>
+            <button class="btn btn-primary" onclick="fmDoRename()">Umbenennen</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let fmCurrentPath = "/";
+    let fmSelectedFilePath = "";
+    let fmSelectedNode = null; // Currently selected file/folder card
+
+    async function initPage(data) {
+        // Load initial directory
+        loadFileManagerView();
+    }
+
+    async function loadFileManagerView() {
+        fmNavigate(fmCurrentPath);
+    }
+
+    function deselectFMNode() {
+        fmSelectedNode = null;
+        document.querySelectorAll('.fm-node-card').forEach(n => n.classList.remove('selected'));
+        document.getElementById('fm-action-rename').style.display = 'none';
+        document.getElementById('fm-action-delete').style.display = 'none';
+    }
+
+    function selectFMNode(item, element) {
+        deselectFMNode();
+        fmSelectedNode = item;
+        element.classList.add('selected');
+        document.getElementById('fm-action-rename').style.display = 'inline-flex';
+        document.getElementById('fm-action-delete').style.display = 'inline-flex';
+    }
+
+    async function fmNavigate(path) {
+        fmCurrentPath = path;
+        const grid = document.getElementById('fm-directory-items');
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted);">Lade Ordner...</div>';
+
+        // Close editor on navigation
+        fmCloseEditor();
+        deselectFMNode();
+
+        try {
+            const r = await fetch(`/api/files/browse?path=${encodeURIComponent(path)}`);
+            const data = await r.json();
+
+            if (!data.ok) {
+                grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--danger);">${data.error}</div>`;
+                return;
+            }
+
+            renderFMBreadcrumbs(data.path);
+
+            grid.innerHTML = '';
+            if (data.items.length === 0) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted);">Dieser Ordner ist leer.</div>';
+                return;
+            }
+
+            data.items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'fm-node-card';
+                
+                const isDir = item.type === 'dir';
+                const icon = isDir ? '📁' : '📄';
+
+                el.innerHTML = `
+                    <div class="fm-node-icon">${icon}</div>
+                    <div class="fm-node-name" title="${item.name}">${item.name}</div>
+                `;
+
+                // Single-click selects, Double-click opens
+                el.onclick = (e) => {
+                    e.stopPropagation();
+                    selectFMNode(item, el);
+                };
+
+                el.ondblclick = (e) => {
+                    e.stopPropagation();
+                    if (isDir) {
+                        fmNavigate(item.path);
+                    } else {
+                        fmReadFile(item.path);
+                    }
+                };
+                grid.appendChild(el);
+            });
+
+            // Clear selection if clicking workspace background
+            grid.onclick = (e) => {
+                if (e.target === grid) deselectFMNode();
+            };
+
+        } catch (e) {
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--danger);">Fehler beim Laden.</div>';
+        }
+    }
+
+    function renderFMBreadcrumbs(path) {
+        const container = document.getElementById('fm-breadcrumbs-container');
+        container.innerHTML = '';
+
+        const parts = path.split('/').filter(Boolean);
+        
+        // Home / Root
+        const rootSpan = document.createElement('span');
+        rootSpan.className = 'breadcrumb-node';
+        rootSpan.innerText = '🏠 /';
+        rootSpan.onclick = () => fmNavigate('/');
+        container.appendChild(rootSpan);
+
+        let currentAcc = '';
+        parts.forEach((p, idx) => {
+            currentAcc += '/' + p;
+            
+            const sep = document.createElement('span');
+            sep.className = 'breadcrumb-separator';
+            sep.innerText = ' / ';
+            container.appendChild(sep);
+
+            if (idx === parts.length - 1) {
+                const current = document.createElement('span');
+                current.className = 'breadcrumb-current';
+                current.innerText = p;
+                container.appendChild(current);
+            } else {
+                const target = currentAcc;
+                const item = document.createElement('span');
+                item.className = 'breadcrumb-node';
+                item.innerText = p;
+                item.onclick = () => fmNavigate(target);
+                container.appendChild(item);
+            }
+        });
+    }
+
+    async function fmReadFile(path) {
+        // Öffne den HELA Editor im selben Tab
+        const backUrl = encodeURIComponent('/filemanager');
+        window.location.href = `/editor?path=${encodeURIComponent(path)}&back=${backUrl}`;
+    }
+
+    function loadDirectory(path) { fmNavigate(path); }
+
+    function fmCloseEditor() {
+        document.getElementById('fm-editor-box').style.display = 'none';
+        document.getElementById('fm-directory-items').style.display = 'grid';
+        document.querySelector('.fm-toolbar').style.display = 'flex';
+    }
+
+    async function fmSaveEditor() {
+        const textarea = document.getElementById('fm-editor-textarea');
+        const content = textarea.value;
+
+        try {
+            const r = await fetch('/api/files/write', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: fmSelectedFilePath, content })
+            });
+            const data = await r.json();
+            if (data.ok) {
+                showToast("Datei erfolgreich gespeichert.");
+                fmCloseEditor();
+                fmNavigate(fmCurrentPath);
+            } else {
+                throw new Error(data.error);
+            }
+        } catch(e) {
+            showToast(e.message, "error");
+        }
+    }
+
+    function fmOpenNewFolderModal() {
+        document.getElementById('fm-newfolder-name').value = '';
+        document.getElementById('fm-newfolder-modal').classList.add('active');
+    }
+
+    async function fmDoCreateFolder() {
+        const name = document.getElementById('fm-newfolder-name').value.trim();
+        if (!name) return;
+        const path = fmCurrentPath.replace(/\/$/, '') + '/' + name;
+
+        try {
+            const r = await fetch('/api/files/mkdir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path })
+            });
+            if (r.ok) {
+                document.getElementById('fm-newfolder-modal').classList.remove('active');
+                showToast(`Ordner '${name}' erstellt.`);
+                fmNavigate(fmCurrentPath);
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    function fmOpenNewFileModal() {
+        document.getElementById('fm-newfile-name').value = '';
+        document.getElementById('fm-newfile-modal').classList.add('active');
+    }
+
+    async function fmDoCreateFile() {
+        const name = document.getElementById('fm-newfile-name').value.trim();
+        if (!name) return;
+        const path = fmCurrentPath.replace(/\/$/, '') + '/' + name;
+
+        try {
+            const r = await fetch('/api/files/write', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path, content: '' })
+            });
+            if (r.ok) {
+                document.getElementById('fm-newfile-modal').classList.remove('active');
+                showToast(`Datei '${name}' angelegt.`);
+                fmNavigate(fmCurrentPath);
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    function fmOpenRenameSelected() {
+        if (!fmSelectedNode) return;
+        document.getElementById('fm-rename-new-name').value = fmSelectedNode.name;
+        document.getElementById('fm-rename-modal').classList.add('active');
+    }
+
+    async function fmDoRename() {
+        const name = document.getElementById('fm-rename-new-name').value.trim();
+        if (!name || !fmSelectedNode) return;
+
+        try {
+            const r = await fetch('/api/files/rename', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: fmSelectedNode.path, new_name: name })
+            });
+            if (r.ok) {
+                document.getElementById('fm-rename-modal').classList.remove('active');
+                showToast("Element erfolgreich umbenannt.");
+                fmNavigate(fmCurrentPath);
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function fmDeleteSelected() {
+        if (!fmSelectedNode) return;
+        if (!confirm(`Möchtest du das Element '${fmSelectedNode.name}' wirklich löschen?`)) return;
+
+        try {
+            const r = await fetch('/api/files/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: fmSelectedNode.path })
+            });
+            if (r.ok) {
+                showToast("Element gelöscht.");
+                fmNavigate(fmCurrentPath);
+            }
+        } catch(e) { console.error(e); }
+    }
+</script>
+{% endblock %}

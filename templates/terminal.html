@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="display:flex; align-items:center; gap: 15px; margin-bottom: 10px;">
+    <a href="/" class="btn btn-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </a>
+    <div class="view-title" id="terminal-container-title" style="margin-bottom: 0;">{{ container_name }} | Systemkonsole</div>
+</div>
+<div class="view-subtitle">Echtzeit-Logs und interaktive Befehlsausführung an einem zentralen Ort</div>
+
+<div class="tabs-nav" id="terminal-view-tabs" style="margin-bottom: 15px;">
+    <button class="tab-btn active" onclick="switchTerminalTab('logs')">System Protokoll (Logs)</button>
+    <button class="tab-btn" onclick="switchTerminalTab('exec')">Interaktive Shell (Exec)</button>
+</div>
+
+<div class="console-workspace">
+    <div class="console-tabbar">
+        <span style="font-weight: 600; font-size: 13px;" id="console-sub-title">Docker Logs</span>
+        <div style="display:flex; gap: 8px;" id="console-logs-controls">
+            <button onclick="fetchContainerLogsNow(100)" class="btn btn-sm">100 Zeilen</button>
+            <button onclick="fetchContainerLogsNow('start')" class="btn btn-sm" style="color:var(--primary);">Seit Start</button>
+            <button onclick="clearConsoleLog()" class="btn btn-sm btn-icon">🧹</button>
+        </div>
+    </div>
+
+    <!-- Unified Console body -->
+    <div class="console-body" id="console-body">
+        Lade Logs...
+    </div>
+
+    <!-- Input row, visible only in 'exec' mode -->
+    <div class="console-input-area" id="console-input-area" style="display: none;">
+        <span class="console-prompt">&gt;</span>
+        <input type="text" id="console-input-field" class="console-input" placeholder="ls -la" onkeydown="handleTerminalSubmit(event)">
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const terminalSelectedContainer = "{{ container_name }}";
+    let activeTerminalTab = 'logs';
+    let terminalInterval = null;
+
+    async function initPage(data) {
+        switchTerminalTab('logs');
+    }
+
+    window.addEventListener('beforeunload', () => {
+        stopTerminalPolling();
+    });
+
+    function switchTerminalTab(tabId) {
+        activeTerminalTab = tabId;
+        const logBtn = document.querySelectorAll('#terminal-view-tabs .tab-btn')[0];
+        const execBtn = document.querySelectorAll('#terminal-view-tabs .tab-btn')[1];
+        
+        const subTitle = document.getElementById('console-sub-title');
+        const controls = document.getElementById('console-logs-controls');
+        const inputArea = document.getElementById('console-input-area');
+        const body = document.getElementById('console-body');
+
+        stopTerminalPolling();
+
+        if (tabId === 'logs') {
+            logBtn.classList.add('active');
+            execBtn.classList.remove('active');
+            subTitle.innerText = "System Protokoll (docker logs)";
+            controls.style.display = 'flex';
+            inputArea.style.display = 'none';
+            body.style.color = '#cbd5e1';
+            body.innerText = "Lade Logs...";
+
+            fetchContainerLogsNow(100);
+            terminalInterval = setInterval(() => {
+                fetchContainerLogsNow(100);
+            }, 5000);
+        } else {
+            logBtn.classList.remove('active');
+            execBtn.classList.add('active');
+            subTitle.innerText = "Befehlsausführung (docker exec)";
+            controls.style.display = 'none';
+            inputArea.style.display = 'flex';
+            body.style.color = '#a7f3d0';
+            body.innerText = "CARLA Exec-Konsole bereit. Befehle werden direkt im Container ausgeführt.\n";
+        }
+    }
+
+    function clearConsoleLog() {
+        document.getElementById('console-body').innerText = '';
+    }
+
+    async function handleTerminalSubmit(event) {
+        if (event.key === 'Enter') {
+            const inputEl = document.getElementById('console-input-field');
+            const cmd = inputEl.value.trim();
+            if (!cmd) return;
+
+            const body = document.getElementById('console-body');
+            body.innerText += `\n$ ${cmd}\n`;
+            inputEl.value = '';
+
+            try {
+                const resp = await fetch(`/api/container/${terminalSelectedContainer}/exec`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: cmd })
+                });
+                const data = await resp.json();
+                body.innerText += data.output + '\n';
+            } catch(e) {
+                body.innerText += `Fehler: ${e.message}\n`;
+            }
+            
+            body.scrollTop = body.scrollHeight;
+        }
+    }
+
+    async function fetchContainerLogsNow(lines) {
+        const body = document.getElementById('console-body');
+        let url = `/api/container/${terminalSelectedContainer}/logs`;
+        if (lines === 'start') {
+            url = `/api/container/${terminalSelectedContainer}/logs-since-start`;
+        }
+
+        try {
+            const r = await fetch(url);
+            if (r.ok) {
+                const data = await r.json();
+                body.textContent = data.logs || "Keine Logs vorhanden.";
+            }
+        } catch(e) {
+            body.textContent = `Fehler beim Laden: ${e.message}`;
+        }
+        body.scrollTop = body.scrollHeight;
+    }
+
+    function stopTerminalPolling() {
+        if (terminalInterval) {
+            clearInterval(terminalInterval);
+            terminalInterval = null;
+        }
+    }
+</script>
+{% endblock %}

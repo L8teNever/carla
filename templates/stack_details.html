@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="display:flex; align-items:center; gap: 15px; margin-bottom: 10px;">
+    <a href="/" class="btn btn-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </a>
+    <div class="view-title" id="stack-detail-title" style="margin-bottom: 0;">{{ stack_name }} | Stack verwalten</div>
+</div>
+<div class="view-subtitle" id="stack-detail-subtitle">Verwalte Container und Konfigurationen dieses Compose-Projekts</div>
+
+<!-- Tab navigation -->
+<div class="tabs-nav" id="stack-detail-tabs" style="margin-bottom: 20px;">
+    <button class="tab-btn active" onclick="switchStackDetailTab('overview')">Übersicht &amp; Container</button>
+    <button class="tab-btn" onclick="switchStackDetailTab('config')">Konfiguration (YAML/.env)</button>
+    <button class="tab-btn" onclick="switchStackDetailTab('metrics')">Auslastung (Charts)</button>
+    <button class="tab-btn" onclick="switchStackDetailTab('mounts')">Speichermounts</button>
+    <button class="tab-btn" onclick="switchStackDetailTab('actions')">Systemaktionen</button>
+</div>
+
+<!-- Tab content panels -->
+
+<!-- 1. Overview Tab -->
+<div id="stack-tab-overview" class="table-container">
+    <div class="table-header-panel">
+        <span style="font-weight: 600;">Laufende Docker-Container in diesem Projekt</span>
+    </div>
+    <table class="table" id="stack-containers-table">
+        <thead>
+            <tr>
+                <th>Container</th>
+                <th>Docker Image</th>
+                <th>Zustand / Status</th>
+                <th>Exponierte Ports</th>
+                <th style="text-align: right;">Aktionen</th>
+            </tr>
+        </thead>
+        <tbody id="stack-containers-tbody">
+            <tr><td colspan="5" class="text-center" style="color:var(--text-muted); padding:20px 0;">Lade Container...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- 2. Configuration Tab -->
+<div id="stack-tab-config" style="display: none; flex-direction:column; gap: 15px; width: 100%;">
+    <div class="tabs-nav" style="margin-bottom: 0;">
+        <button class="tab-btn active" id="btn-edit-env" onclick="toggleComposeEnv(false)">docker-compose.yml</button>
+        <button class="tab-btn" id="btn-edit-compose" onclick="toggleComposeEnv(true)">.env (Variablen)</button>
+    </div>
+    <div class="editor-container">
+        <div class="editor-header">
+            <span class="editor-filepath" id="compose-filepath-label">docker-compose.yml</span>
+            <button class="btn btn-primary btn-sm" onclick="saveStackComposeEnv(event)">Datei Speichern</button>
+        </div>
+        <textarea class="editor-textarea" id="compose-editor-content" spellcheck="false" style="height: 450px;"></textarea>
+    </div>
+</div>
+
+<!-- 3. Metrics Tab -->
+<div id="stack-tab-metrics" class="card" style="display: none;">
+    <h4 class="card-title" style="margin-bottom: 15px;">Ressourcenverbrauch Historie</h4>
+    <div style="height: 380px; position: relative;">
+        <canvas id="chart-stack-resources"></canvas>
+    </div>
+</div>
+
+<!-- 4. Volumes Tab -->
+<div id="stack-tab-mounts" class="card" style="display: none;">
+    <h4 class="card-title" style="margin-bottom: 15px;">Speichermounts &amp; Bind-Mounts</h4>
+    <div style="display:flex; flex-direction:column; gap: 12px;" id="stack-detail-mounts">
+        <!-- Dynamic mount points -->
+    </div>
+</div>
+
+<!-- 5. Actions Tab -->
+<div id="stack-tab-actions" class="card" style="display: none; max-width: 600px;">
+    <h4 class="card-title" style="margin-bottom: 15px;">Globale Compose-Steuerung</h4>
+    <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px;">
+        Steuere alle Container in diesem Compose-Projekt gleichzeitig über globale Systembefehle.
+    </p>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
+        <button id="btn-stack-start" class="btn btn-success" onclick="executeStackAction(event, 'start')">Projekt starten</button>
+        <button id="btn-stack-stop" class="btn btn-danger" onclick="executeStackAction(event, 'stop')">Projekt stoppen</button>
+        <button id="btn-stack-restart" class="btn" onclick="executeStackAction(event, 'restart')">Projekt neu starten</button>
+        <button id="btn-stack-down" class="btn btn-danger" onclick="executeStackAction(event, 'down')">Projekt abbauen (down)</button>
+    </div>
+    <button id="btn-stack-update" class="btn btn-primary" style="width:100%;" onclick="executeStackAction(event, 'update')">Images pullen &amp; Container updaten</button>
+    <div class="badge success" id="stack-action-output" style="margin-top:20px; display:none; justify-content:center; word-break:break-all; font-family:var(--font-mono); font-size:11px;"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const detailSelectedStack = "{{ stack_name }}";
+    let activeComposeTab = 'compose'; // 'compose' or 'env'
+    let cachedComposeData = {};
+    let activeStackDetailTab = "overview";
+    let stackPerfInterval = null;
+    const charts = {};
+
+    async function initPage(data) {
+        if (!window.fullInfrastructureData || !window.fullInfrastructureData.stacks) {
+            let attempts = 0;
+            while ((!window.fullInfrastructureData || !window.fullInfrastructureData.stacks) && attempts < 15) {
+                await new Promise(r => setTimeout(r, 200));
+                attempts++;
+            }
+        }
+        showStackDetail(detailSelectedStack);
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if (stackPerfInterval) {
+            clearInterval(stackPerfInterval);
+        }
+        stopStackPerfPolling();
+    });
+
+    async function showStackDetail(stackName) {
+        const actionsOutput = document.getElementById('stack-action-output');
+        if (actionsOutput) actionsOutput.style.display = 'none';
+
+        // Reset Editor
+        const editorText = document.getElementById('compose-editor-content');
+        editorText.value = "Lade Compose-Konfiguration...";
+        editorText.disabled = true;
+
+        try {
+            // 1. Render Containers for this Stack
+            const containers = (window.fullInfrastructureData && window.fullInfrastructureData.stacks && window.fullInfrastructureData.stacks[stackName]) || [];
+            const tbody = document.getElementById('stack-containers-tbody');
+            tbody.innerHTML = '';
+            
+            if (containers.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--text-muted); padding:20px 0;">Keine Container erfasst. Läuft dieses Projekt?</td></tr>`;
+            } else {
+                containers.forEach(c => {
+                    const isRunning = c.state === 'running';
+                    const statusDotColor = isRunning ? 'var(--success)' : 'var(--danger)';
+                    
+                    let portsHtml = '';
+                    if (c.ports_raw) {
+                        portsHtml = c.ports_raw.split(',').map(p => {
+                            p = p.trim();
+                            if (c.local_url && p.includes('->')) {
+                                return `<a href="${c.local_url}" target="_blank" class="breadcrumb-node" style="font-family:var(--font-mono); font-size:11.5px;">${p}</a>`;
+                            }
+                            return `<span style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted);">${p}</span>`;
+                        }).join('<br>');
+                    } else {
+                        portsHtml = '<span style="color:var(--text-muted);">-</span>';
+                    }
+
+                    let cfHtml = '';
+                    if (c.cloudflares && c.cloudflares.length > 0) {
+                        cfHtml = c.cloudflares.map(cf => {
+                            const isZt = cf.allowed_emails && cf.allowed_emails.length > 0;
+                            const ztBadge = isZt 
+                                ? `<span class="badge success" style="font-size:10px; padding:2px 6px; margin-left:6px;" title="Abgesichert über Zero Trust: ${cf.allowed_emails.join(', ')}">🔒 Zero Trust</span>`
+                                : `<span class="badge danger" style="font-size:10px; padding:2px 6px; margin-left:6px;" title="Achtung: Diese Route ist öffentlich erreichbar!">⚠️ Öffentlich</span>`;
+                            return `
+                                <div style="margin-top: 6px; display:flex; align-items:center; flex-wrap:wrap; gap:4px; font-size:11.5px;">
+                                    <span style="color:var(--cf); font-weight:600; font-size:9px; letter-spacing:0.5px; text-transform:uppercase;">CF Route:</span>
+                                    <a href="https://${cf.public_domain}" target="_blank" style="color:var(--text); font-family:var(--font-mono); text-decoration:none; font-weight:600;">
+                                        ${cf.public_domain} ↗
+                                    </a>
+                                    ${ztBadge}
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight:600;">${c.name}</td>
+                        <td style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted); max-width:200px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${c.image.split('@')[0]}</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="width: 7.5px; height: 7.5px; border-radius: 50%; background-color: ${statusDotColor}; box-shadow: 0 0 5px ${statusDotColor};"></span>
+                                <span>${c.status_text}</span>
+                            </div>
+                        </td>
+                        <td>
+                            ${portsHtml}
+                            ${cfHtml}
+                        </td>
+                        <td style="text-align:right;">
+                            <div style="display:flex; gap:6px; justify-content:flex-end;">
+                                <button onclick="executeContainerDirectAction('${c.name}', 'start')" class="btn btn-sm btn-success" title="Container starten" ${isRunning ? 'disabled style="opacity:0.3;"' : ''}>Start</button>
+                                <button onclick="executeContainerDirectAction('${c.name}', 'stop')" class="btn btn-sm btn-danger" title="Container stoppen" ${!isRunning ? 'disabled style="opacity:0.3;"' : ''}>Stop</button>
+                                <button onclick="executeContainerDirectAction('${c.name}', 'restart')" class="btn btn-sm" title="Container neu starten">Restart</button>
+                                <a href="/container/${c.name}/terminal" class="btn btn-sm btn-primary" title="Logs / Shell">Terminal</a>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // 2. Fetch paths & mounts
+            const rPaths = await fetch(`/api/files/stack/${stackName}`);
+            if (rPaths.ok) {
+                const data = await rPaths.json();
+                const mountsEl = document.getElementById('stack-detail-mounts');
+                mountsEl.innerHTML = '';
+                
+                if (data.workdir) {
+                    mountsEl.innerHTML += `
+                        <div style="display:flex; justify-content:space-between; font-size:13px; align-items:center; margin-bottom: 12px;">
+                            <span style="color:var(--text-muted);">Ordnerpfad:</span>
+                            <strong style="font-family:var(--font-mono); font-size:11.5px; opacity:0.8; background:rgba(255,255,255,0.02); padding: 4px 8px; border-radius:4px; border:1px solid var(--border);">${data.workdir}</strong>
+                        </div>
+                    `;
+                }
+                if (data.volumes && data.volumes.length > 0) {
+                    data.volumes.forEach(v => {
+                        mountsEl.innerHTML += `
+                            <div style="border-top:1px solid var(--border); padding-top:10px; margin-top:5px;">
+                                <div style="font-size:12px; font-weight:600; color:var(--primary);">${v.name}</div>
+                                <div style="font-family:var(--font-mono); font-size:11px; opacity:0.6; margin-top:2px; word-break:break-all;">Mountpoint: ${v.mountpoint}</div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    mountsEl.innerHTML += `<div style="text-align:center; padding:15px 0; font-size:12px; color:var(--text-muted);">Keine benannten Compose-Volumes erfasst.</div>`;
+                }
+            }
+
+            // 3. Fetch YAML compose content
+            const rCompose = await fetch(`/api/files/stack/${stackName}/compose`);
+            if (rCompose.ok) {
+                const data = await rCompose.json();
+                cachedComposeData = data;
+                activeComposeTab = 'compose';
+                
+                document.getElementById('compose-filepath-label').innerText = data.compose_file.split('/').pop();
+                editorText.value = data.compose_content || "";
+                editorText.disabled = false;
+
+                document.getElementById('btn-edit-compose').className = "tab-btn";
+                document.getElementById('btn-edit-env').className = "tab-btn active";
+            }
+
+            switchStackDetailTab('overview');
+
+        } catch(e) { console.error("Stack-Details laden fehlgeschlagen:", e); }
+    }
+
+    function switchStackDetailTab(tabId) {
+        activeStackDetailTab = tabId;
+        
+        // Buttons toggle
+        const tabsContainer = document.getElementById('stack-detail-tabs');
+        if (tabsContainer) {
+            tabsContainer.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            const activeBtn = Array.from(tabsContainer.querySelectorAll('.tab-btn')).find(btn => 
+                btn.getAttribute('onclick').includes(`'${tabId}'`)
+            );
+            if (activeBtn) activeBtn.classList.add('active');
+        }
+
+        // Panels toggle
+        document.getElementById('stack-tab-overview').style.display = tabId === 'overview' ? 'block' : 'none';
+        document.getElementById('stack-tab-config').style.display = tabId === 'config' ? 'flex' : 'none';
+        document.getElementById('stack-tab-metrics').style.display = tabId === 'metrics' ? 'block' : 'none';
+        document.getElementById('stack-tab-mounts').style.display = tabId === 'mounts' ? 'block' : 'none';
+        document.getElementById('stack-tab-actions').style.display = tabId === 'actions' ? 'block' : 'none';
+
+        if (tabId === 'metrics') {
+            pollStackPerformance();
+            if (stackPerfInterval) clearInterval(stackPerfInterval);
+            stackPerfInterval = setInterval(pollStackPerformance, 4000);
+        } else {
+            if (stackPerfInterval) {
+                clearInterval(stackPerfInterval);
+                stackPerfInterval = null;
+            }
+        }
+    }
+
+    async function executeContainerDirectAction(containerName, action) {
+        showToast(`Führe '${action}' auf Container '${containerName}' aus...`, "info");
+        try {
+            const r = await fetch(`/api/container/${encodeURIComponent(containerName)}/${action}`, { method: 'POST' });
+            const data = await r.json();
+            if (data.success) {
+                showToast(`Container '${containerName}' erfolgreich gestoppt/gestartet.`);
+                triggerManualRefresh();
+                setTimeout(() => showStackDetail(detailSelectedStack), 1000);
+            } else {
+                showToast(data.output || "Fehler bei der Ausführung.", "error");
+            }
+        } catch(e) {
+            showToast(e.message, "error");
+        }
+    }
+
+    function toggleComposeEnv(isEnv) {
+        const editorText = document.getElementById('compose-editor-content');
+        const label = document.getElementById('compose-filepath-label');
+        const btnCompose = document.getElementById('btn-edit-env');
+        const btnEnv = document.getElementById('btn-edit-compose');
+
+        if (isEnv) {
+            activeComposeTab = 'env';
+            label.innerText = ".env";
+            editorText.value = cachedComposeData.env_content || "";
+            btnCompose.className = "tab-btn";
+            btnEnv.className = "tab-btn active";
+        } else {
+            activeComposeTab = 'compose';
+            label.innerText = cachedComposeData.compose_file ? cachedComposeData.compose_file.split('/').pop() : "docker-compose.yml";
+            editorText.value = cachedComposeData.compose_content || "";
+            btnCompose.className = "tab-btn active";
+            btnEnv.className = "tab-btn";
+        }
+    }
+
+    async function saveStackComposeEnv(event) {
+        const editorText = document.getElementById('compose-editor-content');
+        const btnSave = event.target;
+        
+        const originalText = btnSave.innerText;
+        btnSave.disabled = true;
+        btnSave.innerText = "Speichere...";
+
+        const path = activeComposeTab === 'env' ? cachedComposeData.env_file : cachedComposeData.compose_file;
+        const content = editorText.value;
+
+        try {
+            const r = await fetch('/api/files/write', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path, content })
+            });
+            if (r.ok) {
+                if (activeComposeTab === 'env') cachedComposeData.env_content = content;
+                else cachedComposeData.compose_content = content;
+                showToast("Konfigurationsdatei erfolgreich gespeichert.");
+            } else {
+                const err = await r.json();
+                throw new Error(err.error || "Fehler beim Speichern");
+            }
+        } catch(e) {
+            showToast(e.message, "error");
+        } finally {
+            btnSave.disabled = false;
+            btnSave.innerText = originalText;
+        }
+    }
+
+    async function executeStackAction(event, action) {
+        const outputEl = document.getElementById('stack-action-output');
+        const btn = event.target;
+        const originalText = btn.innerText;
+
+        btn.disabled = true;
+        btn.innerText = "Führe aus...";
+        if (outputEl) outputEl.style.display = 'none';
+
+        try {
+            const r = await fetch(`/api/stack/${detailSelectedStack}/${action}`, { method: 'POST' });
+            const data = await r.json();
+            
+            if (outputEl) {
+                outputEl.style.display = 'flex';
+                if (data.success) {
+                    outputEl.className = "badge success";
+                    outputEl.innerText = `Erfolgreich durchgeführt.`;
+                    showToast(`Aktion '${action}' erfolgreich abgeschlossen.`);
+                    triggerManualRefresh();
+                    setTimeout(() => showStackDetail(detailSelectedStack), 1000);
+                } else {
+                    outputEl.className = "badge danger";
+                    outputEl.innerText = "Ausführung fehlgeschlagen.";
+                    showToast(data.output || "Fehler bei der Ausführung.", "error");
+                }
+            }
+        } catch(e) {
+            if (outputEl) {
+                outputEl.style.display = 'flex';
+                outputEl.className = "badge danger";
+                outputEl.innerText = e.message;
+            }
+            showToast(e.message, "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
+    }
+
+    async function pollStackPerformance() {
+        try {
+            const r = await fetch(`/api/metrics/stack/${detailSelectedStack}?limit=40`);
+            const history = r.ok ? await r.json() : [];
+            
+            const labels = history.map(h => {
+                const d = new Date(h.timestamp * 1000);
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            });
+            const cpu = history.map(h => h.cpu_usage);
+            const ram = history.map(h => h.ram_usage);
+
+            const ctx = document.getElementById('chart-stack-resources');
+            if (!ctx) return;
+
+            if (charts.stackResources) {
+                charts.stackResources.data.labels = labels;
+                charts.stackResources.data.datasets[0].data = cpu;
+                charts.stackResources.data.datasets[1].data = ram;
+                charts.stackResources.update('none');
+                return;
+            }
+
+            charts.stackResources = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'CPU Gesamt (%)', data: cpu, borderColor: 'var(--primary)', backgroundColor: 'rgba(167, 139, 250, 0.05)', fill: true, tension: 0.3 },
+                        { label: 'RAM Gesamt (MiB)', data: ram, borderColor: 'var(--success)', backgroundColor: 'rgba(52, 211, 153, 0.05)', fill: true, tension: 0.3, yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#a1a1aa', font: { family: 'Outfit' } } } },
+                    scales: {
+                        y: { title: { display: true, text: 'CPU (%)', color: '#a1a1aa' }, ticks: { color: '#8e8e9f' }, grid: { color: 'rgba(255,255,255,0.03)' } },
+                        y1: { title: { display: true, text: 'RAM (MiB)', color: '#a1a1aa' }, position: 'right', ticks: { color: '#8e8e9f' }, grid: { drawOnChartArea: false } },
+                        x: { grid: { display: false }, ticks: { display: false } }
+                    }
+                }
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    function stopStackPerfPolling() {
+        if (charts.stackResources) {
+            charts.stackResources.destroy();
+            charts.stackResources = null;
+        }
+    }
+</script>
+{% endblock %}

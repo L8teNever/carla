@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="view-title">Ports Manager</div>
+<div class="view-subtitle">Offene Listening Ports des Host-Systems und deren Zuordnung</div>
+
+<div class="table-container">
+    <div class="table-header-panel">
+        <span style="font-weight: 600;">Offene TCP/UDP Ports</span>
+        <span class="badge success">Enriched with Docker &amp; Cloudflare</span>
+    </div>
+    <table class="table" id="ports-table">
+        <thead>
+            <tr>
+                <th>Port</th>
+                <th>Protokoll</th>
+                <th>IP Schnittstelle</th>
+                <th>Bereich</th>
+                <th>Prozess</th>
+                <th>Docker Container</th>
+                <th>Cloudflare Route</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="7" class="text-center" style="color:var(--text-muted); padding:30px 0;">Lade Listening-Ports...</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let portsInterval = null;
+
+    async function initPage(data) {
+        startPortsPolling();
+    }
+
+    window.addEventListener('beforeunload', () => {
+        stopPortsPolling();
+    });
+
+    function startPortsPolling() {
+        renderPortsView();
+        portsInterval = setInterval(renderPortsView, 5000);
+    }
+
+    function stopPortsPolling() {
+        if (portsInterval) { clearInterval(portsInterval); portsInterval = null; }
+    }
+
+    async function renderPortsView() {
+        try {
+            const r = await fetch('/api/ports');
+            const ports = r.ok ? await r.json() : [];
+            
+            const tbody = document.querySelector('#ports-table tbody');
+            tbody.innerHTML = '';
+
+            if (ports.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color:var(--text-muted); padding:30px 0;">Keine aktiven Ports gefunden. Permission-Problem?</td></tr>`;
+                return;
+            }
+
+            ports.forEach(p => {
+                let containerCell = '<span style="color:var(--text-muted);">-</span>';
+                if (p.is_docker) {
+                    containerCell = `
+                        <div style="font-weight:600;">${p.container}</div>
+                        span class="badge info" style="font-size:10px; margin-top:2px;">${p.stack}</span>
+                    `;
+                }
+
+                let cfCell = '<span style="color:var(--text-muted);">-</span>';
+                if (p.cloudflares && p.cloudflares.length > 0) {
+                    cfCell = p.cloudflares.map(cf => `
+                        <div style="font-weight:500; color:var(--cf);">${cf.public_domain}</div>
+                        <span style="font-size:10.5px; opacity:0.7;">Tunnel: ${cf.tunnel_name}</span>
+                    `).join('<br>');
+                }
+
+                const scopeClass = p.scope === 'public' ? 'danger' : p.scope === 'private' ? 'warning' : 'success';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-family:var(--font-mono); font-weight:700; color:var(--primary);">${p.port}</td>
+                    <td style="text-transform:uppercase; font-family:var(--font-mono); font-size:12px;">${p.protocol}</td>
+                    <td style="font-family:var(--font-mono);">${p.ip}</td>
+                    <td><span class="badge ${scopeClass}">${p.scope}</span></td>
+                    <td>${p.process || '<span style="color:var(--text-muted);">Unbekannt</span>'}</td>
+                    <td>${containerCell}</td>
+                    <td>${cfCell}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (e) { console.error(e); }
+    }
+</script>
+{% endblock %}

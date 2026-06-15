@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="view-title">Einstellungen</div>
+<div class="view-subtitle">Verwalte API-Keys, Auto-Updates und Systemkonfigurationen</div>
+
+<div class="grid-layout grid-2" style="margin-bottom: 25px;">
+    <!-- API Tokens Config -->
+    <div class="card">
+        <h4 class="card-title" style="margin-bottom: 15px;">Integrations &amp; API Keys</h4>
+        <div style="display:flex; flex-direction:column; gap: 15px;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">GitHub Token</label>
+                <input type="password" id="settings-github" class="input mono" placeholder="Unverändert (••••••••)">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Cloudflare API Token &amp; Account ID</label>
+                <div class="grid-2" style="gap: 10px;">
+                    <input type="password" id="settings-cf-token" class="input mono" placeholder="Token (cf_...)">
+                    <input type="text" id="settings-cf-account" class="input" placeholder="Account ID">
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Google Drive OAuth (Backup Cloud)</label>
+                <div style="display:flex; flex-direction:column; gap: 8px;">
+                    <input type="text" id="settings-gdrive-client" class="input" placeholder="Client ID">
+                    <div class="grid-2" style="gap: 10px;">
+                        <input type="password" id="settings-gdrive-secret" class="input mono" placeholder="Client Secret">
+                        <input type="password" id="settings-gdrive-refresh" class="input mono" placeholder="Refresh Token">
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; gap: 10px; margin-top: 10px;">
+                <button class="btn btn-success" onclick="testGDriveConnection()" style="flex:1;">Drive Verbindung testen</button>
+                <button class="btn btn-primary" onclick="saveSettingsKeys()" style="flex:1;">API-Keys speichern</button>
+            </div>
+            <div class="badge info" id="settings-keys-output" style="display:none; justify-content:center; font-size:12px;"></div>
+        </div>
+    </div>
+
+    <!-- Auto Updater Config -->
+    <div class="card" style="display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+            <h4 class="card-title" style="margin-bottom: 15px;">Auto-Updater</h4>
+            <div style="display:flex; flex-direction:column; gap: 15px;">
+                <label style="display:flex; align-items:center; gap: 10px; font-size:13.5px; cursor:pointer;">
+                    <input type="checkbox" id="updater-enabled" onchange="saveUpdaterConfig()"> Automatisches Update aktivieren
+                </label>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Update-Uhrzeit (HH:MM)</label>
+                    <input type="text" id="updater-time" class="input" placeholder="04:00" onchange="saveUpdaterConfig()">
+                </div>
+                <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">Der Auto-Updater zieht im Hintergrund neue Docker-Images und startet die betroffenen Compose-Stacks neu.</p>
+            </div>
+        </div>
+        
+        <div style="border-top:1px solid var(--border); padding-top:20px; margin-top:20px;">
+            <h5 style="font-size: 13.5px; font-weight: 600; margin-bottom:5px;">System zurücksetzen</h5>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Löscht alle CARLA-Konfigurationen und startet den Setup-Wizard neu.</p>
+            <button onclick="resetSetupWizard()" class="btn btn-danger" style="width: 100%;">Setup-Konfiguration löschen</button>
+        </div>
+    </div>
+</div>
+
+<div class="table-container">
+    <div class="table-header-panel">
+        <span style="font-weight: 600;">Update-Historie</span>
+    </div>
+    <table class="table" id="settings-updater-log-table">
+        <thead>
+            <tr>
+                <th>Zeitpunkt</th>
+                <th>Typ</th>
+                <th>Projekte / Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Dynamic update log -->
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function initPage(data) {
+        loadSettingsView();
+    }
+
+    async function loadSettingsView() {
+        try {
+            // Fetch masked setup keys
+            const rKeys = await fetch('/api/setup/keys');
+            if (rKeys.ok) {
+                const keys = await rKeys.json();
+                document.getElementById('settings-github').value = keys.github_token ? "••••••••" : "";
+                document.getElementById('settings-cf-token').value = keys.cf_api_token ? "••••••••" : "";
+                document.getElementById('settings-cf-account').value = keys.cf_account_id || "";
+                document.getElementById('settings-gdrive-client').value = keys.gdrive_client_id || "";
+                document.getElementById('settings-gdrive-secret').value = keys.gdrive_client_secret ? "••••••••" : "";
+                document.getElementById('settings-gdrive-refresh').value = keys.gdrive_refresh_token ? "••••••••" : "";
+            }
+
+            // Fetch updater config & logs
+            const rUp = await fetch('/api/updater/config');
+            if (rUp.ok) {
+                const cfg = await rUp.json();
+                document.getElementById('updater-enabled').checked = cfg.enabled;
+                document.getElementById('updater-time').value = cfg.time;
+            }
+
+            const rLog = await fetch('/api/updater/log');
+            const logs = rLog.ok ? await rLog.json() : [];
+            
+            const tbody = document.querySelector('#settings-updater-log-table tbody');
+            tbody.innerHTML = '';
+
+            if (logs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:20px 0;">Keine Updates geloggt.</td></tr>`;
+            } else {
+                logs.forEach(l => {
+                    const tr = document.createElement('tr');
+                    const date = new Date(l.timestamp);
+                    tr.innerHTML = `
+                        <td>${date.toLocaleString()}</td>
+                        <td style="text-transform:capitalize;">${l.trigger}</td>
+                        <td>${l.stacks.map(s => `<span class="badge success" style="margin-right:4px;">${s.stack}: ${s.status}</span>`).join(' ')}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+        } catch (e) { console.error(e); }
+    }
+
+    async function saveSettingsKeys() {
+        const outEl = document.getElementById('settings-keys-output');
+        if (outEl) outEl.style.display = 'none';
+
+        const payload = {};
+        const gh = document.getElementById('settings-github').value.trim();
+        const cfT = document.getElementById('settings-cf-token').value.trim();
+        const cfA = document.getElementById('settings-cf-account').value.trim();
+        const gdC = document.getElementById('settings-gdrive-client').value.trim();
+        const gdS = document.getElementById('settings-gdrive-secret').value.trim();
+        const gdR = document.getElementById('settings-gdrive-refresh').value.trim();
+
+        if (gh && gh !== "••••••••") payload.github_token = gh;
+        if (cfT && cfT !== "••••••••") payload.cf_api_token = cfT;
+        if (cfA) payload.cf_account_id = cfA;
+        if (gdC) payload.gdrive_client_id = gdC;
+        if (gdS && gdS !== "••••••••") payload.gdrive_client_secret = gdS;
+        if (gdR && gdR !== "••••••••") payload.gdrive_refresh_token = gdR;
+
+        try {
+            const r = await fetch('/api/setup/keys', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (r.ok) {
+                showToast("API-Keys erfolgreich gespeichert.");
+                setTimeout(loadSettingsView, 1000);
+            } else {
+                throw new Error("Fehler beim Aktualisieren.");
+            }
+        } catch (e) {
+            showToast(e.message, "error");
+        }
+    }
+
+    async function testGDriveConnection() {
+        showToast("Verbinde mit Google Drive...", "info");
+        try {
+            const r = await fetch('/api/gdrive/test', { method: 'POST' });
+            const data = await r.json();
+            if (data.ok) {
+                showToast(`Verbunden mit: ${data.display_name}`);
+            } else {
+                throw new Error(data.error);
+            }
+        } catch(e) {
+            showToast(`Verbindungsfehler: ${e.message}`, "error");
+        }
+    }
+
+    async function saveUpdaterConfig() {
+        const data = {
+            enabled: document.getElementById('updater-enabled').checked,
+            time: document.getElementById('updater-time').value.trim()
+        };
+        try {
+            await fetch('/api/updater/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            showToast("Auto-Updater Konfiguration gespeichert.");
+        } catch (e) { console.error(e); }
+    }
+
+    async function resetSetupWizard() {
+        if (!confirm("Bist du sicher? Alle Konfigurationen werden dauerhaft gelöscht und CARLA startet neu.")) return;
+        try {
+            const r = await fetch('/api/setup/reset', { method: 'POST' });
+            if (r.ok) {
+                window.location.reload();
+            }
+        } catch(e) { console.error(e); }
+    }
+</script>
+{% endblock %}

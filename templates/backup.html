@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="view-title">Backups &amp; Desaster Recovery</div>
+<div class="view-subtitle">Sicherung der lokalen Docker-Volumes und Compose-Verzeichnisse</div>
+
+<!-- Backup Trigger & Progress Bar -->
+<div class="card" style="margin-bottom: 25px; display:flex; flex-direction:row; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px;">
+    <div style="flex: 1; min-width: 250px;">
+        <h4 style="font-size: 16px; font-weight:600; margin-bottom:4px;">Manuelle Vollsicherung</h4>
+        <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">Startet sofort ein lokales Backup aller Volumes und Compose-Dateien der erfassten Projekte.</p>
+        
+        <div id="backup-progress-container" style="display: none; margin-top: 15px; background:rgba(255,255,255,0.02); padding:12px; border-radius:var(--r-md); border:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom: 6px;">
+                <span id="backup-progress-label">Sichere Stack...</span>
+                <strong id="backup-progress-percent">0%</strong>
+            </div>
+            <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: var(--r-full); overflow: hidden;">
+                <div id="backup-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s;"></div>
+            </div>
+        </div>
+    </div>
+    <button onclick="triggerBackupNow(event)" class="btn btn-primary" style="padding: 12px 24px;">Backup Jetzt Starten</button>
+</div>
+
+<div class="tabs-nav" id="backup-section-tabs">
+    <button class="tab-btn active" onclick="switchBackupTab('local')">Lokale Backups</button>
+    <button class="tab-btn" onclick="switchBackupTab('gdrive')">Cloud (Google Drive)</button>
+    <button class="tab-btn" onclick="switchBackupTab('scheduler')">Zeitplaner &amp; Konfiguration</button>
+</div>
+
+<!-- Backup tabs content panels -->
+<div id="backup-tab-local" class="table-container">
+    <div class="table-header-panel">
+        <span style="font-weight: 600;">Verfügbare lokale Backups</span>
+    </div>
+    <table class="table" id="backups-local-table">
+        <thead>
+            <tr>
+                <th>Backup ID (Zeitstempel)</th>
+                <th>Gesicherte Stacks</th>
+                <th>Größe</th>
+                <th style="text-align: right;">Aktionen</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="4" class="text-center" style="color:var(--text-muted); padding:30px 0;">Lade Backups...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div id="backup-tab-gdrive" class="table-container" style="display: none;">
+    <div class="table-header-panel">
+        <span style="font-weight: 600;">Gesicherte Cloud-Backups</span>
+        <button onclick="loadGDriveBackups()" class="btn btn-sm">Google Drive abfragen</button>
+    </div>
+    <table class="table" id="backups-gdrive-table">
+        <thead>
+            <tr>
+                <th>Google File ID</th>
+                <th>Backup Name</th>
+                <th>Erstellt Am</th>
+                <th>Größe</th>
+                <th style="text-align: right;">Aktionen</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="5" class="text-center" style="color:var(--text-muted); padding:30px 0;">Klicke auf "Google Drive abfragen" um Cloud-Backups zu laden.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div id="backup-tab-scheduler" class="card" style="display: none;">
+    <h4 class="card-title" style="margin-bottom: 20px;">Backup Zeitplaner Konfiguration</h4>
+    <div style="display:flex; flex-direction:column; gap: 15px; max-width: 500px;">
+        <label style="display:flex; align-items:center; gap: 10px; font-size:13.5px; cursor:pointer;">
+            <input type="checkbox" id="backup-schedule-enabled" onchange="saveBackupConfig()"> Automatisches tägliches Backup aktivieren
+        </label>
+        <div class="grid-2" style="gap: 15px; margin-bottom: 0;">
+            <div>
+                <label class="form-label">Uhrzeit (HH:MM)</label>
+                <input type="text" id="backup-schedule-time" class="input" placeholder="03:00" onchange="saveBackupConfig()">
+            </div>
+            <div>
+                <label class="form-label">Cloud Sync</label>
+                <label style="display:flex; align-items:center; gap: 10px; font-size:13px; cursor:pointer; height: 44px;">
+                    <input type="checkbox" id="backup-gdrive-upload" onchange="saveBackupConfig()"> Automatisches Drive-Upload
+                </label>
+            </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Speicherort auf dem Server</label>
+            <input type="text" id="backup-dir" class="input" placeholder="/backup/carla" onchange="saveBackupConfig()">
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let activeBackupTab = 'local';
+    let backupProgressInterval = null;
+
+    async function initPage(data) {
+        await loadBackupView();
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if (backupProgressInterval) {
+            clearInterval(backupProgressInterval);
+        }
+    });
+
+    function switchBackupTab(tabId) {
+        activeBackupTab = tabId;
+        
+        const btns = document.querySelectorAll('#backup-section-tabs .tab-btn');
+        btns[0].classList.toggle('active', tabId === 'local');
+        btns[1].classList.toggle('active', tabId === 'gdrive');
+        btns[2].classList.toggle('active', tabId === 'scheduler');
+
+        document.getElementById('backup-tab-local').style.display = tabId === 'local' ? 'block' : 'none';
+        document.getElementById('backup-tab-gdrive').style.display = tabId === 'gdrive' ? 'block' : 'none';
+        document.getElementById('backup-tab-scheduler').style.display = tabId === 'scheduler' ? 'block' : 'none';
+    }
+
+    async function loadBackupView() {
+        try {
+            const rConf = await fetch('/api/backup/config');
+            if (rConf.ok) {
+                const cfg = await rConf.json();
+                document.getElementById('backup-schedule-enabled').checked = cfg.schedule_enabled;
+                document.getElementById('backup-schedule-time').value = cfg.schedule_time;
+                document.getElementById('backup-dir').value = cfg.backup_dir;
+                document.getElementById('backup-gdrive-upload').checked = cfg.gdrive_auto_upload;
+            }
+
+            const rList = await fetch('/api/backup/list');
+            const backups = rList.ok ? await rList.json() : [];
+            
+            const tbody = document.querySelector('#backups-local-table tbody');
+            tbody.innerHTML = '';
+
+            if (backups.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color:var(--text-muted); padding:30px 0;">Keine lokalen Backups gefunden.</td></tr>`;
+            } else {
+                backups.forEach(b => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-family:var(--font-mono); font-weight:600;">${b.id}</td>
+                        <td>${b.stacks.map(s => `<span class="badge info" style="margin-right:4px;">${s}</span>`).join('')}</td>
+                        <td style="font-family:var(--font-mono);">${b.size}</td>
+                        <td style="text-align:right;">
+                            <div style="display:flex; gap: 8px; justify-content:flex-end;">
+                                <button class="btn btn-sm btn-success" onclick="restoreBackupLocal('${b.id}')">Restore</button>
+                                <button class="btn btn-sm" onclick="uploadBackupToGDrive('${b.id}')">Upload Drive</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            switchBackupTab(activeBackupTab);
+
+            pollBackupProgress();
+            if (backupProgressInterval) clearInterval(backupProgressInterval);
+            backupProgressInterval = setInterval(pollBackupProgress, 2500);
+
+        } catch (e) { console.error(e); }
+    }
+
+    async function saveBackupConfig() {
+        const data = {
+            schedule_enabled: document.getElementById('backup-schedule-enabled').checked,
+            schedule_time: document.getElementById('backup-schedule-time').value.trim(),
+            backup_dir: document.getElementById('backup-dir').value.trim(),
+            gdrive_auto_upload: document.getElementById('backup-gdrive-upload').checked
+        };
+        try {
+            await fetch('/api/backup/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            showToast("Backup-Zeitplaner gespeichert.");
+        } catch(e) { console.error(e); }
+    }
+
+    async function triggerBackupNow(event) {
+        const btn = event.target;
+        btn.disabled = true;
+        try {
+            await fetch('/api/backup/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            showToast("Backup-Sicherung erfolgreich gestartet.");
+        } catch (e) { console.error(e); }
+        finally { btn.disabled = false; }
+    }
+
+    async function pollBackupProgress() {
+        const container = document.getElementById('backup-progress-container');
+        const label = document.getElementById('backup-progress-label');
+        const percent = document.getElementById('backup-progress-percent');
+        const bar = document.getElementById('backup-progress-bar');
+
+        try {
+            const r = await fetch('/api/backup/progress');
+            if (r.ok) {
+                const progress = await r.json();
+                if (progress.running) {
+                    container.style.display = 'block';
+                    label.innerText = `Sichere Stack: ${progress.current_stack || '...'}`;
+                    const pct = Math.round((progress.done / progress.total) * 100) || 0;
+                    percent.innerText = `${pct}%`;
+                    bar.style.width = `${pct}%`;
+                } else {
+                    const rg = await fetch('/api/gdrive/progress');
+                    const gProgress = rg.ok ? await rg.json() : {};
+                    if (gProgress.running) {
+                        container.style.display = 'block';
+                        label.innerText = `Google Drive Upload: ${gProgress.backup_id}.tar.gz`;
+                        percent.innerText = `${gProgress.percent}%`;
+                        bar.style.width = `${gProgress.percent}%`;
+                    } else {
+                        container.style.display = 'none';
+                    }
+                }
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function restoreBackupLocal(backupId) {
+        if (!confirm(`Möchtest du das Backup '${backupId}' wirklich lokal wiederherstellen? Dies überschreibt alle Compose-Verzeichnisse.`)) return;
+        showToast(`Wiederherstellung von Backup '${backupId}' angestoßen...`, "info");
+        try {
+            const r = await fetch('/api/backup/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ backup_id: backupId })
+            });
+            if (r.ok) {
+                showToast("System-Wiederherstellung im Hintergrund gestartet.");
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function loadGDriveBackups() {
+        const tbody = document.querySelector('#backups-gdrive-table tbody');
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--text-muted); padding:30px 0;">Lade Cloud-Backups aus Google Drive...</td></tr>`;
+
+        try {
+            const r = await fetch('/api/gdrive/list');
+            const data = await r.json();
+            
+            tbody.innerHTML = '';
+            if (!data.ok) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--danger); padding:30px 0;">${data.error || 'Google Drive nicht konfiguriert.'}</td></tr>`;
+                return;
+            }
+
+            if (data.backups.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--text-muted); padding:30px 0;">Keine Backups auf Google Drive vorhanden.</td></tr>`;
+                return;
+            }
+
+            data.backups.forEach(b => {
+                const tr = document.createElement('tr');
+                const date = new Date(b.created);
+                tr.innerHTML = `
+                    <td style="font-family:var(--font-mono); font-size:11px; opacity:0.6;">${b.id.substring(0, 16)}...</td>
+                    <td style="font-weight:600;">${b.name}</td>
+                    <td>${date.toLocaleString()}</td>
+                    <td style="font-family:var(--font-mono);">${formatBytes(b.size)}</td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap: 8px; justify-content:flex-end;">
+                            <button class="btn btn-sm btn-success" onclick="restoreBackupGDrive('${b.id}')">Restore</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteBackupGDrive('${b.id}')">Löschen</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="color:var(--danger); padding:30px 0;">Fehler bei der Verbindung zum Google Server.</td></tr>`;
+        }
+    }
+
+    async function uploadBackupToGDrive(backupId) {
+        try {
+            const r = await fetch('/api/gdrive/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ backup_id: backupId })
+            });
+            if (r.ok) {
+                showToast("Drive-Upload im Hintergrund gestartet.");
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function restoreBackupGDrive(fileId) {
+        if (!confirm("Möchtest du dieses Backup von Google Drive herunterladen und direkt wiederherstellen?")) return;
+        try {
+            await fetch('/api/gdrive/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_id: fileId })
+            });
+            showToast("Download und Wiederherstellung gestartet.");
+        } catch(e) { console.error(e); }
+    }
+
+    async function deleteBackupGDrive(fileId) {
+        if (!confirm("Möchtest du dieses Backup dauerhaft von Google Drive löschen?")) return;
+        try {
+            const r = await fetch(`/api/gdrive/backup/${fileId}`, { method: 'DELETE' });
+            if (r.ok) {
+                showToast("Cloud-Backup erfolgreich gelöscht.");
+                loadGDriveBackups();
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    function formatBytes(bytes, decimals = 1) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+</script>
+{% endblock %}

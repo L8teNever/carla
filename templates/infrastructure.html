@@ -1,0 +1,604 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .floating-panel {
+        position: absolute;
+        background: rgba(18, 17, 24, 0.85);
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        padding: 16px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(20px);
+        z-index: 10;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section id="view-infrastructure" style="padding:0; overflow:hidden; position:relative; background:#050507; width: 100%; border-radius: var(--r-xl); border: 1px solid var(--border);">
+    <canvas id="topology-canvas" style="position:absolute;inset:0;width:100%;height:100%;display:block;"></canvas>
+
+    <!-- Stats overlay -->
+    <div class="floating-panel" style="top:16px;right:16px;min-width:190px;z-index:20;">
+        <div style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Graph Status</div>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;">
+            <div style="display:flex;justify-content:space-between;"><span>Stacks:</span><strong id="lm-stat-stacks">-</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span>Container:</span><strong id="lm-stat-containers">-</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span>Domains:</span><strong id="lm-stat-domains">-</strong></div>
+            <div style="border-top:1px solid var(--border);margin:5px 0;"></div>
+            <div style="display:flex;justify-content:space-between;"><span>RX:</span><strong id="lm-stat-rx" style="color:var(--success);">-</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span>TX:</span><strong id="lm-stat-tx" style="color:var(--primary);">-</strong></div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="floating-panel" style="bottom:20px;left:20px;z-index:20;width:265px;">
+        <h3 style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--text-muted);text-transform:uppercase;margin-bottom:12px;">Legende</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+            <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#8b5cf6;box-shadow:0 0 6px #8b5cf660;flex-shrink:0;"></span><span>Host-Server (Zentrum)</span></div>
+            <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#52525b;flex-shrink:0;"></span><span>Compose Stacks</span></div>
+            <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b98160;flex-shrink:0;"></span><span>Öffentliche Domain</span></div>
+            <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#f97316;box-shadow:0 0 6px #f9731660;flex-shrink:0;"></span><span>Cloudflare Zero Trust</span></div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,.05);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10px;color:var(--text-muted);">Scrollen=Zoom · Ziehen=Pan</span>
+            <button onclick="topoResetCamera()" style="font-size:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;">Zentrieren</button>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let infraInterval = null, infraAnimId = null;
+    let infraParticles = [];
+    let infraNetData = {};
+
+    function topoResetCamera() { window.topoPan.x=0; window.topoPan.y=0; window.topoZoom=0.65; }
+
+    async function initPage(data) {
+        window.initInfrastructure();
+    }
+
+    // Clean up animation loop when navigating away
+    window.addEventListener('beforeunload', () => {
+        if (window.stopInfrastructure) {
+            window.stopInfrastructure();
+        }
+    });
+
+    (function() {
+        const ICON_TYPES = ['circle-cyan','diamond-orange','sphere-cyan','slice-orange-blue','triangle-gold','branch-green','cube-cyan','shield-orange','down-triangle-blue','arrow-orange-cyan','square-blue-orange'];
+        const colorPalette = { orange:'#f97316',cyan:'#06b6d4',blue:'#3b82f6',yellow:'#eab308',emerald:'#10b981',violet:'#8b5cf6' };
+
+        function getIconType(name) {
+            let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))&0xFFFF; return ICON_TYPES[h%ICON_TYPES.length];
+        }
+
+        let topoCanvas, topoCtx, topoWidth, topoHeight;
+        window.topoPan = {x:0,y:0};
+        window.topoZoom = 0.65;
+        let topoNodes=[], topoLinks=[];
+        let topoHovered=null, topoSelected=null, topoDragged=null, topoIsPanning=false;
+        let topoPanStart={x:0,y:0}, topoDragOffset={x:0,y:0};
+        let topoAnimId=null;
+
+        function resizeTopo() {
+            if(!topoCanvas) return;
+            const p = topoCanvas.parentElement;
+            topoWidth  = (p && p.clientWidth  > 10) ? p.clientWidth  : window.innerWidth;
+            topoHeight = 550; // Set a fixed height for nice visual balance
+            topoCanvas.width=topoWidth; topoCanvas.height=topoHeight;
+            topoCanvas.style.width=topoWidth+'px'; topoCanvas.style.height=topoHeight+'px';
+        }
+
+        function initTopology() {
+            const data = fullInfrastructureData;
+            if(!data||!data.stacks) return;
+            topoNodes=[]; topoLinks=[];
+            topoNodes.push({id:'root',name:'SERVER HOST',type:'host',x:0,y:0,radius:20,targetX:0,targetY:0});
+
+            const stackNames = Object.keys(data.stacks);
+            const n = stackNames.length;
+            const minCircumferenceStep = 110;
+            const STACK_R    = Math.max(250, Math.ceil(n * minCircumferenceStep / (2 * Math.PI)));
+            const CONT_EXTRA = Math.max(160, Math.min(260, STACK_R * 0.6));
+            const DOM_EXTRA  = Math.max(130, Math.min(200, CONT_EXTRA * 0.75));
+            const sliceAngle = (2 * Math.PI) / n;
+
+            let totalDomains=0, totalContainers=0;
+
+            stackNames.forEach((stackName, si) => {
+                const baseAngle = (si / n) * 2 * Math.PI;
+                const containers = data.stacks[stackName] || [];
+                totalContainers += containers.length;
+
+                const extraR = Math.max(0, containers.length - 1) * 60;
+                const thisStackR = STACK_R + extraR;
+
+                const sx = Math.cos(baseAngle) * thisStackR;
+                const sy = Math.sin(baseAngle) * thisStackR;
+                const stackId = 's' + si;
+                topoNodes.push({id:stackId, name:stackName, type:'stack', angle:baseAngle,
+                    branchBaseAngle:baseAngle, x:sx, y:sy, radius:10, targetX:sx, targetY:sy});
+                topoLinks.push({source:'root', target:stackId, particles:[]});
+
+                const cr  = thisStackR + CONT_EXTRA;
+                const outX = Math.cos(baseAngle), outY = Math.sin(baseAngle);
+                const perpX = -outY, perpY = outX;
+                const CONT_STEP = 95;
+                const DOM_STEP  = 75;
+
+                containers.forEach((cont, ci) => {
+                    const perpOff = (ci - (containers.length - 1) / 2) * CONT_STEP;
+                    const cx = outX * cr + perpX * perpOff;
+                    const cy = outY * cr + perpY * perpOff;
+                    const contId = 'c' + si + '_' + ci;
+                    const cfs = cont.cloudflares || [];
+                    const hasZT = cfs.some(cf => cf.allowed_emails && cf.allowed_emails.length > 0);
+                    topoNodes.push({id:contId, name:cont.name, type:'container',
+                        iconType:getIconType(cont.name), security:hasZT?'zerotrust':'public',
+                        isRunning:cont.state==='running', cloudflares:cfs,
+                        parentStackId:stackId, subAngle:baseAngle, branchBaseAngle:baseAngle,
+                        x:cx, y:cy, radius:18, targetX:cx, targetY:cy});
+                    topoLinks.push({source:stackId, target:contId, particles:[]});
+
+                    cfs.forEach((cf, di) => {
+                        totalDomains++;
+                        const domPerpOff = (di - (cfs.length - 1) / 2) * DOM_STEP;
+                        const dr = cr + DOM_EXTRA;
+                        const dx = outX * dr + perpX * (perpOff + domPerpOff);
+                        const dy = outY * dr + perpY * (perpOff + domPerpOff);
+                        const domId = 'd' + si + '_' + ci + '_' + di;
+                        const isZT = cf.allowed_emails && cf.allowed_emails.length > 0;
+                        topoNodes.push({id:domId, name:cf.public_domain, type:'domain',
+                            security:isZT?'zerotrust':'public', tunnelName:cf.tunnel_name,
+                            parentContainerId:contId, subAngle:baseAngle, branchBaseAngle:baseAngle,
+                            x:dx, y:dy, radius:6,
+                            targetX:dx, targetY:dy});
+                        topoLinks.push({source:contId, target:domId, particles:[]});
+
+                        if (cont.name === 'carla-vhost') {
+                            const matchingVhosts = (data.vhosts || []).filter(v => v.hostname === cf.public_domain);
+                            matchingVhosts.forEach((vhost, vi) => {
+                                const vhostPerpOff = (vi - (matchingVhosts.length - 1) / 2) * 55;
+                                const vr = cr + DOM_EXTRA + 90;
+                                const vx = outX * vr + perpX * (perpOff + domPerpOff + vhostPerpOff);
+                                const vy = outY * vr + perpY * (perpOff + domPerpOff + vhostPerpOff);
+                                const vsiteId = 'vsite_' + si + '_' + ci + '_' + di + '_' + vi;
+                                
+                                topoNodes.push({
+                                    id: vsiteId,
+                                    name: vhost.path === '/' ? '/' : vhost.path,
+                                    subLabel: 'Site: ' + vhost.name,
+                                    type: 'vhost_site',
+                                    parentId: domId,
+                                    subAngle: baseAngle,
+                                    branchBaseAngle: baseAngle,
+                                    x: vx,
+                                    y: vy,
+                                    radius: 6,
+                                    targetX: vx,
+                                    targetY: vy
+                                });
+                                topoLinks.push({source: domId, target: vsiteId, particles: []});
+                            });
+                        }
+                    });
+
+                    if (cont.name === 'carla-vhost') {
+                        const matchedHostnames = cfs.map(cf => cf.public_domain);
+                        const unmatchedVhosts = (data.vhosts || []).filter(v => !matchedHostnames.includes(v.hostname));
+                        unmatchedVhosts.forEach((vhost, vi) => {
+                            const vhostPerpOff = (vi - (unmatchedVhosts.length - 1) / 2) * 55;
+                            const vr = cr + DOM_EXTRA;
+                            const vx = outX * vr + perpX * (perpOff + vhostPerpOff);
+                            const vy = outY * vr + perpY * (perpOff + vhostPerpOff);
+                            const vsiteId = 'vsite_unmatched_' + si + '_' + ci + '_' + vi;
+                            
+                            topoNodes.push({
+                                id: vsiteId,
+                                name: vhost.path === '/' ? '/' : vhost.path,
+                                subLabel: 'Site: ' + vhost.name + ' (' + vhost.hostname + ')',
+                                type: 'vhost_site',
+                                parentId: contId,
+                                subAngle: baseAngle,
+                                branchBaseAngle: baseAngle,
+                                x: vx,
+                                y: vy,
+                                radius: 6,
+                                targetX: vx,
+                                targetY: vy
+                            });
+                            topoLinks.push({source: contId, target: vsiteId, particles: []});
+                        });
+                    }
+
+                    if (cont.name.startsWith('redirect-')) {
+                        const port = parseInt(cont.name.split('-')[1]);
+                        const redirectEntry = (data.redirects || []).find(r => r.port === port);
+                        if (redirectEntry && redirectEntry.rules) {
+                            const rules = redirectEntry.rules;
+                            rules.forEach((rule, ri) => {
+                                const rulePerpOff = (ri - (rules.length - 1) / 2) * 55;
+                                const rr = cr + DOM_EXTRA;
+                                const rx = outX * rr + perpX * (perpOff + rulePerpOff);
+                                const ry = outY * rr + perpY * (perpOff + rulePerpOff);
+                                const ruleId = 'rrule_' + si + '_' + ci + '_' + ri;
+                                
+                                topoNodes.push({
+                                    id: ruleId,
+                                    name: rule.path,
+                                    subLabel: '→ ' + rule.url,
+                                    type: 'redirect_rule',
+                                    parentId: contId,
+                                    subAngle: baseAngle,
+                                    branchBaseAngle: baseAngle,
+                                    x: rx,
+                                    y: ry,
+                                    radius: 6,
+                                    targetX: rx,
+                                    targetY: ry
+                                });
+                                topoLinks.push({source: contId, target: ruleId, particles: []});
+                            });
+                        }
+                    }
+                });
+            });
+
+            document.getElementById('lm-stat-stacks').textContent = stackNames.length;
+            document.getElementById('lm-stat-containers').textContent = totalContainers;
+            document.getElementById('lm-stat-domains').textContent = totalDomains;
+        }
+
+        function drawContainerIcon(ctx,x,y,radius,iconType,security,isRunning) {
+            const ztColor=security==='zerotrust'?'#f97316':'#10b981';
+            ctx.save();
+            ctx.beginPath(); ctx.arc(x,y,radius,0,2*Math.PI);
+            ctx.fillStyle='#0f1015';
+            ctx.strokeStyle=isRunning===false?'#71717a':ztColor;
+            ctx.lineWidth=2.5;
+            ctx.shadowColor=ztColor; ctx.shadowBlur=isRunning===false?0:10;
+            ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
+            switch(iconType) {
+                case 'circle-cyan': ctx.beginPath();ctx.arc(x,y,9,0,2*Math.PI);ctx.fillStyle='#06b6d4';ctx.fill();break;
+                case 'diamond-orange': ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+10,y);ctx.lineTo(x,y+10);ctx.lineTo(x-10,y);ctx.closePath();ctx.fillStyle='#f97316';ctx.fill();break;
+                case 'sphere-cyan': ctx.beginPath();ctx.arc(x,y,10,0,2*Math.PI);let sg=ctx.createRadialGradient(x-3,y-3,2,x,y,10);sg.addColorStop(0,'#fff');sg.addColorStop(.4,'#22d3ee');sg.addColorStop(1,'#0891b2');ctx.fillStyle=sg;ctx.fill();break;
+                case 'slice-orange-blue': ctx.beginPath();ctx.arc(x,y,10,Math.PI*.25,Math.PI*1.25);ctx.fillStyle='#f97316';ctx.fill();ctx.beginPath();ctx.arc(x,y,10,Math.PI*1.25,Math.PI*.25);ctx.fillStyle='#3b82f6';ctx.fill();break;
+                case 'triangle-gold': ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+11,y+9);ctx.lineTo(x-11,y+9);ctx.closePath();ctx.strokeStyle='#eab308';ctx.lineWidth=3;ctx.stroke();break;
+                case 'branch-green': ctx.beginPath();ctx.moveTo(x-7,y+7);ctx.lineTo(x+7,y-7);ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();ctx.beginPath();ctx.arc(x+3,y-3,5,0,2*Math.PI);ctx.fillStyle='#10b981';ctx.fill();break;
+                case 'cube-cyan': ctx.strokeStyle='#06b6d4';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+9,y-5);ctx.lineTo(x+9,y+5);ctx.lineTo(x,y+10);ctx.lineTo(x-9,y+5);ctx.lineTo(x-9,y-5);ctx.closePath();ctx.stroke();ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x,y+1);ctx.moveTo(x,y+1);ctx.lineTo(x-9,y-5);ctx.moveTo(x,y+1);ctx.lineTo(x+9,y-5);ctx.stroke();break;
+                case 'shield-orange': ctx.beginPath();ctx.moveTo(x,y-11);ctx.lineTo(x+9,y-6);ctx.lineTo(x+9,y+3);ctx.quadraticCurveTo(x+9,y+10,x,y+12);ctx.quadraticCurveTo(x-9,y+10,x-9,y+3);ctx.lineTo(x-9,y-6);ctx.closePath();ctx.fillStyle='#f97316';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();break;
+                case 'down-triangle-blue': ctx.beginPath();ctx.moveTo(x-10,y-8);ctx.lineTo(x+10,y-8);ctx.lineTo(x,y+10);ctx.closePath();ctx.fillStyle='#06b6d4';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();break;
+                case 'arrow-orange-cyan': ctx.beginPath();ctx.arc(x,y,9,0,2*Math.PI);ctx.fillStyle='#f97316';ctx.fill();ctx.beginPath();ctx.moveTo(x+5,y);ctx.lineTo(x-5,y);ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();ctx.beginPath();ctx.moveTo(x-2,y-4);ctx.lineTo(x-6,y);ctx.lineTo(x-2,y+4);ctx.stroke();break;
+                case 'square-blue-orange': ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI/4);ctx.beginPath();ctx.rect(-8,-8,16,16);ctx.fillStyle='#06b6d4';ctx.fill();ctx.beginPath();ctx.arc(4,4,3.5,0,2*Math.PI);ctx.fillStyle='#f97316';ctx.fill();ctx.restore();break;
+            }
+            ctx.restore();
+        }
+
+        function getBranchStackId(node) {
+            if(!node) return null;
+            if(node.id==='root') return 'root';
+            if(node.type==='stack') return node.id;
+            if(node.type==='container') return node.parentStackId;
+            if(node.type==='domain') {
+                const pc = topoNodes.find(n=>n.id===node.parentContainerId);
+                if(pc) return pc.parentStackId;
+            }
+            if(node.type==='vhost_site' || node.type==='redirect_rule') {
+                const parent = topoNodes.find(n=>n.id===node.parentId);
+                return getBranchStackId(parent);
+            }
+            return null;
+        }
+
+        function isNodeInActivePath(node, active) {
+            if(!active) return true;
+            if(active.id==='root') return true;
+            if(node.id==='root') return true;
+            const activeStackId = getBranchStackId(active);
+            const nodeStackId   = getBranchStackId(node);
+            return activeStackId && nodeStackId && activeStackId === nodeStackId;
+        }
+
+        function isLinkInActivePath(link, active) {
+            if(!active) return true;
+            if(active.id==='root') return true;
+            const s = topoNodes.find(n=>n.id===link.source);
+            const t = topoNodes.find(n=>n.id===link.target);
+            if(!s||!t) return false;
+            return isNodeInActivePath(s,active) && isNodeInActivePath(t,active);
+        }
+
+        function drawOutwardLabel(ctx, node, parentNode, labelText, subLabelText, color, subColor) {
+            color    = color    || '#e3e2e6';
+            subColor = subColor || color;
+            ctx.save();
+            let labelAngle = 0;
+            if(parentNode) {
+                const dx = node.x - parentNode.x;
+                const dy = node.y - parentNode.y;
+                labelAngle = (Math.abs(dx)<1 && Math.abs(dy)<1) ? (node.subAngle||node.angle||0) : Math.atan2(dy,dx);
+            } else {
+                labelAngle = node.angle || 0;
+            }
+            const dist = node.radius + 16;
+            const tx = node.x + Math.cos(labelAngle)*dist;
+            const ty = node.y + Math.sin(labelAngle)*dist;
+            const cos = Math.cos(labelAngle), sin = Math.sin(labelAngle);
+            ctx.textAlign    = cos>0.3 ? 'left' : cos<-0.3 ? 'right' : 'center';
+            ctx.textBaseline = sin>0.5 ? 'top'  : sin<-0.5 ? 'bottom' : 'middle';
+
+            ctx.font = 'bold 11px Outfit,sans-serif';
+            const mainW = ctx.measureText(labelText).width;
+            let subW = 0;
+            if(subLabelText) { ctx.font='bold 9px Outfit,sans-serif'; subW=ctx.measureText(subLabelText).width; }
+            const maxW = Math.max(mainW,subW);
+            const capH = subLabelText ? 24 : 14;
+
+            let rectX = tx, rectY = ty;
+            if(ctx.textAlign==='left')   rectX = tx-4;
+            else if(ctx.textAlign==='right') rectX = tx-maxW-4;
+            else rectX = tx-maxW/2-4;
+            if(ctx.textBaseline==='top')    rectY = ty-4;
+            else if(ctx.textBaseline==='bottom') rectY = ty-capH-4;
+            else rectY = ty-capH/2-4;
+
+            ctx.beginPath();
+            ctx.roundRect(rectX, rectY, maxW+10, capH+8, 6);
+            ctx.fillStyle='rgba(5,5,7,0.90)'; ctx.fill();
+            ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=1; ctx.stroke();
+
+            ctx.shadowBlur=0;
+            ctx.fillStyle=color;
+            ctx.font='bold 11px Outfit,sans-serif';
+            if(subLabelText) {
+                if(ctx.textBaseline==='bottom') {
+                    ctx.fillStyle=subColor; ctx.font='bold 9px Outfit,sans-serif'; ctx.fillText(subLabelText,tx,ty);
+                    ctx.fillStyle=color; ctx.font='bold 11px Outfit,sans-serif'; ctx.fillText(labelText,tx,ty-11);
+                } else if(ctx.textBaseline==='top') {
+                    ctx.fillText(labelText,tx,ty);
+                    ctx.fillStyle=subColor; ctx.font='bold 9px Outfit,sans-serif'; ctx.fillText(subLabelText,tx,ty+12);
+                } else {
+                    ctx.fillText(labelText,tx,ty-6);
+                    ctx.fillStyle=subColor; ctx.font='bold 9px Outfit,sans-serif'; ctx.fillText(subLabelText,tx,ty+6);
+                }
+            } else {
+                ctx.fillText(labelText,tx,ty);
+            }
+            ctx.restore();
+        }
+
+        function updateTopology() {
+            topoNodes.forEach(n => {
+                if(n===topoDragged||n.id==='root') return;
+                n.x+=(n.targetX-n.x)*0.10;
+                n.y+=(n.targetY-n.y)*0.10;
+            });
+        }
+
+        function drawTopology() {
+            if(!topoCtx) return;
+            topoCtx.clearRect(0,0,topoWidth,topoHeight);
+            topoCtx.save();
+            topoCtx.translate(topoWidth/2+window.topoPan.x, topoHeight/2+window.topoPan.y);
+            topoCtx.scale(window.topoZoom,window.topoZoom);
+
+            const active = topoSelected || topoHovered;
+
+            topoLinks.forEach(link => {
+                const s=topoNodes.find(n=>n.id===link.source);
+                const t=topoNodes.find(n=>n.id===link.target);
+                if(!s||!t) return;
+                const inPath = isLinkInActivePath(link, active);
+                topoCtx.beginPath();
+                topoCtx.moveTo(s.x,s.y); topoCtx.lineTo(t.x,t.y);
+                if(active) {
+                    topoCtx.lineWidth   = inPath ? 3.0 : 0.4;
+                    topoCtx.strokeStyle = inPath ? 'rgba(139,92,246,0.95)' : 'rgba(255,255,255,0.05)';
+                } else {
+                    topoCtx.lineWidth   = 1.3;
+                    topoCtx.strokeStyle = 'rgba(255,255,255,0.28)';
+                }
+                topoCtx.stroke();
+            });
+
+            topoNodes.forEach(node => {
+                const inPath      = isNodeInActivePath(node, active);
+                const isHighlighted = active && inPath;
+                const scaleFactor = isHighlighted ? 1.25 : 1.0;
+                const curR        = node.radius * scaleFactor;
+
+                topoCtx.save();
+                topoCtx.globalAlpha = active ? (inPath ? 1.0 : 0.15) : 1.0;
+
+                if(node.type==='host') {
+                    const lbl = node.name;
+                    topoCtx.font='bold 10px Outfit,sans-serif';
+                    const tw=topoCtx.measureText(lbl).width;
+                    const rw=(tw+32)*scaleFactor, rh=26*scaleFactor;
+                    if(isHighlighted){topoCtx.shadowColor='#8b5cf6';topoCtx.shadowBlur=24;}
+                    topoCtx.beginPath(); topoCtx.roundRect(node.x-rw/2,node.y-rh/2,rw,rh,8);
+                    topoCtx.fillStyle='#8b5cf6'; topoCtx.fill(); topoCtx.shadowBlur=0;
+                    topoCtx.fillStyle='#fff'; topoCtx.textAlign='center'; topoCtx.textBaseline='middle';
+                    topoCtx.fillText(lbl,node.x,node.y+1);
+
+                } else if(node.type==='stack') {
+                    if(isHighlighted){topoCtx.shadowColor='#fff';topoCtx.shadowBlur=16;}
+                    topoCtx.beginPath(); topoCtx.arc(node.x,node.y,curR,0,2*Math.PI);
+                    topoCtx.fillStyle='#4b5563'; topoCtx.strokeStyle='#1e293b'; topoCtx.lineWidth=2.5;
+                    topoCtx.fill(); topoCtx.stroke(); topoCtx.shadowBlur=0;
+                    const rootN = topoNodes.find(n=>n.id==='root');
+                    drawOutwardLabel(topoCtx,node,rootN,node.name,null,
+                        isHighlighted?'#ffffff':'#9ca3af');
+
+                } else if(node.type==='container') {
+                    if(isHighlighted){topoCtx.shadowColor=node.security==='zerotrust'?'#f97316':'#10b981';topoCtx.shadowBlur=20;}
+                    drawContainerIcon(topoCtx,node.x,node.y,curR,node.iconType,node.security,node.isRunning);
+                    topoCtx.shadowBlur=0;
+                    const parentStack = topoNodes.find(n=>n.id===node.parentStackId);
+                    const statusText  = node.security==='zerotrust' ? '🔒 CF ZERO TRUST' : '🌐 ÖFFENTLICH';
+                    const statusColor = node.security==='zerotrust' ? '#f97316' : '#10b981';
+                    drawOutwardLabel(topoCtx,node,parentStack,node.name,statusText,
+                        isHighlighted?'#ffffff':'#e3e2e6', statusColor);
+
+                } else if(node.type==='domain') {
+                    const col = node.security==='zerotrust' ? '#f97316' : '#10b981';
+                    if(isHighlighted){topoCtx.shadowColor=col;topoCtx.shadowBlur=14;}
+                    topoCtx.beginPath(); topoCtx.arc(node.x,node.y,curR,0,2*Math.PI);
+                    topoCtx.fillStyle='#1e1b4b'; topoCtx.strokeStyle=col; topoCtx.lineWidth=1.5;
+                    topoCtx.fill(); topoCtx.stroke(); topoCtx.shadowBlur=0;
+                    topoCtx.beginPath(); topoCtx.arc(node.x,node.y,3*scaleFactor,0,2*Math.PI);
+                    topoCtx.fillStyle=col; topoCtx.fill();
+                    const parentCont = topoNodes.find(n=>n.id===node.parentContainerId);
+                    drawOutwardLabel(topoCtx,node,parentCont,node.name,null,
+                        isHighlighted?'#ffffff':'#94a3b8');
+                } else if(node.type==='vhost_site') {
+                    const col = '#8b5cf6';
+                    if(isHighlighted){topoCtx.shadowColor=col;topoCtx.shadowBlur=14;}
+                    topoCtx.beginPath(); topoCtx.arc(node.x,node.y,curR,0,2*Math.PI);
+                    topoCtx.fillStyle='#1e1a3b'; topoCtx.strokeStyle=col; topoCtx.lineWidth=1.5;
+                    topoCtx.fill(); topoCtx.stroke(); topoCtx.shadowBlur=0;
+                    topoCtx.beginPath(); topoCtx.arc(node.x,node.y,3*scaleFactor,0,2*Math.PI);
+                    topoCtx.fillStyle=col; topoCtx.fill();
+                    const parentNode = topoNodes.find(n=>n.id===node.parentId);
+                    drawOutwardLabel(topoCtx,node,parentNode,node.name,node.subLabel,
+                        isHighlighted?'#ffffff':'#94a3b8', '#c084fc');
+                } else if(node.type==='redirect_rule') {
+                    const col = '#ec4899';
+                    if(isHighlighted){topoCtx.shadowColor=col;topoCtx.shadowBlur=14;}
+                    topoCtx.beginPath(); topoCtx.arc(node.x,node.y,curR,0,2*Math.PI);
+                    topoCtx.fillStyle='#23122b'; topoCtx.strokeStyle=col; topoCtx.lineWidth=1.5;
+                    topoCtx.fill(); topoCtx.stroke(); topoCtx.shadowBlur=0;
+                    topoCtx.beginPath(); topoCtx.arc(node.x,node.y,3*scaleFactor,0,2*Math.PI);
+                    topoCtx.fillStyle=col; topoCtx.fill();
+                    const parentNode = topoNodes.find(n=>n.id===node.parentId);
+                    drawOutwardLabel(topoCtx,node,parentNode,node.name,node.subLabel,
+                        isHighlighted?'#ffffff':'#94a3b8', '#f472b6');
+                }
+                topoCtx.restore();
+            });
+
+            topoCtx.restore();
+        }
+
+        function topoLoop() {
+            updateTopology();
+            drawTopology();
+            topoAnimId=requestAnimationFrame(topoLoop);
+        }
+
+        function screenToWorld(sx,sy) {
+            return { x:(sx-topoWidth/2-window.topoPan.x)/window.topoZoom, y:(sy-topoHeight/2-window.topoPan.y)/window.topoZoom };
+        }
+
+        function findNode(wx,wy) {
+            for(let i=topoNodes.length-1;i>=0;i--) {
+                const n=topoNodes[i];
+                const cr=n.type==='host'?40:n.radius+12;
+                if(Math.hypot(wx-n.x,wy-n.y)<cr) return n;
+            }
+            return null;
+        }
+
+        function setupTopoCanvas() {
+            topoCanvas=document.getElementById('topology-canvas');
+            if(!topoCanvas) return;
+            topoCtx=topoCanvas.getContext('2d');
+            resizeTopo();
+            window.addEventListener('resize',resizeTopo);
+
+            topoCanvas.addEventListener('mousedown',e=>{
+                const wp=screenToWorld(e.offsetX,e.offsetY);
+                const n=findNode(wp.x,wp.y);
+                if(n) { topoDragged=n; topoSelected=n; topoDragOffset={x:wp.x-n.x,y:wp.y-n.y}; }
+                else { topoSelected=null; topoIsPanning=true; topoPanStart={x:e.clientX-window.topoPan.x,y:e.clientY-window.topoPan.y}; }
+            });
+            topoCanvas.addEventListener('mousemove',e=>{
+                const wp=screenToWorld(e.offsetX,e.offsetY);
+                topoHovered=findNode(wp.x,wp.y);
+                topoCanvas.style.cursor=topoHovered?'pointer':topoIsPanning?'grabbing':'grab';
+                if(topoDragged&&topoDragged.id!=='root') {
+                    topoDragged.x=wp.x-topoDragOffset.x;
+                    topoDragged.y=wp.y-topoDragOffset.y;
+                    topoDragged.targetX=topoDragged.x;
+                    topoDragged.targetY=topoDragged.y;
+                } else if(topoIsPanning) {
+                    window.topoPan.x=e.clientX-topoPanStart.x;
+                    window.topoPan.y=e.clientY-topoPanStart.y;
+                }
+            });
+            topoCanvas.addEventListener('mouseup',()=>{ topoDragged=null; topoIsPanning=false; });
+            topoCanvas.addEventListener('mouseleave',()=>{ topoDragged=null; topoIsPanning=false; topoHovered=null; });
+            topoCanvas.addEventListener('wheel',e=>{
+                e.preventDefault();
+                const factor=e.deltaY<0?1.1:1/1.1;
+                window.topoZoom=Math.max(0.12,Math.min(3,window.topoZoom*factor));
+            },{passive:false});
+        }
+
+        window.initInfrastructure = function() {
+            if(!fullInfrastructureData||!fullInfrastructureData.stacks) return;
+
+            const section = document.getElementById('view-infrastructure');
+            if(section) {
+                const top = section.getBoundingClientRect().top;
+                section.style.height = (window.innerHeight - top - 30) + 'px';
+            }
+
+            if(!topoCanvas) setupTopoCanvas();
+            else resizeTopo();
+            if(!topoCtx) return;
+            initTopology();
+
+            if(topoNodes.length > 1) {
+                let maxR = 0;
+                topoNodes.forEach(n => {
+                    const r = Math.sqrt(n.x*n.x + n.y*n.y) + (n.radius||10) + 60;
+                    if(r > maxR) maxR = r;
+                });
+                const fitZoom = Math.min(topoWidth, topoHeight) / 2 / maxR;
+                window.topoZoom = Math.max(0.15, Math.min(1.2, fitZoom * 0.92));
+                window.topoPan = {x: 0, y: 0};
+            }
+
+            if(!topoAnimId) topoLoop();
+            fetchInfraNetworkData();
+            infraInterval=setInterval(fetchInfraNetworkData,5000);
+        };
+
+        window.stopInfrastructure = function() {
+            if(infraInterval){clearInterval(infraInterval);infraInterval=null;}
+            if(topoAnimId){cancelAnimationFrame(topoAnimId);topoAnimId=null;}
+        };
+
+    })();
+
+    async function fetchInfraNetworkData() {
+        try {
+            const r = await fetch('/api/metrics/network');
+            const data = r.ok ? await r.json() : [];
+            if (!Array.isArray(data)) return;
+            let totalRx = 0, totalTx = 0;
+            data.forEach(c => {
+                infraNetData[c.name] = c;
+                totalRx += Number(c.net_rx) || 0;
+                totalTx += Number(c.net_tx) || 0;
+            });
+            document.getElementById('lm-stat-rx').textContent = formatBytes(totalRx * 1024 * 1024) + '/s';
+            document.getElementById('lm-stat-tx').textContent = formatBytes(totalTx * 1024 * 1024) + '/s';
+        } catch (e) { console.error(e); }
+    }
+
+    function formatBytes(bytes, decimals = 1) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+</script>
+{% endblock %}
