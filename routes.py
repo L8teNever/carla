@@ -446,6 +446,36 @@ def api_container_exec(name):
     output = docker_service.execute_container_command(name, cmd)
     return jsonify({"output": output})
 
+
+@bp.route("/api/container/<name>/check-update", methods=["GET"])
+def api_container_check_update(name):
+    """Prueft ob ein Update fuer das Image des Containers verfuegbar ist."""
+    # Finde Container-Image aus dem Cache oder von Docker direkt
+    image = request.args.get("image", "")
+    if not image:
+        # Falls nicht per Query übergeben, inspizieren wir den Container
+        import json
+        inspect_out = system_executor.execute_command(f"docker inspect {name}")
+        if "Error" not in inspect_out:
+            try:
+                data = json.loads(inspect_out)
+                if data:
+                    image = data[0]["Config"]["Image"]
+            except Exception:
+                pass
+    if not image:
+        return jsonify({"error": "Image-Name konnte nicht bestimmt werden."}), 400
+    
+    result = docker_service.check_image_update(image)
+    return jsonify(result)
+
+
+@bp.route("/api/container/<name>/update-image", methods=["POST"])
+def api_container_update_image(name):
+    """Zieht das neueste Image und startet den Container neu."""
+    result = docker_service.update_container_image(name)
+    return jsonify(result)
+
 @bp.route("/api/container/<name>/<action>", methods=["POST"])
 def api_container_action(name, action):
     allowed = ("start", "stop", "restart", "pause", "unpause")
@@ -1145,6 +1175,26 @@ def api_files_browse():
     """Listet Dateien und Ordner in einem Verzeichnis."""
     path = request.args.get("path", "/")
     return jsonify(file_manager.list_directory(path))
+
+
+@bp.route("/api/files/path-type", methods=["GET"])
+def api_files_path_type():
+    """Prueft den Typ eines Pfades (dir, file, unknown) und ob er existiert."""
+    path = request.args.get("path", "")
+    if not path:
+        return jsonify({"exists": False, "type": "unknown"})
+    
+    path = file_manager._sanitize_path(path)
+    
+    is_dir = system_executor.execute_command(f'test -d {file_manager._quote(path)} && echo "DIR" || echo "NOTDIR"')
+    if "DIR" in is_dir and "Error" not in is_dir:
+        return jsonify({"exists": True, "type": "dir", "path": path})
+        
+    is_file = system_executor.execute_command(f'test -f {file_manager._quote(path)} && echo "FILE" || echo "NOTFILE"')
+    if "FILE" in is_file and "Error" not in is_file:
+        return jsonify({"exists": True, "type": "file", "path": path, "parent": file_manager._parent(path)})
+        
+    return jsonify({"exists": False, "type": "unknown", "path": path})
 
 
 @bp.route("/api/files/read", methods=["GET"])

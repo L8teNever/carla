@@ -199,7 +199,14 @@
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="font-weight:600;">${c.name}</td>
-                        <td style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted); max-width:200px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${c.image.split('@')[0]}</td>
+                        <td style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted); max-width:200px;">
+                            <div style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${c.image.split('@')[0]}</div>
+                            <div id="update-status-${c.name}" style="margin-top: 4px; display:flex; flex-direction:column; gap:4px; font-family:var(--font-sans);">
+                                <span onclick="checkContainerUpdate('${c.name}', '${c.image}', event)" style="color:var(--primary-light); cursor:pointer; text-decoration:underline; font-weight:600; font-size:10.5px; display:inline-block; width:fit-content;" title="Update auf Docker Registry prüfen">
+                                    🔍 Update prüfen
+                                </span>
+                            </div>
+                        </td>
                         <td>
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <span style="width: 7.5px; height: 7.5px; border-radius: 50%; background-color: ${statusDotColor}; box-shadow: 0 0 5px ${statusDotColor};"></span>
@@ -277,7 +284,10 @@
                                     <span class="badge info" style="font-size:9.5px; padding:2px 8px;">Bind-Mount</span>
                                 </div>
                                 <div style="font-size:12.5px; font-family:var(--font-mono); margin-top:2px;">
-                                    <span style="color:var(--text-muted);">Host-Pfad: </span><span style="color:var(--text);">${m.source}</span>
+                                    <span style="color:var(--text-muted);">Host-Pfad: </span>
+                                    <span onclick="openMountPath('${m.source.replace(/\\/g, '\\\\')}')" style="color:var(--primary-light); cursor:pointer; text-decoration:underline;" title="Im Datei-Manager / Editor öffnen">
+                                        📁 ${m.source}
+                                    </span>
                                 </div>
                                 <div style="font-size:12.5px; font-family:var(--font-mono);">
                                     <span style="color:var(--text-muted);">Container:  </span><span style="color:var(--success);">${m.target}</span> (${m.mode})
@@ -514,6 +524,95 @@
             }
         } catch(e) {
             showToast(e.message, "error");
+        }
+    }
+
+    async function openMountPath(path) {
+        if (!path) return;
+        try {
+            showToast("Prüfe Pfad...", "info");
+            const r = await fetch(`/api/files/path-type?path=${encodeURIComponent(path)}`);
+            if (r.ok) {
+                const data = await r.json();
+                if (data.exists) {
+                    if (data.type === 'dir') {
+                        window.location.href = `/filemanager?path=${encodeURIComponent(data.path)}`;
+                    } else if (data.type === 'file') {
+                        const backUrl = encodeURIComponent(`/stacks/${detailSelectedStack}`);
+                        window.location.href = `/editor?path=${encodeURIComponent(data.path)}&back=${backUrl}`;
+                    } else {
+                        showToast("Unbekannter Pfad-Typ.", "warning");
+                    }
+                } else {
+                    showToast("Pfad existiert nicht auf dem Docker-Host oder kann nicht zugegriffen werden.", "warning");
+                }
+            } else {
+                showToast("Fehler bei Pfadprüfung.", "error");
+            }
+        } catch(e) {
+            showToast("Fehler: " + e.message, "error");
+        }
+    }
+
+    async function checkContainerUpdate(name, image, event) {
+        if (event) event.preventDefault();
+        const statusEl = document.getElementById(`update-status-${name}`);
+        statusEl.innerHTML = '<span style="color:var(--text-muted);">⌛ Prüft...</span>';
+        
+        try {
+            const r = await fetch(`/api/container/${encodeURIComponent(name)}/check-update?image=${encodeURIComponent(image)}`);
+            if (r.ok) {
+                const res = await r.json();
+                if (res.checked) {
+                    if (res.update_available) {
+                        statusEl.innerHTML = `
+                            <span class="badge danger" style="font-size:9.5px; padding:2px 6px; font-weight:700;">⚠️ UPDATE VERFÜGBAR</span>
+                            <button onclick="pullAndRecreateContainer('${name}', event)" class="btn btn-sm btn-success" style="font-size:10px; padding:2px 8px; height:auto; line-height:1; margin-top:2px;">Pull & Update</button>
+                        `;
+                    } else {
+                        statusEl.innerHTML = '<span style="color:var(--success); font-weight:600;">🟢 Aktuell</span>';
+                    }
+                } else {
+                    statusEl.innerHTML = `<span style="color:var(--text-muted);" title="${res.error || ''}">⚠️ Prüfen fehlgeschlagen</span>`;
+                }
+            } else {
+                statusEl.innerHTML = '<span style="color:var(--text-muted);">⚠️ Fehler</span>';
+            }
+        } catch(e) {
+            statusEl.innerHTML = '<span style="color:var(--text-muted);">⚠️ Fehler</span>';
+        }
+    }
+
+    async function pullAndRecreateContainer(name, event) {
+        if (event) event.preventDefault();
+        if (!confirm(`Möchtest du das Image für den Container '${name}' jetzt herunterladen und den Container neu erstellen?`)) {
+            return;
+        }
+        
+        const statusEl = document.getElementById(`update-status-${name}`);
+        statusEl.innerHTML = '<span style="color:var(--text-muted);">⌛ Lade Image & erstelle neu...</span>';
+        showToast("Update gestartet. Dies kann einen Moment dauern...", "info");
+        
+        try {
+            const r = await fetch(`/api/container/${encodeURIComponent(name)}/update-image`, { method: 'POST' });
+            if (r.ok) {
+                const res = await r.json();
+                if (res.ok) {
+                    showToast("Container erfolgreich mit neuem Image aktualisiert!", "success");
+                    statusEl.innerHTML = '<span style="color:var(--success); font-weight:600;">🟢 Aktualisiert</span>';
+                    triggerManualRefresh();
+                    setTimeout(() => showStackDetail(detailSelectedStack), 2000);
+                } else {
+                    showToast("Update fehlgeschlagen: " + res.error, "error");
+                    statusEl.innerHTML = `<span style="color:var(--danger);" title="${res.error}">❌ Fehler</span>`;
+                }
+            } else {
+                showToast("Serverfehler beim Aktualisieren des Containers.", "error");
+                statusEl.innerHTML = '<span style="color:var(--danger);">❌ Fehler</span>';
+            }
+        } catch(e) {
+            showToast("Fehler: " + e.message, "error");
+            statusEl.innerHTML = '<span style="color:var(--danger);">❌ Fehler</span>';
         }
     }
 

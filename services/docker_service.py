@@ -390,3 +390,141 @@ def get_docker_networks() -> list:
 
     networks.sort(key=lambda x: x["name"].lower())
     return networks
+
+
+def get_local_image_digest(image_name: str) -> str:
+    """Gibt den RepoDigest des lokalen Images zurueck."""
+    import json
+    cmd = f"docker inspect --format='{{{{json .RepoDigests}}}}' {image_name}"
+    res = system_executor.execute_command(cmd).strip()
+    if res and res.startswith("[") and "sha256:" in res:
+        try:
+            digests = json.loads(res)
+            if digests:
+                parts = digests[0].split("@")
+                if len(parts) > 1:
+                    return parts[1]
+        except Exception:
+            pass
+    return ""
+
+
+def check_image_update(image_name: str) -> dict:
+    """Prueft ob ein Update fuer das Image auf Docker Hub/GHCR verfuegbar ist."""
+    try:
+        # Parsen des Image-Namens und Tags
+        if ":" in image_name:
+            name_part, tag = image_name.rsplit(":", 1)
+            if "sha256" in tag or "@" in image_name:
+                return {"update_available": False, "checked": False, "error": "Image verwendet sha256 Digest"}
+        else:
+            name_part = image_name
+            tag = "latest"
+
+        # Hostname/Registry bestimmen
+        parts = name_part.split("/")
+        registry = "registry-1.docker.io"
+        
+        if len(parts) > 1 and ("." in parts[0] or ":" in parts[0]):
+            registry = parts[0]
+            repo = "/".join(parts[1:])
+        else:
+            repo = "/".join(parts)
+            # Docker Hub default namespace
+            if len(parts) == 1:
+                repo = f"library/{repo}"
+
+        local_digest = get_local_image_digest(image_name)
+        if not local_digest:
+            local_digest = get_local_image_digest(name_part)
+
+        remote_digest = ""
+        
+        # Registry-spezifischer Abruf
+        if registry in ("registry-1.docker.io", "docker.io"):
+            auth_url = f"https://auth.docker.io/token?service=registry.docker.io&scope=repository:{repo}:pull"
+            r_auth = requests.get(auth_url, timeout=5)
+            if r_auth.status_code == 200:
+                token = r_auth.json().get("token")
+                headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.docker.distribution.manifest.v2+json"
+                }
+                manifest_url = f"https://registry-1.docker.io/v2/{repo}/manifests/{tag}"
+                r_manifest = requests.head(manifest_url, headers=headers, timeout=5)
+                if r_manifest.status_code != 200:
+                    r_manifest = requests.get(manifest_url, headers=headers, timeout=5)
+                remote_digest = r_manifest.headers.get("Docker-Content-Digest", "")
+        elif registry == "ghcr.io":
+            auth_url = f"https://ghcr.io/token?service=ghcr.io&scope=repository:{repo}:pull"
+            r_auth = requests.get(auth_url, timeout=5)
+            if r_auth.status_code == 200:
+                token = r_auth.json().get("token")
+                headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.docker.distribution.manifest.v2+json"
+                }
+                manifest_url = f"https://ghcr.io/v2/{repo}/manifests/{tag}"
+                r_manifest = requests.head(manifest_url, headers=headers, timeout=5)
+                if r_manifest.status_code != 200:
+                    r_manifest = requests.get(manifest_url, headers=headers, timeout=5)
+                remote_digest = r_manifest.headers.get("Docker-Content-Digest", "")
+
+        if not remote_digest:
+            return {"update_available": False, "checked": False, "error": "Remote-Digest konnte nicht abgerufen werden."}
+
+        local_digest = local_digest.strip().lower()
+        remote_digest = remote_digest.strip().lower()
+        
+        update_available = (local_digest != remote_digest) and (local_digest != "")
+        
+        return {
+            "update_available": update_available,
+            "checked": True,
+            "local_digest": local_digest,
+            "remote_digest": remote_digest,
+            "image": image_name
+        }
+    except Exception as e:
+        return {"update_available": False, "checked": False, "error": str(e)}
+
+
+def update_container_image(container_name: str) -> dict:
+    """Zieht das neueste Image fuer den Container und startet ihn neu (Docker Compose bevorzugt)."""
+    import json
+    inspect_cmd = f"docker inspect {container_name}"
+    inspect_out = system_executor.execute_command(inspect_cmd)
+    if "Error" in inspect_out:
+        return {"ok": False, "error": f"Container konnte nicht inspiziert werden: {inspect_out}"}
+        
+    try:
+        data = json.loads(inspect_out)
+        if not data:
+            return {"ok": False, "error": "Container nicht gefunden."}
+        c_info = data[0]
+        image_name = c_info["Config"]["Image"]
+        
+        labels = c_info.get("Config", {}).get("Labels", {})
+        compose_project = labels.get("com.docker.compose.project")
+        compose_service = labels.get("com.docker.compose.service")
+        compose_workdir = labels.get("com.docker.compose.project.working_dir")
+        
+        # Image pullen
+        pull_cmd = f"docker pull {image_name}"
+        pull_out = system_executor.execute_command(pull_cmd)
+        if "Error" in pull_out:
+            return {"ok": False, "error": f"Image konnte nicht gepullt werden: {pull_out}"}
+            
+        if compose_project and compose_service and compose_workdir:
+            # Recreate mit Compose
+            cmd = f"cd {compose_workdir} && docker compose up -d --no-deps --build {compose_service}"
+            out = system_executor.execute_command(cmd)
+            return {"ok": True, "output": f"Pull:\n{pull_out}\n\nRecreate:\n{out}"}
+        else:
+            # Standalone Container
+            restart_cmd = f"docker restart {container_name}"
+            out = system_executor.execute_command(restart_cmd)
+            return {"ok": True, "output": f"Pull:\n{pull_out}\n\nRestart:\n{out} (Standalone)"}
+            
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
