@@ -303,6 +303,12 @@ def settings_route():
 def ports_route():
     return render_template("ports.html")
 
+
+@bp.route("/networks")
+def networks_route():
+    return render_template("networks.html")
+
+
 @bp.route("/filemanager")
 def filemanager_route():
     return render_template("filemanager.html")
@@ -1118,6 +1124,16 @@ def api_ports():
     docker_stacks = (data or {}).get("stacks", {}) if data else {}
     enriched = ports.enrich_with_docker(host_ports, docker_stacks)
     return jsonify(enriched)
+
+
+# ---------------------------------------------------------------
+# Networks Routes
+# ---------------------------------------------------------------
+
+@bp.route("/api/networks", methods=["GET"])
+def api_networks():
+    """Gibt alle Docker-Netzwerke mit verbundenen Containern und Subnetzen zurueck."""
+    return jsonify(docker_service.get_docker_networks())
 
 
 # ---------------------------------------------------------------

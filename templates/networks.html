@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="view-title">Netzwerke &amp; Subnetze</div>
+<div class="view-subtitle">Übersicht über alle Docker-Netzwerke, deren Subnetze und verbundene Container</div>
+
+<!-- Overview Stats Cards -->
+<div class="overview-stats">
+    <div class="stat-card">
+        <div class="stat-content">
+            <span class="stat-label">Gesamt Netzwerke</span>
+            <span class="stat-value" id="stats-total">0</span>
+        </div>
+        <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="16" y="16" width="6" height="6" rx="1"></rect>
+                <rect x="2" y="16" width="6" height="6" rx="1"></rect>
+                <rect x="9" y="2" width="6" height="6" rx="1"></rect>
+                <path d="M12 8v8M5 16v-4h14v4"></path>
+            </svg>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-content">
+            <span class="stat-label">Bridge Treiber</span>
+            <span class="stat-value" id="stats-bridge">0</span>
+        </div>
+        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.08); color: var(--success);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M12 2v9M8 5h8"></path>
+            </svg>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-content">
+            <span class="stat-label">Andere / Overlay</span>
+            <span class="stat-value" id="stats-other">0</span>
+        </div>
+        <div class="stat-icon" style="background: rgba(59, 130, 246, 0.08); color: var(--info);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+        </div>
+    </div>
+</div>
+
+<!-- Search Panel -->
+<div class="table-container" style="margin-bottom: 25px; padding: 16px 20px;">
+    <div style="display:flex; gap:12px; align-items:center;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:20px; height:20px; color:var(--text-muted);">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="network-search" class="input" placeholder="Netzwerke nach Name, Treiber oder Subnetz filtern..." oninput="filterNetworks()" style="border:none; background:transparent; padding:0; font-size:14.5px;">
+    </div>
+</div>
+
+<!-- Grid Layout of Networks -->
+<div class="grid-layout grid-2" id="networks-grid">
+    <!-- Will be filled dynamically -->
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let networksPollInterval = null;
+    let allNetworks = [];
+
+    async function initPage(data) {
+        startNetworksPolling();
+    }
+
+    window.addEventListener('beforeunload', () => {
+        stopNetworksPolling();
+    });
+
+    function startNetworksPolling() {
+        renderNetworksView();
+        networksPollInterval = setInterval(renderNetworksView, 5000);
+    }
+
+    function stopNetworksPolling() {
+        if (networksPollInterval) {
+            clearInterval(networksPollInterval);
+            networksPollInterval = null;
+        }
+    }
+
+    async function renderNetworksView() {
+        try {
+            const response = await fetch('/api/networks');
+            if (!response.ok) throw new Error("API-Fehler beim Laden der Netzwerke.");
+            allNetworks = await response.ok ? await response.json() : [];
+
+            // Update stats
+            document.getElementById('stats-total').textContent = allNetworks.length;
+            const bridgeCount = allNetworks.filter(n => n.driver === 'bridge').length;
+            document.getElementById('stats-bridge').textContent = bridgeCount;
+            document.getElementById('stats-other').textContent = allNetworks.length - bridgeCount;
+
+            filterNetworks();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function filterNetworks() {
+        const query = document.getElementById('network-search').value.toLowerCase().trim();
+        const grid = document.getElementById('networks-grid');
+        grid.innerHTML = '';
+
+        const filtered = allNetworks.filter(net => {
+            if (!query) return true;
+            const subnetsStr = net.subnets ? net.subnets.join(', ').toLowerCase() : '';
+            return net.name.toLowerCase().includes(query) ||
+                   net.driver.toLowerCase().includes(query) ||
+                   subnetsStr.includes(query);
+        });
+
+        if (filtered.length === 0) {
+            grid.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-xl);">
+                    Keine Docker-Netzwerke gefunden, die dem Suchbegriff entsprechen.
+                </div>
+            `;
+            return;
+        }
+
+        filtered.forEach(net => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.gap = '15px';
+
+            // Driver Color Badge
+            let driverBadge = 'info';
+            if (net.driver === 'bridge') driverBadge = 'success';
+            else if (net.driver === 'host') driverBadge = 'warning';
+            else if (net.driver === 'overlay') driverBadge = 'cf';
+
+            // Subnets & Gateways info block
+            let subnetInfoHtml = '';
+            if (net.subnets && net.subnets.length > 0) {
+                subnetInfoHtml = `
+                    <div style="font-size:12.5px; display:flex; flex-direction:column; gap:4px; padding:10px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:var(--r-md);">
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:var(--text-muted);">Subnetz:</span>
+                            <span style="font-family:var(--font-mono); font-weight:600;">${net.subnets.join(', ')}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:var(--text-muted);">Gateway:</span>
+                            <span style="font-family:var(--font-mono); font-weight:600;">${net.gateways && net.gateways.length > 0 ? net.gateways.join(', ') : '-'}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                subnetInfoHtml = `
+                    <div style="font-size:12.5px; color:var(--text-muted); text-align:center; padding:10px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:var(--r-md);">
+                        Keine IPAM Subnetze konfiguriert (z.B. Host/None Modus)
+                    </div>
+                `;
+            }
+
+            // Container section
+            let containersHtml = '';
+            if (net.containers && net.containers.length > 0) {
+                containersHtml = `
+                    <div style="border-top:1px solid var(--border); padding-top:12px;">
+                        <span class="form-label" style="margin-bottom:8px;">Verbundene Container (${net.containers.length})</span>
+                        <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r-md);">
+                            <table class="table" style="font-size:12px;">
+                                <thead>
+                                    <tr>
+                                        <th style="padding:6px 12px; font-size:10px;">Name</th>
+                                        <th style="padding:6px 12px; font-size:10px;">IP-Adresse</th>
+                                        <th style="padding:6px 12px; font-size:10px;">MAC-Adresse</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${net.containers.map(c => `
+                                        <tr>
+                                            <td style="padding:8px 12px; font-weight:600; color:var(--text);">${c.name}</td>
+                                            <td style="padding:8px 12px; font-family:var(--font-mono); color:var(--primary);">${c.ip}</td>
+                                            <td style="padding:8px 12px; font-family:var(--font-mono); color:var(--text-muted); font-size:11px;">${c.mac}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            } else {
+                containersHtml = `
+                    <div style="border-top:1px solid var(--border); padding-top:12px; text-align:center; color:var(--text-muted); font-size:12px;">
+                        Keine Container mit diesem Netzwerk verbunden.
+                    </div>
+                `;
+            }
+
+            // Network tags (Internal, Attachable)
+            let tagHtml = '';
+            if (net.internal) {
+                tagHtml += `<span class="badge danger" style="font-size:9.5px; margin-right:4px;">Intern</span>`;
+            }
+            if (net.attachable) {
+                tagHtml += `<span class="badge success" style="font-size:9.5px; margin-right:4px;">Attachable</span>`;
+            }
+
+            card.innerHTML = `
+                <div class="card-header" style="margin-bottom:8px;">
+                    <div>
+                        <div class="card-title" style="font-size:19px; font-weight:700;">${net.name}</div>
+                        <span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">ID: ${net.id}</span>
+                    </div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <span class="badge ${driverBadge}" style="font-size:10px;">${net.driver}</span>
+                        <span class="badge info" style="font-size:10px;">${net.scope}</span>
+                    </div>
+                </div>
+                
+                <div style="display:flex; gap:4px; margin-bottom:4px;">
+                    ${tagHtml}
+                </div>
+
+                ${subnetInfoHtml}
+                ${containersHtml}
+            `;
+
+            grid.appendChild(card);
+        });
+    }
+</script>
+{% endblock %}
