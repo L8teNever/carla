@@ -149,11 +149,9 @@ def rename_item(old_path: str, new_name: str) -> dict:
 
 def get_stack_paths(stack_name: str) -> dict:
     """Gibt Arbeitsverzeichnis und Volumes eines Stacks zurueck."""
-    # Working Directory
-    workdir = system_executor.execute_command(
-        f"docker ps -a --filter 'label=com.docker.compose.project={stack_name}' "
-        f"--format '{{{{.Label \"com.docker.compose.project.working_dir\"}}}}' | head -1"
-    ).strip()
+    from services.docker_service import resolve_stack_workdir
+    # Working Directory mit Fallbacks
+    workdir = resolve_stack_workdir(stack_name)
 
     # Volumes
     vol_out = system_executor.execute_command(
@@ -175,7 +173,7 @@ def get_stack_paths(stack_name: str) -> dict:
     return {
         "ok": True,
         "stack_name": stack_name,
-        "workdir": workdir if workdir and "Error" not in workdir else "",
+        "workdir": workdir,
         "volumes": volumes,
     }
 
@@ -183,14 +181,12 @@ def get_stack_paths(stack_name: str) -> dict:
 def get_stack_compose(stack_name: str) -> dict:
     """Liest die Compose-Datei eines Stacks und parst Volumes/Bind-Mounts."""
     import yaml
+    from services.docker_service import resolve_stack_workdir
 
-    # Working Directory finden
-    workdir = system_executor.execute_command(
-        f"docker ps -a --filter 'label=com.docker.compose.project={stack_name}' "
-        f"--format '{{{{.Label \"com.docker.compose.project.working_dir\"}}}}' | head -1"
-    ).strip()
+    # Working Directory mit Fallbacks
+    workdir = resolve_stack_workdir(stack_name)
 
-    if not workdir or "Error" in workdir:
+    if not workdir:
         return {"ok": False, "error": "Arbeitsverzeichnis nicht gefunden."}
 
     # Compose-Datei finden (docker-compose.yml oder compose.yml)

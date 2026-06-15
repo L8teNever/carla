@@ -150,19 +150,43 @@ def container_action(container_name: str, action: str) -> str:
     return system_executor.execute_command(f"docker {action} {container_name}")
 
 
+def resolve_stack_workdir(stack_name: str) -> str:
+    """Findet das Arbeitsverzeichnis eines Stacks auf dem Docker-Host mit Fallbacks."""
+    # 1. Label abfragen
+    workdir = system_executor.execute_command(
+        f"docker ps -a --filter 'label=com.docker.compose.project={stack_name}' "
+        f"--format '{{{{.Label \"com.docker.compose.project.working_dir\"}}}}' | head -1"
+    ).strip()
+
+    possible_dirs = []
+    if workdir and "Error" not in workdir:
+        possible_dirs.append(workdir)
+
+    # Standard-Pfade unter /opt/stacks probieren
+    possible_dirs.append(f"/opt/stacks/{stack_name}")
+    possible_dirs.append(f"/opt/stacks/{stack_name.replace('_', '-')}")
+    possible_dirs.append(f"/opt/stacks/{stack_name.replace('-', '_')}")
+
+    # Den ersten Pfad nehmen, der tatsächlich ein existierendes Verzeichnis ist
+    for d in possible_dirs:
+        check = system_executor.execute_command(f'test -d "{d}" && echo "OK" || echo "NO"')
+        if "OK" in check:
+            return d
+
+    # Fallback auf ersten ermittelten Pfad
+    return possible_dirs[0] if possible_dirs else f"/opt/stacks/{stack_name}"
+
+
 def stack_action(stack_name: str, action: str) -> str:
     """Fuehrt eine Aktion auf einem gesamten Compose-Stack aus."""
     allowed = ("start", "stop", "restart", "down", "update")
     if action not in allowed:
         return f"Unerlaubte Aktion: {action}"
     
-    # Pfad zum Compose-File finden (Working Dir Label)
-    workdir = system_executor.execute_command(
-        f"docker ps -a --filter 'label=com.docker.compose.project={stack_name}' "
-        f"--format '{{{{.Label \"com.docker.compose.project.working_dir\"}}}}' | head -1"
-    ).strip()
+    # Pfad zum Compose-File finden (mit Fallbacks)
+    workdir = resolve_stack_workdir(stack_name)
 
-    if not workdir or "Error" in workdir:
+    if not workdir:
         return f"Fehler: Working Directory fuer Stack '{stack_name}' nicht gefunden."
 
     if action == "restart":

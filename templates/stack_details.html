@@ -12,6 +12,7 @@
 <!-- Tab navigation -->
 <div class="tabs-nav" id="stack-detail-tabs" style="margin-bottom: 20px;">
     <button class="tab-btn active" onclick="switchStackDetailTab('overview')">Übersicht &amp; Container</button>
+    <button class="tab-btn" onclick="switchStackDetailTab('files')">Projekt-Dateien</button>
     <button class="tab-btn" onclick="switchStackDetailTab('config')">Konfiguration (YAML/.env)</button>
     <button class="tab-btn" onclick="switchStackDetailTab('metrics')">Auslastung (Charts)</button>
     <button class="tab-btn" onclick="switchStackDetailTab('mounts')">Speichermounts</button>
@@ -41,11 +42,35 @@
     </table>
 </div>
 
+<!-- 6. Project Files Tab -->
+<div id="stack-tab-files" class="card" style="display: none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap: wrap; gap: 10px;">
+        <h4 class="card-title" style="margin-bottom:0;">Dateien im Projektordner</h4>
+        <span style="font-family:var(--font-mono); font-size:11.5px; opacity:0.8; background:rgba(255,255,255,0.02); padding: 4px 8px; border-radius:4px; border:1px solid var(--border);" id="stack-files-path-label">-</span>
+    </div>
+    <div class="table-container">
+        <table class="table" style="margin-top:0;">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Größe</th>
+                    <th>Zuletzt geändert</th>
+                    <th style="text-align:right;">Aktionen</th>
+                </tr>
+            </thead>
+            <tbody id="stack-files-tbody">
+                <tr><td colspan="4" class="text-center" style="color:var(--text-muted); padding:20px 0;">Lade Dateien...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- 2. Configuration Tab -->
 <div id="stack-tab-config" style="display: none; flex-direction:column; gap: 15px; width: 100%;">
-    <div class="tabs-nav" style="margin-bottom: 0;">
+    <div class="tabs-nav" style="margin-bottom: 0;" id="compose-editor-tabs">
         <button class="tab-btn active" id="btn-edit-env" onclick="toggleComposeEnv(false)">docker-compose.yml</button>
         <button class="tab-btn" id="btn-edit-compose" onclick="toggleComposeEnv(true)">.env (Variablen)</button>
+        <button class="tab-btn" id="btn-edit-custom" onclick="selectCustomEditorTab()" style="display: none;"></button>
     </div>
     <div class="editor-container">
         <div class="editor-header">
@@ -92,10 +117,11 @@
 {% block extra_js %}
 <script>
     const detailSelectedStack = "{{ stack_name }}";
-    let activeComposeTab = 'compose'; // 'compose' or 'env'
+    let activeComposeTab = 'compose'; // 'compose' or 'env' or 'custom'
     let cachedComposeData = {};
     let activeStackDetailTab = "overview";
     let stackPerfInterval = null;
+    let stackFilesCurrentPath = "";
     const charts = {};
 
     async function initPage(data) {
@@ -239,6 +265,7 @@
 
                 document.getElementById('btn-edit-compose').className = "tab-btn";
                 document.getElementById('btn-edit-env').className = "tab-btn active";
+                document.getElementById('btn-edit-custom').style.display = 'none';
             }
 
             switchStackDetailTab('overview');
@@ -263,6 +290,7 @@
 
         // Panels toggle
         document.getElementById('stack-tab-overview').style.display = tabId === 'overview' ? 'block' : 'none';
+        document.getElementById('stack-tab-files').style.display = tabId === 'files' ? 'block' : 'none';
         document.getElementById('stack-tab-config').style.display = tabId === 'config' ? 'flex' : 'none';
         document.getElementById('stack-tab-metrics').style.display = tabId === 'metrics' ? 'block' : 'none';
         document.getElementById('stack-tab-mounts').style.display = tabId === 'mounts' ? 'block' : 'none';
@@ -278,6 +306,150 @@
                 stackPerfInterval = null;
             }
         }
+
+        if (tabId === 'files') {
+            loadStackFiles(stackFilesCurrentPath || cachedComposeData.workdir);
+        }
+    }
+
+    async function loadStackFiles(dirPath) {
+        if (!dirPath) {
+            document.getElementById('stack-files-tbody').innerHTML = `
+                <tr><td colspan="4" class="text-center" style="color:var(--text-muted); padding:20px 0;">Kein Arbeitsverzeichnis definiert.</td></tr>
+            `;
+            document.getElementById('stack-files-path-label').innerText = "-";
+            return;
+        }
+        
+        stackFilesCurrentPath = dirPath;
+        document.getElementById('stack-files-path-label').innerText = dirPath;
+        const tbody = document.getElementById('stack-files-tbody');
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color:var(--text-muted); padding:20px 0;">Lade Dateien...</td></tr>`;
+
+        try {
+            const r = await fetch(`/api/files/browse?path=${encodeURIComponent(dirPath)}`);
+            const data = await r.json();
+            if (!data.ok) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color:var(--danger); padding:20px 0;">${data.error || "Fehler beim Laden"}</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            
+            // Back navigation link if not root of stack
+            const normalDir = dirPath.replace(/\/$/, '');
+            const normalWork = (cachedComposeData.workdir || "").replace(/\/$/, '');
+            if (normalDir && normalWork && normalDir !== normalWork) {
+                const parentPath = dirPath.split('/').slice(0, -1).join('/') || '/';
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.onclick = () => loadStackFiles(parentPath);
+                tr.innerHTML = `
+                    <td colspan="4" style="font-weight:600; color:var(--primary); padding: 10px 15px;">📁 .. (Zurück)</td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            if (data.items.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="4" class="text-center" style="color:var(--text-muted); padding:15px 0;">Dieser Ordner ist leer.</td>`;
+                tbody.appendChild(tr);
+                return;
+            }
+
+            // Directories first, then files
+            const dirs = data.items.filter(i => i.type === 'dir').sort((a, b) => a.name.localeCompare(b.name));
+            const files = data.items.filter(i => i.type === 'file').sort((a, b) => a.name.localeCompare(b.name));
+
+            dirs.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.onclick = () => loadStackFiles(item.path);
+                tr.innerHTML = `
+                    <td style="font-weight:600;">📁 ${item.name}</td>
+                    <td style="color:var(--text-muted);">-</td>
+                    <td style="color:var(--text-muted); font-size:11.5px;">-</td>
+                    <td style="text-align:right;">-</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            files.forEach(item => {
+                const tr = document.createElement('tr');
+                
+                // Format size
+                let sizeStr = '-';
+                if (item.size !== undefined) {
+                    const size = item.size;
+                    if (size < 1024) sizeStr = size + ' B';
+                    else if (size < 1048576) sizeStr = (size / 1024).toFixed(1) + ' KB';
+                    else sizeStr = (size / 1048576).toFixed(1) + ' MB';
+                }
+
+                // Format modified time if exists
+                let mtimeStr = '-';
+                if (item.mtime) {
+                    const d = new Date(item.mtime * 1000);
+                    mtimeStr = d.toLocaleString();
+                }
+
+                tr.innerHTML = `
+                    <td>📄 ${item.name}</td>
+                    <td style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted);">${sizeStr}</td>
+                    <td style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted);">${mtimeStr}</td>
+                    <td style="text-align:right;">
+                        <button onclick="editStackFile('${item.path}', '${item.name}')" class="btn btn-sm btn-primary">Bearbeiten</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color:var(--danger); padding:20px 0;">Fehler: ${e.message}</td></tr>`;
+        }
+    }
+
+    async function editStackFile(filePath, fileName) {
+        showToast(`Lade Datei '${fileName}'...`, "info");
+        try {
+            const r = await fetch(`/api/files/read?path=${encodeURIComponent(filePath)}`);
+            const data = await r.json();
+            if (!data.ok) {
+                showToast(data.error || "Fehler beim Lesen", "error");
+                return;
+            }
+
+            // Save in cachedComposeData for custom editing
+            cachedComposeData.custom_file = filePath;
+            cachedComposeData.custom_name = fileName;
+            cachedComposeData.custom_content = data.content || "";
+
+            // Configure the custom tab button
+            const btnCustom = document.getElementById('btn-edit-custom');
+            btnCustom.innerText = fileName;
+            btnCustom.style.display = 'inline-flex';
+
+            // Select it
+            selectCustomEditorTab();
+            switchStackDetailTab('config');
+
+        } catch(e) {
+            showToast(e.message, "error");
+        }
+    }
+
+    function selectCustomEditorTab() {
+        activeComposeTab = 'custom';
+        const editorText = document.getElementById('compose-editor-content');
+        editorText.value = cachedComposeData.custom_content || "";
+        editorText.disabled = false;
+
+        document.getElementById('compose-filepath-label').innerText = cachedComposeData.custom_name;
+
+        // Toggle active class on tab buttons
+        document.getElementById('btn-edit-env').className = "tab-btn";
+        document.getElementById('btn-edit-compose').className = "tab-btn";
+        document.getElementById('btn-edit-custom').className = "tab-btn active";
     }
 
     async function executeContainerDirectAction(containerName, action) {
@@ -302,6 +474,7 @@
         const label = document.getElementById('compose-filepath-label');
         const btnCompose = document.getElementById('btn-edit-env');
         const btnEnv = document.getElementById('btn-edit-compose');
+        const btnCustom = document.getElementById('btn-edit-custom');
 
         if (isEnv) {
             activeComposeTab = 'env';
@@ -309,12 +482,14 @@
             editorText.value = cachedComposeData.env_content || "";
             btnCompose.className = "tab-btn";
             btnEnv.className = "tab-btn active";
+            if (btnCustom) btnCustom.className = "tab-btn";
         } else {
             activeComposeTab = 'compose';
             label.innerText = cachedComposeData.compose_file ? cachedComposeData.compose_file.split('/').pop() : "docker-compose.yml";
             editorText.value = cachedComposeData.compose_content || "";
             btnCompose.className = "tab-btn active";
             btnEnv.className = "tab-btn";
+            if (btnCustom) btnCustom.className = "tab-btn";
         }
     }
 
@@ -326,7 +501,9 @@
         btnSave.disabled = true;
         btnSave.innerText = "Speichere...";
 
-        const path = activeComposeTab === 'env' ? cachedComposeData.env_file : cachedComposeData.compose_file;
+        const path = activeComposeTab === 'env' 
+            ? cachedComposeData.env_file 
+            : (activeComposeTab === 'custom' ? cachedComposeData.custom_file : cachedComposeData.compose_file);
         const content = editorText.value;
 
         try {
@@ -337,6 +514,7 @@
             });
             if (r.ok) {
                 if (activeComposeTab === 'env') cachedComposeData.env_content = content;
+                else if (activeComposeTab === 'custom') cachedComposeData.custom_content = content;
                 else cachedComposeData.compose_content = content;
                 showToast("Konfigurationsdatei erfolgreich gespeichert.");
             } else {

@@ -24,6 +24,7 @@ _on_change_callback = None
 # Interner Zustand
 _last_fingerprint: str | None = None
 _thread: threading.Thread | None = None
+_events_thread: threading.Thread | None = None
 _running = False
 
 # Wie oft checken (Sekunden)
@@ -80,13 +81,61 @@ def _compute_fingerprint() -> str:
 
 
 # ---------------------------------------------------------------
-# Daemon-Loop
+# Daemon-Loop und Events-Listener
 # ---------------------------------------------------------------
+
+def _events_listener_loop():
+    global _running
+    import subprocess
+    logger.info("[Discovery] Real-Time Docker Events Listener gestartet...")
+
+    cmd = [
+        "docker", "events",
+        "--filter", "type=container",
+        "--filter", "event=start",
+        "--filter", "event=stop",
+        "--filter", "event=die",
+        "--filter", "event=destroy",
+        "--filter", "event=create"
+    ]
+
+    while _running:
+        try:
+            # Spawne docker events process
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
+            )
+
+            while _running:
+                line = process.stdout.readline()
+                if not line:
+                    break
+                logger.info("[Discovery] ⚡ Docker-Event in Echtzeit erkannt: %s -> Trigger Refresh", line.strip())
+                if _on_change_callback:
+                    try:
+                        _on_change_callback()
+                    except Exception as cb_err:
+                        logger.warning("[Discovery] Callback-Fehler: %s", cb_err)
+
+            process.terminate()
+            process.wait()
+        except FileNotFoundError:
+            logger.debug("[Discovery] Docker CLI nicht gefunden. Echtzeit-Events nicht verfügbar.")
+            break
+        except Exception as e:
+            logger.warning("[Discovery] Fehler im Docker-Events-Listener: %s", e)
+
+        time.sleep(5)
+
 
 def _discovery_loop():
     global _last_fingerprint, _running
 
-    logger.info("[Discovery] Auto-Discovery Daemon gestartet (Interval: %ds)", CHECK_INTERVAL)
+    logger.info("[Discovery] Auto-Discovery Polling-Daemon gestartet (Interval: %ds)", CHECK_INTERVAL)
 
     while _running:
         try:
@@ -133,31 +182,32 @@ def set_change_callback(fn) -> None:
     """
     Registriert eine Callback-Funktion, die aufgerufen wird,
     wenn eine Änderung erkannt wurde.
-
-    Beispiel:
-        from services import discovery
-        from routes import start_background_fetch
-        discovery.set_change_callback(start_background_fetch)
     """
     global _on_change_callback
     _on_change_callback = fn
 
 
 def start_daemon() -> None:
-    """Startet den Auto-Discovery-Daemon als Hintergrund-Thread."""
-    global _thread, _running
+    """Startet den Auto-Discovery-Daemon (Polling & Events) als Hintergrund-Threads."""
+    global _thread, _events_thread, _running
 
-    if _thread and _thread.is_alive():
+    if _running:
         logger.debug("[Discovery] Daemon läuft bereits.")
         return
 
     _running = True
-    _thread = threading.Thread(target=_discovery_loop, name="carla-discovery", daemon=True)
+
+    # 1. Echtzeit-Event-Listener starten
+    _events_thread = threading.Thread(target=_events_listener_loop, name="carla-discovery-events", daemon=True)
+    _events_thread.start()
+
+    # 2. Polling-Schleife als Fallback starten
+    _thread = threading.Thread(target=_discovery_loop, name="carla-discovery-polling", daemon=True)
     _thread.start()
 
 
 def stop_daemon() -> None:
-    """Stoppt den Daemon (optional, da daemon=True)."""
+    """Stoppt alle Daemon-Threads."""
     global _running
     _running = False
 
@@ -165,8 +215,7 @@ def stop_daemon() -> None:
 def force_reset_baseline() -> None:
     """
     Erzwingt eine neue Baseline-Berechnung beim nächsten Tick.
-    Nützlich nach einem manuellen Refresh, damit der nächste
-    automatische Check korrekt verglichen wird.
     """
     global _last_fingerprint
     _last_fingerprint = None
+
