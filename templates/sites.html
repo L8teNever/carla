@@ -545,7 +545,7 @@
     }
 
     function openSiteFiles(wwwPath) {
-        window.location.href = `/filemanager?path=${encodeURIComponent(wwwPath)}`;
+        window.location.href = '/filemanager' + wwwPath;
     }
 
     function openTokenModal(siteName, hostname, tunnelId, tokenOnly) {

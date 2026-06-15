@@ -13,14 +13,22 @@
         <div class="fm-action-bar">
             <button onclick="fmOpenNewFolderModal()" class="btn btn-sm">📁 Neuer Ordner</button>
             <button onclick="fmOpenNewFileModal()" class="btn btn-sm">📄 Neue Datei</button>
+            <button onclick="document.getElementById('fm-upload-input').click()" class="btn btn-sm">⬆ Hochladen</button>
+            <input type="file" id="fm-upload-input" multiple style="display:none;" onchange="fmUploadFiles(this.files)">
             <button id="fm-action-rename" onclick="fmOpenRenameSelected()" class="btn btn-sm" style="display: none;">Umbenennen</button>
             <button id="fm-action-delete" onclick="fmDeleteSelected()" class="btn btn-sm btn-danger" style="display: none;">Löschen</button>
         </div>
     </div>
 
-    <!-- Directory grid items -->
-    <div class="fm-explorer-grid" id="fm-directory-items">
+    <!-- Directory grid items — Drag & Drop Zone -->
+    <div class="fm-explorer-grid" id="fm-directory-items"
+        ondragover="fmOnDragOver(event)"
+        ondragleave="fmOnDragLeave(event)"
+        ondrop="fmOnDrop(event)">
         <!-- Directory listing -->
+    </div>
+    <div id="fm-drop-overlay" style="display:none;position:fixed;inset:0;background:rgba(124,58,237,0.18);border:3px dashed var(--primary);border-radius:var(--r-md);z-index:9999;display:none;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="font-size:1.4rem;color:var(--primary);font-weight:600;background:rgba(13,13,13,0.85);padding:1.5rem 3rem;border-radius:var(--r-md);">Dateien hier ablegen</div>
     </div>
 
     <!-- Floating inline code editor -->
@@ -95,15 +103,36 @@
     let fmSelectedFilePath = "";
     let fmSelectedNode = null; // Currently selected file/folder card
 
+    function _pathFromUrl() {
+        const p = window.location.pathname;
+        const base = '/filemanager';
+        if (p === base || p === base + '/') return '/';
+        return p.slice(base.length) || '/';
+    }
+
+    function _urlForPath(path) {
+        if (path === '/') return '/filemanager/';
+        return '/filemanager' + path;
+    }
+
     async function initPage(data) {
+        // Auch alten ?path= Query-Param unterstützen (Redirect aus sites.html)
         const params = new URLSearchParams(window.location.search);
-        const startPath = params.get('path');
-        if (startPath) fmCurrentPath = startPath;
-        loadFileManagerView();
+        const qPath = params.get('path');
+        fmCurrentPath = qPath || _pathFromUrl();
+
+        window.addEventListener('popstate', (e) => {
+            const path = (e.state && e.state.path) || _pathFromUrl();
+            fmCurrentPath = path;
+            _fmLoad(path);
+        });
+
+        history.replaceState({ path: fmCurrentPath }, '', _urlForPath(fmCurrentPath));
+        _fmLoad(fmCurrentPath);
     }
 
     async function loadFileManagerView() {
-        fmNavigate(fmCurrentPath);
+        _fmLoad(fmCurrentPath);
     }
 
     function deselectFMNode() {
@@ -121,69 +150,43 @@
         document.getElementById('fm-action-delete').style.display = 'inline-flex';
     }
 
-    async function fmNavigate(path) {
-        fmCurrentPath = path;
+    async function _fmLoad(path) {
         const grid = document.getElementById('fm-directory-items');
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted);">Lade Ordner...</div>';
-
-        // Close editor on navigation
-        fmCloseEditor();
         deselectFMNode();
-
         try {
             const r = await fetch(`/api/files/browse?path=${encodeURIComponent(path)}`);
             const data = await r.json();
-
             if (!data.ok) {
-                grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--danger);">${data.error}</div>`;
+                grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--danger);">${data.error}</div>`;
                 return;
             }
-
             renderFMBreadcrumbs(data.path);
-
             grid.innerHTML = '';
             if (data.items.length === 0) {
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted);">Dieser Ordner ist leer.</div>';
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-muted);">Dieser Ordner ist leer.</div>';
                 return;
             }
-
             data.items.forEach(item => {
                 const el = document.createElement('div');
                 el.className = 'fm-node-card';
-                
                 const isDir = item.type === 'dir';
                 const icon = isDir ? '📁' : '📄';
-
-                el.innerHTML = `
-                    <div class="fm-node-icon">${icon}</div>
-                    <div class="fm-node-name" title="${item.name}">${item.name}</div>
-                `;
-
-                // Single-click selects, Double-click opens
-                el.onclick = (e) => {
-                    e.stopPropagation();
-                    selectFMNode(item, el);
-                };
-
-                el.ondblclick = (e) => {
-                    e.stopPropagation();
-                    if (isDir) {
-                        fmNavigate(item.path);
-                    } else {
-                        fmReadFile(item.path);
-                    }
-                };
+                el.innerHTML = `<div class="fm-node-icon">${icon}</div><div class="fm-node-name" title="${item.name}">${item.name}</div>`;
+                el.onclick = (e) => { e.stopPropagation(); selectFMNode(item, el); };
+                el.ondblclick = (e) => { e.stopPropagation(); isDir ? fmNavigate(item.path) : fmReadFile(item.path); };
                 grid.appendChild(el);
             });
-
-            // Clear selection if clicking workspace background
-            grid.onclick = (e) => {
-                if (e.target === grid) deselectFMNode();
-            };
-
+            grid.onclick = (e) => { if (e.target === grid) deselectFMNode(); };
         } catch (e) {
-            grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--danger);">Fehler beim Laden.</div>';
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--danger);">Fehler beim Laden.</div>';
         }
+    }
+
+    async function fmNavigate(path) {
+        fmCurrentPath = path;
+        fmCloseEditor();
+        history.pushState({ path }, '', _urlForPath(path));
+        await _fmLoad(path);
     }
 
     function renderFMBreadcrumbs(path) {
@@ -225,9 +228,49 @@
     }
 
     async function fmReadFile(path) {
-        // Öffne den HELA Editor im selben Tab
-        const backUrl = encodeURIComponent('/filemanager');
+        const dir = path.substring(0, path.lastIndexOf('/')) || '/';
+        const backUrl = encodeURIComponent(_urlForPath(dir));
         window.location.href = `/editor?path=${encodeURIComponent(path)}&back=${backUrl}`;
+    }
+
+    // ---- Drag & Drop Upload ----
+    function fmOnDragOver(e) {
+        e.preventDefault();
+        const ov = document.getElementById('fm-drop-overlay');
+        ov.style.display = 'flex';
+    }
+    function fmOnDragLeave(e) {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+            document.getElementById('fm-drop-overlay').style.display = 'none';
+        }
+    }
+    function fmOnDrop(e) {
+        e.preventDefault();
+        document.getElementById('fm-drop-overlay').style.display = 'none';
+        if (e.dataTransfer.files.length) fmUploadFiles(e.dataTransfer.files);
+    }
+
+    async function fmUploadFiles(files) {
+        if (!files || !files.length) return;
+        const form = new FormData();
+        form.append('path', fmCurrentPath);
+        let count = 0;
+        for (const f of files) { form.append('files', f); count++; }
+
+        showToast(`Lade ${count} Datei${count > 1 ? 'en' : ''} hoch...`);
+        try {
+            const r = await fetch('/api/files/upload', { method: 'POST', body: form });
+            const res = await r.json();
+            if (res.ok) {
+                showToast(`${res.count} Datei${res.count > 1 ? 'en' : ''} hochgeladen.`, 'success');
+            } else {
+                showToast(res.error || 'Upload fehlgeschlagen.', 'error');
+            }
+        } catch(e) { showToast(e.message, 'error'); }
+        finally {
+            document.getElementById('fm-upload-input').value = '';
+            _fmLoad(fmCurrentPath);
+        }
     }
 
     function loadDirectory(path) { fmNavigate(path); }

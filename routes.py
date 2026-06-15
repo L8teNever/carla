@@ -314,7 +314,8 @@ def networks_route():
 
 
 @bp.route("/filemanager")
-def filemanager_route():
+@bp.route("/filemanager/<path:subpath>")
+def filemanager_route(subpath=""):
     return render_template("filemanager.html")
 
 @bp.route("/redirects")
