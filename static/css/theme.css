@@ -607,6 +607,49 @@ body {
     font-size: 12.5px;
 }
 
+/* Editor Styles */
+.editor-container {
+    background: #0a0a0f;
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    margin-top: 15px;
+    width: 100%;
+}
+
+.editor-header {
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.editor-filepath {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.editor-textarea {
+    width: 100%;
+    height: 480px;
+    background: transparent;
+    border: none;
+    padding: 20px;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    color: var(--text);
+    resize: vertical;
+    outline: none;
+    line-height: 1.6;
+    tab-size: 4;
+}
+
 /* Badges */
 .badge {
     display: inline-flex;

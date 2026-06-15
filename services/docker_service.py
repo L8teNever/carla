@@ -38,6 +38,15 @@ def fetch_docker_data(github_token: str) -> dict:
         if os_out and "Error" not in os_out:
             result["os"] = os_out.strip()
 
+        # Bekannte Stack-Namen aus /opt/stacks ermitteln
+        known_stacks = []
+        try:
+            ls_out = system_executor.execute_command("ls -1 /opt/stacks 2>/dev/null")
+            if ls_out and "Error" not in ls_out and "not found" not in ls_out.lower():
+                known_stacks = [d.strip() for d in ls_out.splitlines() if d.strip()]
+        except Exception:
+            pass
+
         # Container-Info (ALLE Container inkl. gestoppte)
         # Tab-sep: Project | Name | Image | Ports | Status | RunningState
         cmd = "docker ps -a --format '{{.Label \"com.docker.compose.project\"}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}\t{{.State}}'"
@@ -64,12 +73,32 @@ def fetch_docker_data(github_token: str) -> dict:
         for line in out.splitlines():
             parts = line.split("\t")
             if len(parts) >= 6:
-                stack = parts[0].strip() or "Einzelne"
+                stack = parts[0].strip()
                 name = parts[1].strip()
                 img = parts[2].strip()
                 ports = parts[3].strip()
                 status_text = parts[4].strip()
                 state = parts[5].strip()
+
+                # Robustes matching fuer Stacks falls Label leer oder "Einzelne"
+                if not stack or stack.lower() == "einzelne":
+                    matched_stack = None
+                    for ks in known_stacks:
+                        if name == ks:
+                            matched_stack = ks
+                            break
+                    if not matched_stack:
+                        for ks in known_stacks:
+                            if name.startswith(f"{ks}_") or name.startswith(f"{ks}-"):
+                                matched_stack = ks
+                                break
+                    stack = matched_stack or "Einzelne"
+                else:
+                    # Case-insensitive Matching mit bekannten Stacks zur Casing-Normalisierung
+                    for ks in known_stacks:
+                        if stack.lower() == ks.lower():
+                            stack = ks
+                            break
 
                 # Alle Port-Bindings als exakte IP:PORT Paare speichern
                 port_bindings = []  # [{"host_ip": "10.7.0.1", "host_port": 1014}, ...]
