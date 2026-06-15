@@ -277,6 +277,10 @@ def stack_performance(stack_name):
 def container_terminal(name):
     return render_template("terminal.html", container_name=name)
 
+@bp.route("/terminal")
+def system_terminal():
+    return render_template("terminal.html", container_name="")
+
 @bp.route("/performance")
 def performance():
     return render_template("performance.html")
@@ -444,6 +448,15 @@ def api_container_exec(name):
     cmd = request.json.get("command")
     if not cmd: return jsonify({"error": "Kein Befehl gesendet"}), 400
     output = docker_service.execute_container_command(name, cmd)
+    return jsonify({"output": output})
+
+
+@bp.route("/api/system/exec", methods=["POST"])
+def api_system_exec():
+    cmd = request.json.get("command")
+    if not cmd: return jsonify({"error": "Kein Befehl gesendet"}), 400
+    from services import system_executor
+    output = system_executor.execute_command(cmd)
     return jsonify({"output": output})
 
 
