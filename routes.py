@@ -1176,6 +1176,24 @@ def api_files_rename():
     return jsonify(file_manager.rename_item(data["path"], data["new_name"]))
 
 
+@bp.route("/api/files/upload", methods=["POST"])
+def api_files_upload():
+    """Lädt eine oder mehrere Dateien in ein Verzeichnis hoch."""
+    dest = request.form.get("path", "")
+    if not dest:
+        return jsonify({"ok": False, "error": "Kein Zielverzeichnis angegeben."}), 400
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify({"ok": False, "error": "Keine Dateien hochgeladen."}), 400
+    results = []
+    for f in files:
+        results.append(file_manager.upload_file(dest, f.filename, f.read()))
+    failed = [r for r in results if not r.get("ok")]
+    if failed:
+        return jsonify({"ok": False, "error": failed[0].get("error"), "results": results}), 400
+    return jsonify({"ok": True, "count": len(results), "results": results})
+
+
 @bp.route("/api/files/stack/<stack_name>", methods=["GET"])
 def api_files_stack(stack_name):
     """Gibt Arbeitsverzeichnis und Volumes eines Stacks zurueck."""

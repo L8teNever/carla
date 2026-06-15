@@ -115,6 +115,22 @@ def delete_item(path: str) -> dict:
     return {"ok": True}
 
 
+def upload_file(dest_dir: str, filename: str, file_bytes: bytes) -> dict:
+    """Speichert eine hochgeladene Datei in ein Verzeichnis."""
+    import os
+    dest_dir = _sanitize_path(dest_dir)
+    safe_name = os.path.basename(filename)
+    if not safe_name:
+        return {"ok": False, "error": "Ungültiger Dateiname."}
+    dest_path = f"{dest_dir.rstrip('/')}/{safe_name}"
+    try:
+        with open(dest_path, "wb") as f:
+            f.write(file_bytes)
+        return {"ok": True, "path": dest_path}
+    except Exception as e:
+        return {"ok": False, "error": f"Fehler beim Schreiben: {e}"}
+
+
 def rename_item(old_path: str, new_name: str) -> dict:
     """Benennt eine Datei oder Ordner um."""
     old_path = _sanitize_path(old_path)
