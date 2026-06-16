@@ -2,50 +2,256 @@
 
 {% block extra_css %}
 <style>
-    .floating-panel {
+    /* Section container styling */
+    #view-infrastructure {
+        background: #09080d !important;
+        border-color: var(--md-outline-variant) !important;
+    }
+
+    /* Unified Sidebar / Bottom Sheet Panel */
+    .infra-panel {
         position: absolute;
-        background: rgba(18, 17, 24, 0.85);
-        border: 1px solid var(--border);
-        border-radius: var(--r-lg);
-        padding: 16px;
-        box-shadow: var(--shadow);
+        top: 20px;
+        left: 20px;
+        width: 310px;
+        background: rgba(26, 25, 35, 0.88);
+        border: 1px solid var(--md-outline-variant);
+        border-radius: var(--r-xl);
+        padding: 18px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
         backdrop-filter: blur(20px);
-        z-index: 10;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
+        color: var(--md-text);
+        font-family: 'Outfit', sans-serif;
+    }
+
+    .infra-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--md-outline-variant);
+        padding-bottom: 10px;
+    }
+
+    .infra-panel-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--md-primary);
+        letter-spacing: 0.3px;
+    }
+
+    .infra-panel-content {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .infra-section-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--md-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+    }
+
+    /* Stats Grid */
+    .infra-stats-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .infra-stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13.5px;
+    }
+
+    .infra-stat-row span {
+        color: var(--md-text-muted);
+    }
+
+    .infra-stat-row strong {
+        color: var(--md-text);
+        font-weight: 600;
+    }
+
+    .infra-divider {
+        height: 1px;
+        background: var(--md-outline-variant);
+        margin: 6px 0;
+    }
+
+    /* Legend List */
+    .infra-legend-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .infra-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 13px;
+    }
+
+    .infra-legend-item span {
+        color: var(--md-text);
+    }
+
+    .infra-legend-item .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    /* Footer camera controls */
+    .infra-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid var(--md-outline-variant);
+        padding-top: 10px;
+        margin-top: 6px;
+    }
+
+    /* Collapsed trigger button styling */
+    .infra-collapsed-trigger {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 90;
+        padding: 10px 18px;
+        border-radius: var(--r-full);
+        background: var(--md-primary-container) !important;
+        color: var(--md-on-primary-container) !important;
+        border: 1px solid var(--md-outline-variant) !important;
+        font-weight: 600;
+        font-size: 13px;
+        box-shadow: var(--shadow);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: transform 0.2s ease;
+    }
+
+    .infra-collapsed-trigger:hover {
+        transform: scale(1.04);
+    }
+
+    /* Media query for mobile responsive design */
+    @media (max-width: 768px) {
+        .infra-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            top: auto;
+            width: 100%;
+            border-radius: var(--r-xl) var(--r-xl) 0 0;
+            transform: translateY(100%);
+            margin: 0;
+            box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+        }
+
+        .infra-panel.expanded {
+            transform: translateY(0);
+        }
+
+        .infra-panel::before {
+            content: '';
+            display: block;
+            width: 36px;
+            height: 4px;
+            background: var(--md-outline-variant);
+            border-radius: var(--r-full);
+            margin: 0 auto 10px;
+        }
+
+        .infra-collapsed-trigger {
+            position: fixed;
+            top: auto;
+            bottom: 80px; /* float above bottom nav */
+            left: 50%;
+            transform: translateX(-50%);
+            width: auto;
+            white-space: nowrap;
+        }
+        
+        .infra-collapsed-trigger:hover {
+            transform: translateX(-50%) scale(1.04);
+        }
+        
+        #view-infrastructure {
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<section id="view-infrastructure" style="padding:0; overflow:hidden; position:relative; background:#050507; width: 100%; border-radius: var(--r-xl); border: 1px solid var(--border);">
+<section id="view-infrastructure" style="padding:0; overflow:hidden; position:relative; width: 100%; border-radius: var(--r-xl); border: 1px solid var(--md-outline-variant);">
     <canvas id="topology-canvas" style="position:absolute;inset:0;width:100%;height:100%;display:block;"></canvas>
 
-    <!-- Stats overlay -->
-    <div class="floating-panel" style="top:16px;right:16px;min-width:190px;z-index:20;">
-        <div style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Graph Status</div>
-        <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;">
-            <div style="display:flex;justify-content:space-between;"><span>Stacks:</span><strong id="lm-stat-stacks">-</strong></div>
-            <div style="display:flex;justify-content:space-between;"><span>Container:</span><strong id="lm-stat-containers">-</strong></div>
-            <div style="display:flex;justify-content:space-between;"><span>Domains:</span><strong id="lm-stat-domains">-</strong></div>
-            <div style="border-top:1px solid var(--border);margin:5px 0;"></div>
-            <div style="display:flex;justify-content:space-between;"><span>RX:</span><strong id="lm-stat-rx" style="color:var(--success);">-</strong></div>
-            <div style="display:flex;justify-content:space-between;"><span>TX:</span><strong id="lm-stat-tx" style="color:var(--primary);">-</strong></div>
+    <!-- Unified Sidebar / Bottom Sheet Panel -->
+    <div class="infra-panel" id="infra-sidebar-panel">
+        <div class="infra-panel-header">
+            <span class="infra-panel-title">Netzwerk-Info</span>
+            <button onclick="toggleInfraPanel()" class="btn btn-icon btn-sm" title="Minimieren" style="width: 28px; height: 28px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 14px; height: 14px;"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+        </div>
+        
+        <div class="infra-panel-content">
+            <!-- Metrics -->
+            <div class="infra-section">
+                <div class="infra-section-title">Graph-Status</div>
+                <div class="infra-stats-grid">
+                    <div class="infra-stat-row"><span>Stacks</span><strong id="lm-stat-stacks">-</strong></div>
+                    <div class="infra-stat-row"><span>Container</span><strong id="lm-stat-containers">-</strong></div>
+                    <div class="infra-stat-row"><span>Domains</span><strong id="lm-stat-domains">-</strong></div>
+                    <div class="infra-divider"></div>
+                    <div class="infra-stat-row"><span>RX Rate</span><strong id="lm-stat-rx" style="color:var(--md-success);">-</strong></div>
+                    <div class="infra-stat-row"><span>TX Rate</span><strong id="lm-stat-tx" style="color:var(--md-primary);">-</strong></div>
+                </div>
+            </div>
+            
+            <!-- Legend -->
+            <div class="infra-section">
+                <div class="infra-section-title">Legende</div>
+                <div class="infra-legend-list">
+                    <div class="infra-legend-item"><span class="dot" style="background:#8b5cf6; box-shadow:0 0 6px rgba(139,92,246,0.4);"></span><span>Host-Server (Zentrum)</span></div>
+                    <div class="infra-legend-item"><span class="dot" style="background:#52525b;"></span><span>Compose Stacks</span></div>
+                    <div class="infra-legend-item"><span class="dot" style="background:#10b981; box-shadow:0 0 6px rgba(16,185,129,0.4);"></span><span>Öffentliche Domain</span></div>
+                    <div class="infra-legend-item"><span class="dot" style="background:#f97316; box-shadow:0 0 6px rgba(249,115,22,0.4);"></span><span>Cloudflare Zero Trust</span></div>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="infra-footer">
+                <span style="font-size: 10px; color: var(--md-text-muted);">Scrollen=Zoom · Ziehen=Pan</span>
+                <button onclick="topoResetCamera()" class="btn btn-sm" style="font-size: 11px; padding: 4px 12px;">Zentrieren</button>
+            </div>
         </div>
     </div>
-
-    <!-- Legend -->
-    <div class="floating-panel" style="bottom:20px;left:20px;z-index:20;width:265px;">
-        <h3 style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--text-muted);text-transform:uppercase;margin-bottom:12px;">Legende</h3>
-        <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
-            <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#8b5cf6;box-shadow:0 0 6px #8b5cf660;flex-shrink:0;"></span><span>Host-Server (Zentrum)</span></div>
-            <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#52525b;flex-shrink:0;"></span><span>Compose Stacks</span></div>
-            <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b98160;flex-shrink:0;"></span><span>Öffentliche Domain</span></div>
-            <div style="display:flex;align-items:center;gap:10px;"><span style="width:10px;height:10px;border-radius:50%;background:#f97316;box-shadow:0 0 6px #f9731660;flex-shrink:0;"></span><span>Cloudflare Zero Trust</span></div>
-        </div>
-        <div style="border-top:1px solid rgba(255,255,255,.05);margin-top:10px;padding-top:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:10px;color:var(--text-muted);">Scrollen=Zoom · Ziehen=Pan</span>
-            <button onclick="topoResetCamera()" style="font-size:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;">Zentrieren</button>
-        </div>
-    </div>
+    
+    <!-- Collapsed Floating Button (when panel is minimized) -->
+    <button onclick="toggleInfraPanel()" class="infra-collapsed-trigger btn" id="infra-collapsed-btn" style="display: none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 14px; height: 14px; margin-right: 4px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        Netzwerk-Info
+    </button>
 </section>
 {% endblock %}
 
@@ -56,6 +262,30 @@
     let infraNetData = {};
 
     function topoResetCamera() { window.topoPan.x=0; window.topoPan.y=0; window.topoZoom=0.65; }
+
+    function toggleInfraPanel() {
+        const panel = document.getElementById('infra-sidebar-panel');
+        const collapsedBtn = document.getElementById('infra-collapsed-btn');
+        if (!panel || !collapsedBtn) return;
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+            panel.classList.toggle('expanded');
+            if (panel.classList.contains('expanded')) {
+                collapsedBtn.style.display = 'none';
+            } else {
+                collapsedBtn.style.display = 'inline-flex';
+            }
+        } else {
+            if (panel.style.display === 'none') {
+                panel.style.display = 'flex';
+                collapsedBtn.style.display = 'none';
+            } else {
+                panel.style.display = 'none';
+                collapsedBtn.style.display = 'inline-flex';
+            }
+        }
+    }
 
     async function initPage(data) {
         window.initInfrastructure();
@@ -88,7 +318,7 @@
             if(!topoCanvas) return;
             const p = topoCanvas.parentElement;
             topoWidth  = (p && p.clientWidth  > 10) ? p.clientWidth  : window.innerWidth;
-            topoHeight = 550; // Set a fixed height for nice visual balance
+            topoHeight = (p && p.clientHeight > 10) ? p.clientHeight : 550;
             topoCanvas.width=topoWidth; topoCanvas.height=topoHeight;
             topoCanvas.style.width=topoWidth+'px'; topoCanvas.style.height=topoHeight+'px';
         }
@@ -546,6 +776,21 @@
             if(section) {
                 const top = section.getBoundingClientRect().top;
                 section.style.height = (window.innerHeight - top - 30) + 'px';
+            }
+
+            // Setup default panel state based on device screen width
+            const panel = document.getElementById('infra-sidebar-panel');
+            const collapsedBtn = document.getElementById('infra-collapsed-btn');
+            if (panel && collapsedBtn) {
+                if (window.innerWidth <= 768) {
+                    panel.classList.remove('expanded');
+                    panel.style.display = 'flex';
+                    collapsedBtn.style.display = 'inline-flex';
+                } else {
+                    panel.classList.remove('expanded');
+                    panel.style.display = 'flex';
+                    collapsedBtn.style.display = 'none';
+                }
             }
 
             if(!topoCanvas) setupTopoCanvas();
