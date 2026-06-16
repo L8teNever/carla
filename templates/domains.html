@@ -13,97 +13,96 @@
 
 <!-- 1. Tunnel Routes Sub-Tab -->
 <div id="domains-tab-tunnels" class="tab-panel">
-    <div class="section-header">
-        <div class="section-title" id="domains-count-title">Aktive Domains (0)</div>
-        <div style="display:flex; gap:15px; align-items:center;">
-            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; user-select:none; color:var(--warning);">
-                <input type="checkbox" id="domains-orphan-only" onchange="filterDomains()" style="width:16px; height:16px; cursor:pointer;">
-                ⚠️ Nur verwaiste Domains (Löschvorschläge)
-            </label>
-            <input type="text" id="domains-search" class="input" placeholder="Nach Domain, Tunnel, Container suchen..." style="max-width:260px; padding: 8px 12px; font-size:13.5px;" oninput="filterDomains()">
-            <button onclick="loadDomainsView(true)" class="btn btn-icon" title="Aktualisieren">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
-                    <polyline points="23 4 23 10 17 10"></polyline>
-                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                </svg>
-            </button>
+    <div class="section-header" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+        <!-- Title & Bulk actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
+            <div class="section-title" id="domains-count-title" style="margin: 0;">Aktive Domains (0)</div>
+            
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <button onclick="bulkSelectAll()" class="btn btn-sm">Alle markieren</button>
+                <button onclick="clearBulkSelection()" class="btn btn-sm">Auswahl aufheben</button>
+                <button onclick="checkAllVisibleDomainsStatus()" class="btn btn-sm" style="display: flex; align-items: center; gap: 6px;">
+                    🔍 Reichweite prüfen
+                </button>
+            </div>
+        </div>
+
+        <!-- Filters & Search Toolbar Card -->
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; background: var(--md-surface-variant); border: 1px solid var(--md-outline-variant); border-radius: var(--r-lg); padding: 12px 20px; flex-wrap: wrap; gap: 16px;">
+            <!-- Left: Quick toggles -->
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500; cursor: pointer; user-select: none; color: var(--md-warning);">
+                    <input type="checkbox" id="domains-orphan-only" onchange="filterDomains()" style="width: 18px; height: 18px; cursor: pointer;">
+                    ⚠️ Nur verwaiste Domains (Löschvorschläge)
+                </label>
+            </div>
+            
+            <!-- Right: Search & Refresh -->
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; flex-grow: 1; justify-content: flex-end;">
+                <div style="position: relative; max-width: 320px; width: 100%;">
+                    <input type="text" id="domains-search" class="input" placeholder="Nach Domain, Tunnel, Container suchen..." style="padding: 10px 14px; padding-left: 38px; font-size: 13.5px; width: 100%;" oninput="filterDomains()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; opacity: 0.5; color: var(--md-text);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </div>
+                <button onclick="loadDomainsView(true)" class="btn btn-icon" title="Aktualisieren" style="width: 40px; height: 40px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                </button>
+            </div>
         </div>
     </div>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 5px;">
-        <div style="display: flex; gap: 8px;">
-            <button onclick="bulkSelectAll()" class="btn btn-sm btn-secondary" style="font-size:12px; padding:6px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);">Alle markieren</button>
-            <button onclick="clearBulkSelection()" class="btn btn-sm btn-secondary" style="font-size:12px; padding:6px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);">Auswahl aufheben</button>
-        </div>
-        <div>
-            <button onclick="checkAllVisibleDomainsStatus()" class="btn btn-sm btn-secondary" style="font-size:12px; padding:6px 12px; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);">
-                🔍 Reichweite prüfen
-            </button>
-        </div>
-    </div>
-
-    <div class="table-container" style="margin-top: 10px;">
-        <table class="table" id="domains-table">
-            <thead>
-                <tr>
-                    <th style="width: 35%;">Lokale Verbindung (Ziel &amp; Kontext)</th>
-                    <th style="width: 65%;">Zugeordnete Cloudflare Domains &amp; Status</th>
-                </tr>
-            </thead>
-            <tbody id="domains-tbody">
-                <!-- Injected dynamically -->
-            </tbody>
-        </table>
+    <div id="domains-tbody" class="grid-layout grid-2" style="margin-top: 16px;">
+        <!-- Injected dynamically -->
     </div>
 </div>
 
 <!-- 2. Zero Trust Apps Sub-Tab -->
 <div id="domains-tab-access" class="tab-panel" style="display: none;">
-    <div class="section-header">
-        <div class="section-title" id="access-count-title">Zero Trust Applikationen (0)</div>
-        <div style="display:flex; gap:10px; align-items:center;">
-            <input type="text" id="access-search" class="input" placeholder="Nach App oder Domain suchen..." style="max-width:300px; padding: 8px 12px; font-size:13.5px;" oninput="filterAccessApps()">
-            <button onclick="loadAccessAppsView(true)" class="btn btn-icon" title="Aktualisieren">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
-                    <polyline points="23 4 23 10 17 10"></polyline>
-                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                </svg>
-            </button>
+    <div class="section-header" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+        <!-- Title & Count -->
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 16px;">
+            <div class="section-title" id="access-count-title" style="margin: 0;">Zero Trust Applikationen (0)</div>
+        </div>
+
+        <!-- Filters & Search Toolbar Card -->
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; background: var(--md-surface-variant); border: 1px solid var(--md-outline-variant); border-radius: var(--r-lg); padding: 12px 20px; flex-wrap: wrap; gap: 16px;">
+            <!-- Right: Search & Refresh -->
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; flex-grow: 1; justify-content: flex-end;">
+                <div style="position: relative; max-width: 320px; width: 100%;">
+                    <input type="text" id="access-search" class="input" placeholder="Nach App oder Domain suchen..." style="padding: 10px 14px; padding-left: 38px; font-size: 13.5px; width: 100%;" oninput="filterAccessApps()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; opacity: 0.5; color: var(--md-text);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </div>
+                <button onclick="loadAccessAppsView(true)" class="btn btn-icon" title="Aktualisieren" style="width: 40px; height: 40px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                </button>
+            </div>
         </div>
     </div>
 
-    <div class="table-container" style="margin-top: 15px;">
-        <table class="table" id="access-apps-table">
-            <thead>
-                <tr>
-                    <th>App-Name</th>
-                    <th>Domain</th>
-                    <th>Erstellt am</th>
-                    <th>Zugriffsregeln (Policies)</th>
-                    <th style="text-align: right;">Aktionen</th>
-                </tr>
-            </thead>
-            <tbody id="access-apps-tbody">
-                <!-- Injected dynamically -->
-            </tbody>
-        </table>
+    <div id="access-apps-tbody" class="grid-layout grid-3" style="margin-top: 16px;">
+        <!-- Injected dynamically -->
     </div>
 </div>
 
 <!-- 3. Create Route Sub-Tab -->
 <div id="domains-tab-create" class="tab-panel" style="display: none;">
-    <div style="max-width: 650px; background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 30px; margin-top: 10px;">
-        <div class="section-title" style="margin-bottom: 5px;">Neue Cloudflare Route veröffentlichen</div>
-        <div class="section-subtitle" style="margin-bottom: 25px; color: var(--text-muted); font-size: 13px;">
+    <div class="card" style="max-width: 680px; padding: 32px; border-radius: var(--r-xl); margin-top: 10px;">
+        <div class="section-title" style="margin-bottom: 6px; font-size: 22px; font-weight: 700;">Neue Cloudflare Route veröffentlichen</div>
+        <div style="margin-bottom: 28px; color: var(--md-text-muted); font-size: 13.5px; line-height: 1.5;">
             Verbinde einen beliebigen internen Dienst (IP und Port) über einen Cloudflare Tunnel mit einer öffentlichen Domain/Subdomain und schütze ihn optional mit Zero Trust.
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 24px;">
             <!-- Hostname / Domain -->
             <div class="form-group">
                 <label class="form-label" for="cf-create-hostname">Öffentliche Domain / Subdomain</label>
                 <input type="text" id="cf-create-hostname" class="input mono" placeholder="z.B. app.meine-domain.de" oninput="updateCreateRoutePreview()">
-                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                <div style="font-size: 11px; color: var(--md-text-muted); margin-top: 4px;">
                     Die Domain muss in deinem Cloudflare-Account als Zone registriert sein.
                 </div>
             </div>
@@ -113,20 +112,20 @@
                 <label class="form-label" for="cf-create-service">Interner Dienst (Ziel-Adresse)</label>
                 <div style="display: flex; gap: 10px; margin-bottom: 8px;">
                     <input type="text" id="cf-create-service" class="input mono" placeholder="z.B. http://localhost:8080" style="flex: 1;" oninput="updateCreateRoutePreview()">
-                    <button class="btn btn-secondary" onclick="toggleServicePicker(event)" id="btn-toggle-service-picker" style="white-space: nowrap; display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 10px 16px; border: 1px solid var(--border);">
+                    <button class="btn btn-secondary" onclick="toggleServicePicker(event)" id="btn-toggle-service-picker" style="white-space: nowrap; display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 10px 16px; border: 1px solid var(--md-outline-variant);">
                         🔌 Dienst auswählen
                     </button>
                 </div>
                 
                 <!-- Custom Service Picker Grid (toggled on/off) -->
-                <div id="service-picker-container" style="display: none; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); border-radius: var(--r-md); padding: 15px; margin-bottom: 12px; max-height: 380px; overflow-y: auto;">
-                    <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div id="service-picker-container" style="display: none; background: var(--md-surface-variant); border: 1px solid var(--md-outline-variant); border-radius: var(--r-xl); padding: 20px; margin-bottom: 16px; max-height: 400px; overflow-y: auto;">
+                    <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--md-text-muted); margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
                         <span>Erkannte Docker Stacks & Dienste</span>
-                        <button onclick="refreshServicePicker(event)" class="btn btn-sm" style="font-size: 10px; padding: 3px 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.01);">🔄 Aktualisieren</button>
+                        <button onclick="refreshServicePicker(event)" class="btn btn-sm" style="font-size: 11px; padding: 4px 10px;">🔄 Aktualisieren</button>
                     </div>
                     
                     <!-- Search input inside picker -->
-                    <input type="text" id="service-picker-search" class="input" placeholder="Dienst oder Port filtern..." style="padding: 8px 12px; font-size: 12.5px; margin-bottom: 12px; background: rgba(0,0,0,0.15);" oninput="filterServicePicker()">
+                    <input type="text" id="service-picker-search" class="input" placeholder="Dienst oder Port filtern..." style="padding: 10px 14px; font-size: 13px; margin-bottom: 16px; background: var(--md-surface);" oninput="filterServicePicker()">
 
                     <!-- Grouped Services List -->
                     <div id="service-picker-list" style="display: flex; flex-direction: column; gap: 12px;">
@@ -134,7 +133,7 @@
                     </div>
                 </div>
 
-                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                <div style="font-size: 11px; color: var(--md-text-muted); margin-top: 4px;">
                     Format: <code>http://localhost:PORT</code> oder <code>http://IP:PORT</code>. Du kannst deinen Dienst direkt über den Button auswählen.
                 </div>
             </div>
@@ -143,22 +142,22 @@
             <div class="form-group">
                 <label class="form-label" for="cf-create-tunnel">Cloudflare Tunnel</label>
                 <select id="cf-create-tunnel" class="select mono"></select>
-                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                <div style="font-size: 11px; color: var(--md-text-muted); margin-top: 4px;">
                     Wähle den Tunnel aus, über den der Dienst getunnelt werden soll.
                 </div>
             </div>
 
             <!-- Zero Trust Access Option -->
-            <div class="form-group" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--r-md); padding: 15px;">
+            <div class="form-group" style="background: var(--md-surface-variant); border: 1px solid var(--md-outline-variant); border-radius: var(--r-xl); padding: 20px;">
                 <label style="display: flex; align-items: center; gap: 10px; font-weight: 600; cursor: pointer; user-select: none; margin-bottom: 10px;">
                     <input type="checkbox" id="cf-create-zerotrust-enable" onchange="toggleCreateZeroTrustSection()" style="width: 18px; height: 18px; cursor: pointer;">
                     🛡️ Cloudflare Zero Trust Schutz aktivieren
                 </label>
-                <div id="cf-create-zerotrust-section" style="display: none; flex-direction: column; gap: 15px; margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 12px;">
+                <div id="cf-create-zerotrust-section" style="display: none; flex-direction: column; gap: 15px; margin-top: 10px; border-top: 1px dashed var(--md-outline-variant); padding-top: 16px;">
                     <div>
                         <label class="form-label" style="font-size: 12px; margin-bottom: 6px;">Zugriffsberechtigung (E-Mails oder ganze Domains)</label>
-                        <textarea id="cf-create-zt-emails" class="input mono" rows="3" placeholder="z.B. ich@gmail.com&#10;@meine-firma.de" style="resize: vertical; font-size: 12px; line-height: 1.4; padding: 8px;"></textarea>
-                        <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 4px;">
+                        <textarea id="cf-create-zt-emails" class="textarea mono" rows="3" placeholder="z.B. ich@gmail.com&#10;@meine-firma.de" style="resize: vertical; font-size: 12.5px; line-height: 1.4; padding: 12px;"></textarea>
+                        <div style="font-size: 10.5px; color: var(--md-text-muted); margin-top: 4px;">
                             Eine E-Mail-Adresse oder Domain (mit @) pro Zeile. Leer lassen, um allen Identitäten der Organisation den Zugriff zu erlauben.
                         </div>
                     </div>
@@ -166,13 +165,13 @@
             </div>
 
             <!-- Preview / Live-Feedback -->
-            <div id="cf-create-preview" style="font-family: var(--font-mono); font-size: 12px; color: var(--primary); background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(124, 58, 237, 0.2); padding: 12px 16px; border-radius: var(--r-md); display: none;">
+            <div id="cf-create-preview" style="font-family: var(--font-mono); font-size: 12.5px; color: var(--md-primary); background: var(--md-primary-container); border: 1px solid var(--md-outline-variant); padding: 14px 20px; border-radius: var(--r-lg); display: none;">
                 Routing-Vorschau: ...
             </div>
 
             <!-- Submit Button -->
             <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-                <button onclick="submitCreateRoute()" class="btn btn-primary" id="cf-create-submit-btn" style="padding: 10px 24px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                <button onclick="submitCreateRoute()" class="btn btn-primary" id="cf-create-submit-btn" style="padding: 12px 28px; font-size: 14.5px; display: flex; align-items: center; gap: 8px;">
                     Route veröffentlichen
                 </button>
             </div>
@@ -530,28 +529,28 @@
             stackKeys.forEach(stackName => {
                 const stackCard = document.createElement('div');
                 stackCard.className = 'picker-stack-group';
-                stackCard.style.cssText = 'border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px; background: rgba(255,255,255,0.01); margin-bottom: 5px;';
+                stackCard.style.cssText = 'border: 1px solid var(--md-outline-variant); border-radius: var(--r-lg); padding: 14px 16px; background: var(--md-surface-container); margin-bottom: 8px;';
                 
                 let containerHtml = '';
                 const containers = dockerStacks[stackName];
                 Object.keys(containers).sort().forEach(cName => {
                     const portItems = containers[cName];
-                    const stateStyle = portItems[0].state === 'running' ? 'background: var(--success);' : 'background: var(--danger);';
+                    const stateStyle = portItems[0].state === 'running' ? 'background: var(--md-success);' : 'background: var(--md-danger);';
                     
                     let portsButtonsHtml = '';
                     portItems.forEach(p => {
                         portsButtonsHtml += `
-                            <button onclick="selectPickedService('${p.url}', event)" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; background: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.2); color: var(--primary-light); cursor: pointer; transition: all 0.2s;">
+                            <button onclick="selectPickedService('${p.url}', event)" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px; background: var(--md-primary-container); border: 1px solid var(--md-outline-variant); color: var(--md-on-primary-container);">
                                 Port ${p.port} (${p.protocol}) ➔
                             </button>
                         `;
                     });
 
                     containerHtml += `
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-top: 1px dashed rgba(255,255,255,0.05); margin-top: 5px; flex-wrap: wrap; gap: 8px;">
-                            <div style="display:flex; align-items:center; gap:6px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding: 8px 0; border-top: 1px dashed var(--md-outline-variant); margin-top: 8px; flex-wrap: wrap; gap: 8px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
                                 <span style="display:inline-block; width:6px; height:6px; border-radius:50%; ${stateStyle}"></span>
-                                <span style="font-size:12.5px; font-weight:600; color:var(--text);">${cName}</span>
+                                <span style="font-size:13px; font-weight:600; color:var(--md-text);">${cName}</span>
                             </div>
                             <div style="display:flex; gap:6px;">
                                 ${portsButtonsHtml}
@@ -561,7 +560,7 @@
                 });
 
                 stackCard.innerHTML = `
-                    <div style="font-size:11px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                    <div style="font-size:11px; font-weight:700; color:var(--md-primary); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
                         📦 Stack: ${stackName}
                     </div>
                     ${containerHtml}
@@ -573,14 +572,14 @@
         // 2. System-Dienste
         if (systemServices.length > 0) {
             const systemCard = document.createElement('div');
-            systemCard.style.cssText = 'border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px; background: rgba(255,255,255,0.01); margin-bottom: 5px;';
+            systemCard.style.cssText = 'border: 1px solid var(--md-outline-variant); border-radius: var(--r-lg); padding: 14px 16px; background: var(--md-surface-container); margin-bottom: 8px;';
             
             let servicesHtml = '';
             systemServices.forEach(p => {
                 servicesHtml += `
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-top: 1px dashed rgba(255,255,255,0.05); margin-top: 5px; flex-wrap: wrap; gap: 8px;">
-                        <span style="font-size:12.5px; font-weight:600; color:var(--text);">⚙️ ${p.process}</span>
-                        <button onclick="selectPickedService('${p.url}', event)" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: var(--info); cursor: pointer;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 8px 0; border-top: 1px dashed var(--md-outline-variant); margin-top: 8px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-size:13px; font-weight:600; color:var(--md-text);">⚙️ ${p.process}</span>
+                        <button onclick="selectPickedService('${p.url}', event)" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px; background: var(--md-surface-variant); border: 1px solid var(--md-outline-variant); color: var(--md-text);">
                             Port ${p.port} (${p.protocol}) ➔
                         </button>
                     </div>
@@ -588,7 +587,7 @@
             });
 
             systemCard.innerHTML = `
-                <div style="font-size:11px; font-weight:700; color:var(--info); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">
+                <div style="font-size:11px; font-weight:700; color:var(--md-info); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;">
                     💻 Host System-Dienste
                 </div>
                 ${servicesHtml}
@@ -599,14 +598,14 @@
         // 3. Sonstige Ports
         if (otherServices.length > 0) {
             const otherCard = document.createElement('div');
-            otherCard.style.cssText = 'border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px; background: rgba(255,255,255,0.01); margin-bottom: 5px;';
+            otherCard.style.cssText = 'border: 1px solid var(--md-outline-variant); border-radius: var(--r-lg); padding: 14px 16px; background: var(--md-surface-container); margin-bottom: 8px;';
             
             let servicesHtml = '';
             otherServices.forEach(p => {
                 servicesHtml += `
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-top: 1px dashed rgba(255,255,255,0.05); margin-top: 5px; flex-wrap: wrap; gap: 8px;">
-                        <span style="font-size:12.5px; color:var(--text-muted);">Port ${p.port} (${p.protocol})</span>
-                        <button onclick="selectPickedService('${p.url}', event)" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text); cursor: pointer;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 8px 0; border-top: 1px dashed var(--md-outline-variant); margin-top: 8px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-size:13px; color:var(--md-text-muted);">Port ${p.port} (${p.protocol})</span>
+                        <button onclick="selectPickedService('${p.url}', event)" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px; background: var(--md-surface-variant); border: 1px solid var(--md-outline-variant); color: var(--md-text-muted);">
                             Wählen ➔
                         </button>
                     </div>
@@ -614,7 +613,7 @@
             });
 
             otherCard.innerHTML = `
-                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">
+                <div style="font-size:11px; font-weight:700; color:var(--md-text-muted); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;">
                     🔌 Sonstige offene Ports
                 </div>
                 ${servicesHtml}
@@ -848,19 +847,19 @@
         countTitle.textContent = `Aktive Domains (${totalDomains})`;
         
         if (groupList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; padding:30px; color:var(--text-muted);">
-                ${orphanOnly ? 'Keine verwaisten Domains (Löschvorschläge) gefunden. Hervorragend!' : 'Keine Cloudflare Domains gefunden.'}
-            </td></tr>`;
+            tbody.innerHTML = `
+                <div class="card" style="grid-column: 1 / -1; text-align:center; padding:48px; color:var(--md-text-muted);">
+                    ${orphanOnly ? 'Keine verwaisten Domains (Löschvorschläge) gefunden. Hervorragend!' : 'Keine Cloudflare Domains gefunden.'}
+                </div>
+            `;
             return;
         }
         
         groupList.forEach(group => {
-            const tr = document.createElement('tr');
+            const card = document.createElement('div');
+            card.className = 'card domain-group-card';
             
-            const tdLeft = document.createElement('td');
-            tdLeft.style.verticalAlign = 'top';
-            tdLeft.style.padding = '15px 12px';
-            
+            let headerHtml = '';
             if (group.matched) {
                 const tgt = group.matched;
                 let icon = '📦';
@@ -868,38 +867,37 @@
                 if (tgt.type === 'vhost') icon = '📄';
                 
                 const isRunning = tgt.status === 'running';
-                const statusDot = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${isRunning ? 'var(--success)' : 'var(--danger)'}; margin-right:6px;"></span>`;
+                const statusDot = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${isRunning ? 'var(--md-success)' : 'var(--md-danger)'};"></span>`;
                 
-                tdLeft.innerHTML = `
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <span style="font-weight:700; font-size:14.5px; color:#fff;">${icon} ${tgt.name}</span>
-                        <span style="font-size:11.5px; color:var(--text-muted); display:flex; align-items:center;">
-                            ${statusDot}${tgt.detail}
-                        </span>
-                        <span class="mono" style="font-size:11.5px; color:var(--primary); margin-top:4px;">${group.target}</span>
+                headerHtml = `
+                    <div class="domain-group-header">
+                        <div class="domain-group-info">
+                            <span class="domain-group-title">${icon} ${tgt.name}</span>
+                            <span class="domain-group-subtitle">
+                                ${statusDot} ${tgt.detail}
+                            </span>
+                        </div>
+                        <span class="domain-group-target">${group.target}</span>
                     </div>
                 `;
             } else {
-                tdLeft.innerHTML = `
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <span style="font-weight:700; font-size:14.5px; color:var(--warning);">⚠️ Verwaist / Externer Host</span>
-                        <span style="font-size:11.5px; color:var(--text-muted);">Kein lokaler Service läuft auf diesem Ziel</span>
-                        <span class="mono" style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">${group.target !== 'extern' ? group.target : 'Unbekanntes Ziel'}</span>
+                headerHtml = `
+                    <div class="domain-group-header">
+                        <div class="domain-group-info">
+                            <span class="domain-group-title" style="color:var(--md-warning);">⚠️ Verwaist / Externer Host</span>
+                            <span class="domain-group-subtitle">Kein lokaler Service läuft auf diesem Ziel</span>
+                        </div>
+                        <span class="domain-group-target">${group.target !== 'extern' ? group.target : 'Unbekanntes Ziel'}</span>
                     </div>
                 `;
             }
-            tr.appendChild(tdLeft);
             
-            const tdRight = document.createElement('td');
-            tdRight.style.verticalAlign = 'top';
-            tdRight.style.padding = '15px 12px';
-            
-            const domainsStack = document.createElement('div');
-            domainsStack.style.cssText = 'display:flex; flex-direction:column; gap:10px;';
+            const domainsList = document.createElement('div');
+            domainsList.className = 'domain-group-list';
             
             group.domains.forEach(domain => {
                 const domainItem = document.createElement('div');
-                domainItem.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(255,255,255,0.015); border:1px solid var(--border); border-radius:var(--r-md); gap:12px;';
+                domainItem.className = 'domain-item-row';
                 
                 let badgeHtml = '';
                 if (domain.zero_trust) {
@@ -911,26 +909,25 @@
                     const reasonText = domain.public_approved_reason 
                         ? `Freigegeben: ${domain.public_approved_reason}`
                         : 'Öffentliche Freigabe vorhanden';
-                    badgeHtml = `<span class="badge info" style="font-size:10px; padding:3px 7px;" title="${reasonText}">🌐 Öffentlich (Freigeb.)</span>`;
+                    badgeHtml = `<span class="badge info" style="font-size:10px; padding:3px 7px;" title="${reasonText}">🌐 Freigegeben</span>`;
                 } else {
-                    badgeHtml = `<span class="badge danger" style="font-size:10px; padding:3px 7px;" title="Achtung: Diese Domain ist öffentlich erreichbar, aber nicht freigegeben!">⚠️ Öffentlich (Unfreigeb.)</span>`;
+                    badgeHtml = `<span class="badge danger" style="font-size:10px; padding:3px 7px;" title="Achtung: Diese Domain ist öffentlich erreichbar, aber nicht freigegeben!">⚠️ Unfreigeb.</span>`;
                 }
                 
                 const escapedReason = (domain.public_approved_reason || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
-                
                 const isChecked = selectedDomains.has(domain.hostname) ? 'checked' : '';
                 const statusBadgeHtml = getStatusBadgeHtml(domain.hostname);
                 
                 domainItem.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+                    <div class="domain-item-left">
                         <input type="checkbox" class="domain-checkbox" data-hostname="${domain.hostname}" data-tunnel-id="${domain.tunnel_id}" data-zone-id="${domain.zone_id || ''}" onchange="toggleDomainSelection('${domain.hostname}', this.checked, '${domain.tunnel_id}', '${domain.zone_id || ''}')" ${isChecked} style="width:16px; height:16px; cursor:pointer; flex-shrink:0;">
-                        <div style="display:flex; flex-direction:column; gap:3px; flex:1; min-width:0;">
+                        <div class="domain-item-meta">
                             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                <a href="https://${domain.hostname}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none; font-size:13.5px; display:inline-flex; align-items:center; gap:4px;">
+                                <a href="https://${domain.hostname}" target="_blank" class="domain-item-link">
                                     🌐 ${domain.hostname}
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px; height:11px; opacity:0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                 </a>
-                                <span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">[☁️ ${domain.tunnel_name}]</span>
+                                <span class="domain-item-tunnel">[☁️ ${domain.tunnel_name}]</span>
                             </div>
                             ${domain.public_approved_reason ? `
                             <div style="font-size:11px; color:var(--text-muted); font-style:italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;" title="${domain.public_approved_reason}">
@@ -939,7 +936,7 @@
                         </div>
                     </div>
                     
-                    <div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">
+                    <div class="domain-item-right">
                         ${statusBadgeHtml}
                         ${badgeHtml}
                         <div style="display:flex; gap:6px;">
@@ -948,12 +945,12 @@
                         </div>
                     </div>
                 `;
-                domainsStack.appendChild(domainItem);
+                domainsList.appendChild(domainItem);
             });
             
-            tdRight.appendChild(domainsStack);
-            tr.appendChild(tdRight);
-            tbody.appendChild(tr);
+            card.innerHTML = headerHtml;
+            card.appendChild(domainsList);
+            tbody.appendChild(card);
         });
     }
 
@@ -1423,27 +1420,19 @@
         countTitle.textContent = `Zero Trust Applikationen (${apps.length})`;
         
         if (apps.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--text-muted);">Keine Zero Trust Applikationen in Cloudflare konfiguriert.</td></tr>';
+            tbody.innerHTML = `
+                <div class="card" style="grid-column: 1 / -1; text-align:center; padding:48px; color:var(--md-text-muted);">
+                    Keine Zero Trust Applikationen in Cloudflare konfiguriert.
+                </div>
+            `;
             return;
         }
         
         apps.forEach(app => {
-            const tr = document.createElement('tr');
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.cssText = 'display:flex; flex-direction:column; justify-content:space-between; padding:20px;';
             
-            const tdName = document.createElement('td');
-            tdName.innerHTML = `<span style="font-weight:600; font-size:14px; color:var(--text);">${app.name}</span>`;
-            tr.appendChild(tdName);
-            
-            const tdDomain = document.createElement('td');
-            tdDomain.innerHTML = `
-                <a href="https://${app.domain}" target="_blank" style="color:var(--primary); font-weight:500; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
-                    🌐 ${app.domain}
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px; height:11px; opacity:0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </a>
-            `;
-            tr.appendChild(tdDomain);
-            
-            const tdDate = document.createElement('td');
             let formattedDate = 'N/A';
             if (app.created_at) {
                 try {
@@ -1451,37 +1440,47 @@
                     formattedDate = d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                 } catch(e) {}
             }
-            tdDate.innerHTML = `<span style="font-size:12.5px; color:var(--text-muted);">${formattedDate}</span>`;
-            tr.appendChild(tdDate);
             
-            const tdPol = document.createElement('td');
+            let policiesHtml = '';
             if (app.policies && app.policies.length > 0) {
-                tdPol.innerHTML = app.policies.map(p => {
-                    const isEmail = p.includes('@') && !p.startsWith('Gruppe:');
+                policiesHtml = app.policies.map(p => {
                     const isGroup = p.startsWith('Gruppe:');
                     let badgeClass = 'info';
                     if (isGroup) badgeClass = 'success';
                     else if (p === 'Jeder') badgeClass = 'warning';
-                    return `<span class="badge ${badgeClass}" style="font-size:10px; margin-right:4px; margin-bottom:4px; display:inline-block;">${p}</span>`;
+                    return `<span class="badge ${badgeClass}" style="font-size:10px; padding:4px 8px;">${p}</span>`;
                 }).join('');
             } else {
-                tdPol.innerHTML = `<span class="badge danger" style="font-size:10px;">Keine Zugriffsregeln!</span>`;
+                policiesHtml = `<span class="badge danger" style="font-size:10px; padding:4px 8px;">Keine Zugriffsregeln!</span>`;
             }
-            tr.appendChild(tdPol);
             
-            const tdAct = document.createElement('td');
-            tdAct.style.textAlign = 'right';
-            tdAct.innerHTML = `
-                <button class="btn btn-sm" onclick="editAccessApp('${app.id}', '${app.name.replace(/'/g, "\\'")}', '${app.domain}')" style="margin-right:6px; padding: 5px 10px;">
-                    Bearbeiten
-                </button>
-                <button class="btn btn-danger btn-sm" onclick="deleteAccessApp('${app.id}', '${app.name.replace(/'/g, "\\'")}', '${app.domain}')" style="padding: 5px 10px;">
-                    Löschen
-                </button>
+            card.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:4px; flex-grow:1;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                        <span style="font-weight:700; font-size:15px; color:var(--md-text);">🛡️ ${app.name}</span>
+                        <span style="font-size:11px; color:var(--md-text-muted); flex-shrink:0;">${formattedDate}</span>
+                    </div>
+                    <div style="margin-top:8px;">
+                        <a href="https://${app.domain}" target="_blank" class="domain-item-link" style="font-size:13px;">
+                            🌐 ${app.domain}
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px; height:11px; opacity:0.6;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </a>
+                    </div>
+                    <div style="margin-top:14px; display:flex; flex-wrap:wrap; gap:6px;">
+                        ${policiesHtml}
+                    </div>
+                </div>
+                <div style="margin-top:18px; border-top:1px dashed var(--md-outline-variant); padding-top:14px; display:flex; justify-content:flex-end; gap:8px;">
+                    <button class="btn btn-sm btn-secondary" onclick="editAccessApp('${app.id}', '${app.name.replace(/'/g, "\\'")}', '${app.domain}')" style="padding:6px 12px; font-size:11.5px;">
+                        Bearbeiten
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteAccessApp('${app.id}', '${app.name.replace(/'/g, "\\'")}', '${app.domain}')" style="padding:6px 12px; font-size:11.5px;">
+                        Löschen
+                    </button>
+                </div>
             `;
-            tr.appendChild(tdAct);
             
-            tbody.appendChild(tr);
+            tbody.appendChild(card);
         });
     }
 

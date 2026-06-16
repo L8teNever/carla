@@ -22,10 +22,75 @@
         <div style="font-size: 14px; font-weight: 500;" id="loader-msg">Lade CARLA Dashboard...</div>
     </div>
 
+    <!-- Mobile Bottom Sheet Backdrop -->
+    <div class="bottom-sheet-backdrop" id="bottom-sheet-backdrop" onclick="toggleMobileBottomSheet()"></div>
+
+    <!-- Mobile Bottom Sheet Menu -->
+    <div class="md-bottom-sheet" id="mobile-bottom-sheet">
+        <div class="bottom-sheet-drag-handle"></div>
+        <div class="bottom-sheet-header">Mehr Funktionen</div>
+        <div class="bottom-sheet-grid">
+            <a href="/backup" class="bottom-sheet-item {% if request.path == '/backup' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
+                <div class="icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                </div>
+                <span>Backup</span>
+            </a>
+            <a href="/ports" class="bottom-sheet-item {% if request.path == '/ports' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
+                <div class="icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>
+                </div>
+                <span>Ports</span>
+            </a>
+            <a href="/networks" class="bottom-sheet-item {% if request.path == '/networks' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
+                <div class="icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M12 8v8M5 16v-4h14v4"></path></svg>
+                </div>
+                <span>Netze</span>
+            </a>
+            <a href="/redirects" class="bottom-sheet-item {% if request.path == '/redirects' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
+                <div class="icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 3h5v5"></path><path d="M4 20L21 3"></path><path d="M21 16v5h-5"></path><path d="M15 15l6 6"></path><path d="M4 4l5 5"></path></svg>
+                </div>
+                <span>Umleit.</span>
+            </a>
+            <a href="/sites" class="bottom-sheet-item {% if request.path == '/sites' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
+                <div class="icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="3" width="20" height="14" rx="2"></rect><path d="M8 21h8M12 17v4"></path><path d="M7 8h2M11 8h6M7 11h4M13 11h4"></path></svg>
+                </div>
+                <span>Sites</span>
+            </a>
+            <a href="/domains" class="bottom-sheet-item {% if request.path == '/domains' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
+                <div class="icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
+                </div>
+                <span>Domains</span>
+            </a>
+            <a href="/filemanager" class="bottom-sheet-item {% if request.path == '/filemanager' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
+                <div class="icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+                <span>Dateien</span>
+            </a>
+            <a href="/timeline" class="bottom-sheet-item {% if request.path == '/timeline' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
+                <div class="icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <span>Timeline</span>
+            </a>
+            <a href="/settings" class="bottom-sheet-item {% if request.path == '/settings' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
+                <div class="icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </div>
+                <span>Einstell.</span>
+            </a>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- Mobile Header -->
         <header class="mobile-header">
-            <button class="menu-toggle" onclick="toggleMobileMenu()" title="Menü öffnen">
+            <button class="menu-toggle" onclick="toggleMobileBottomSheet()" title="Menü öffnen">
                 <svg viewBox="0 0 24 24">
                     <line x1="3" y1="12" x2="21" y2="12"></line>
                     <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -33,160 +98,199 @@
                 </svg>
             </button>
             <a href="/" class="mobile-logo">CARLA</a>
-            <button class="menu-toggle" onclick="triggerManualRefresh()" title="Aktualisieren">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;">
-                    <polyline points="23 4 23 10 17 10"></polyline>
-                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                </svg>
-            </button>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button class="menu-toggle" onclick="openGlobalSearch()" title="Suchen">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+                <div class="status-dot" id="mobile-status-dot" style="width:8px; height:8px; margin: 0 4px;"></div>
+                <button class="menu-toggle" onclick="triggerManualRefresh()" title="Aktualisieren">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                </button>
+            </div>
         </header>
 
-        <!-- Sidebar Navigation Rail -->
-        <nav class="app-rail">
-            <a href="/" class="rail-logo">CA</a>
+        <!-- Desktop Navigation Drawer -->
+        <nav class="md-nav-drawer">
+            <a href="/" class="drawer-header-brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:28px; height:28px;"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>
+                <span>CARLA</span>
+            </a>
             
-            <a href="/" id="nav-dashboard" class="rail-item {% if request.path == '/' or request.path.startswith('/stack/') or request.path.startswith('/container/') %}active{% endif %}" title="Stacks & Übersicht">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="7" height="9"></rect>
-                    <rect x="14" y="3" width="7" height="5"></rect>
-                    <rect x="14" y="12" width="7" height="9"></rect>
-                    <rect x="3" y="16" width="7" height="5"></rect>
-                </svg>
+            <a href="/" class="drawer-item {% if request.path == '/' or request.path.startswith('/stack/') or request.path.startswith('/container/') %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
                 <span>Stacks</span>
             </a>
 
-            <a href="/infrastructure" id="nav-infrastructure" class="rail-item {% if request.path == '/infrastructure' or request.path == '/livemap' %}active{% endif %}" title="Netzwerk-Karte">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path>
-                    <path d="M6 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path>
-                    <path d="M21 9H3"></path>
-                    <path d="M21 15H3"></path>
-                </svg>
+            <a href="/infrastructure" class="drawer-item {% if request.path == '/infrastructure' or request.path == '/livemap' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path><path d="M6 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path><path d="M21 9H3"></path><path d="M21 15H3"></path></svg>
                 <span>Live Map</span>
             </a>
 
-            <a href="/performance" id="nav-performance" class="rail-item {% if request.path == '/performance' %}active{% endif %}" title="Host-Auslastung">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="20" x2="18" y2="10"></line>
-                    <line x1="12" y1="20" x2="12" y2="4"></line>
-                    <line x1="6" y1="20" x2="6" y2="14"></line>
-                </svg>
+            <a href="/performance" class="drawer-item {% if request.path == '/performance' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
                 <span>Leistung</span>
             </a>
 
-            <a href="/timeline" id="nav-timeline" class="rail-item {% if request.path == '/timeline' %}active{% endif %}" title="Timeline & Snapshots">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
+            <a href="/timeline" class="drawer-item {% if request.path == '/timeline' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                 <span>Timeline</span>
             </a>
 
-            <a href="/backup" id="nav-backup" class="rail-item {% if request.path == '/backup' %}active{% endif %}" title="Backup-Verwaltung">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="17 8 12 3 7 8"></polyline>
-                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
+            <a href="/backup" class="drawer-item {% if request.path == '/backup' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 <span>Backup</span>
             </a>
 
-            <a href="/ports" id="nav-ports" class="rail-item {% if request.path == '/ports' %}active{% endif %}" title="Port-Übersicht">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="22" y1="12" x2="18" y2="12"></line>
-                    <line x1="6" y1="12" x2="2" y2="12"></line>
-                    <line x1="12" y1="6" x2="12" y2="2"></line>
-                    <line x1="12" y1="22" x2="12" y2="18"></line>
-                </svg>
+            <a href="/ports" class="drawer-item {% if request.path == '/ports' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>
                 <span>Ports</span>
             </a>
 
-            <a href="/networks" id="nav-networks" class="rail-item {% if request.path == '/networks' %}active{% endif %}" title="Docker-Netzwerke">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="16" y="16" width="6" height="6" rx="1"></rect>
-                    <rect x="2" y="16" width="6" height="6" rx="1"></rect>
-                    <rect x="9" y="2" width="6" height="6" rx="1"></rect>
-                    <path d="M12 8v8M5 16v-4h14v4"></path>
-                </svg>
+            <a href="/networks" class="drawer-item {% if request.path == '/networks' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M12 8v8M5 16v-4h14v4"></path></svg>
                 <span>Netze</span>
             </a>
 
-            <a href="/redirects" id="nav-redirects" class="rail-item {% if request.path == '/redirects' %}active{% endif %}" title="Weiterleitungsserver">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M16 3h5v5"></path>
-                    <path d="M4 20L21 3"></path>
-                    <path d="M21 16v5h-5"></path>
-                    <path d="M15 15l6 6"></path>
-                    <path d="M4 4l5 5"></path>
-                </svg>
-                <span>Umleit.</span>
+            <a href="/redirects" class="drawer-item {% if request.path == '/redirects' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 3h5v5"></path><path d="M4 20L21 3"></path><path d="M21 16v5h-5"></path><path d="M15 15l6 6"></path><path d="M4 4l5 5"></path></svg>
+                <span>Umleitungen</span>
             </a>
 
-            <a href="/sites" id="nav-sites" class="rail-item {% if request.path == '/sites' %}active{% endif %}" title="Statische Websites">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                    <path d="M8 21h8M12 17v4"></path>
-                    <path d="M7 8h2M11 8h6M7 11h4M13 11h4"></path>
-                </svg>
+            <a href="/sites" class="drawer-item {% if request.path == '/sites' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="3" width="20" height="14" rx="2"></rect><path d="M8 21h8M12 17v4"></path><path d="M7 8h2M11 8h6M7 11h4M13 11h4"></path></svg>
                 <span>Sites</span>
             </a>
 
-            <a href="/domains" id="nav-domains" class="rail-item {% if request.path == '/domains' %}active{% endif %}" title="Öffentliche Domains">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
-                </svg>
+            <a href="/domains" class="drawer-item {% if request.path == '/domains' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
                 <span>Domains</span>
             </a>
 
-            <a href="/filemanager" id="nav-filemanager" class="rail-item {% if request.path == '/filemanager' %}active{% endif %}" title="Datei-Manager">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                </svg>
+            <a href="/filemanager" class="drawer-item {% if request.path == '/filemanager' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                 <span>Dateien</span>
             </a>
 
-            <a href="/terminal" id="nav-terminal" class="rail-item {% if request.path == '/terminal' %}active{% endif %}" title="System-Terminal">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="4 17 10 11 4 5"></polyline>
-                    <line x1="12" y1="19" x2="20" y2="19"></line>
-                </svg>
+            <a href="/terminal" class="drawer-item {% if request.path == '/terminal' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
                 <span>Terminal</span>
             </a>
 
-            <div class="rail-divider"></div>
+            <div class="drawer-divider"></div>
 
-            <a href="/settings" id="nav-settings" class="rail-item {% if request.path == '/settings' %}active{% endif %}" title="Einstellungen" style="margin-top: auto;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                </svg>
+            <a href="/settings" class="drawer-item {% if request.path == '/settings' %}active{% endif %}" style="margin-top: auto;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <span>Einstellungen</span>
+            </a>
+        </nav>
+
+        <!-- Tablet Navigation Rail -->
+        <nav class="md-nav-rail">
+            <a href="/" class="rail-brand">CA</a>
+            
+            <a href="/" class="rail-item {% if request.path == '/' or request.path.startswith('/stack/') or request.path.startswith('/container/') %}active{% endif %}" title="Stacks">
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                </div>
+                <span>Stacks</span>
+            </a>
+
+            <a href="/infrastructure" class="rail-item {% if request.path == '/infrastructure' or request.path == '/livemap' %}active{% endif %}" title="Live Map">
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path><path d="M6 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path><path d="M21 9H3"></path><path d="M21 15H3"></path></svg>
+                </div>
+                <span>Map</span>
+            </a>
+
+            <a href="/performance" class="rail-item {% if request.path == '/performance' %}active{% endif %}" title="Leistung">
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                </div>
+                <span>Leistung</span>
+            </a>
+
+            <a href="/terminal" class="rail-item {% if request.path == '/terminal' %}active{% endif %}" title="Terminal">
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                </div>
+                <span>Terminal</span>
+            </a>
+
+            <a href="/settings" class="rail-item {% if request.path == '/settings' %}active{% endif %}" title="Einstellungen" style="margin-top:auto;">
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </div>
                 <span>Einstell.</span>
             </a>
+        </nav>
+
+        <!-- Mobile Bottom Navigation Bar -->
+        <nav class="md-bottom-nav">
+            <a href="/" class="bottom-nav-item {% if request.path == '/' or request.path.startswith('/stack/') or request.path.startswith('/container/') %}active{% endif %}">
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                </div>
+                <span>Stacks</span>
+            </a>
+            
+            <a href="/infrastructure" class="bottom-nav-item {% if request.path == '/infrastructure' or request.path == '/livemap' %}active{% endif %}">
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path><path d="M6 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"></path><path d="M21 9H3"></path><path d="M21 15H3"></path></svg>
+                </div>
+                <span>Map</span>
+            </a>
+
+            <a href="/performance" class="bottom-nav-item {% if request.path == '/performance' %}active{% endif %}">
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                </div>
+                <span>Leistung</span>
+            </a>
+
+            <a href="/terminal" class="bottom-nav-item {% if request.path == '/terminal' %}active{% endif %}">
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                </div>
+                <span>Terminal</span>
+            </a>
+
+            <div class="bottom-nav-item" onclick="toggleMobileBottomSheet()">
+                <div class="icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
+                </div>
+                <span>Mehr</span>
+            </div>
         </nav>
 
         <!-- Main Workspace Container -->
         <main class="app-main">
             <!-- Top Status Bar -->
             <header class="app-topbar">
-                <div class="topbar-widgets">
-                    <div class="widget-pill">Host: <strong id="header-ip">localhost</strong></div>
-                    <div class="widget-pill" id="topbar-cache-time">Cache: <strong>Echtzeit</strong></div>
+                <!-- Search anchor (only visible on desktop/tablet) -->
+                <div class="topbar-search-anchor" onclick="openGlobalSearch()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <span>Suchen... (Strg + K)</span>
                 </div>
 
                 <!-- Global Host Live Metrics Widgets -->
                 <div class="topbar-resources">
                     <div class="res-gauge">
                         <div class="res-info"><span>CPU</span><span id="gauge-cpu-val">0%</span></div>
-                        <div class="res-bar-bg"><div class="res-bar-fg" id="gauge-cpu" style="background:var(--primary);"></div></div>
+                        <div class="res-bar-bg"><div class="res-bar-fg" id="gauge-cpu" style="background:var(--md-primary);"></div></div>
                     </div>
                     <div class="res-gauge">
                         <div class="res-info"><span>RAM</span><span id="gauge-ram-val">0%</span></div>
-                        <div class="res-bar-bg"><div class="res-bar-fg" id="gauge-ram" style="background:var(--warning);"></div></div>
+                        <div class="res-bar-bg"><div class="res-bar-fg" id="gauge-ram" style="background:var(--md-warning);"></div></div>
                     </div>
                     <div class="res-gauge">
                         <div class="res-info"><span>Disk</span><span id="gauge-disk-val">0%</span></div>
-                        <div class="res-bar-bg"><div class="res-bar-fg" id="gauge-disk" style="background:var(--info);"></div></div>
+                        <div class="res-bar-bg"><div class="res-bar-fg" id="gauge-disk" style="background:var(--md-info);"></div></div>
                     </div>
                 </div>
                 
@@ -211,6 +315,23 @@
         </main>
     </div>
 
+    <!-- Global Search Modal Dialog (MD3 Command Palette) -->
+    <div class="modal-backdrop" id="search-modal-backdrop" onclick="closeGlobalSearch()">
+        <div class="modal search-modal" onclick="event.stopPropagation()">
+            <div class="search-modal-input-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="search-icon-svg">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="global-search-input" placeholder="Suchen nach Seiten oder Aktionen..." autocomplete="off">
+                <button class="modal-close" onclick="closeGlobalSearch()" style="width:30px; height:30px; font-size:20px;">&times;</button>
+            </div>
+            <div class="search-results-list" id="search-results-list">
+                <!-- Injected dynamically by carla.js -->
+            </div>
+        </div>
+    </div>
+
     <!-- Global JS utilities -->
     <script src="/static/js/carla.js"></script>
     {% block extra_js %}{% endblock %}
@@ -221,6 +342,22 @@
             const onInit = typeof initPage === 'function' ? initPage : null;
             initCarlaPage(onInit);
         });
+
+        // Bottom sheet toggle helper
+        function toggleMobileBottomSheet() {
+            const sheet = document.getElementById('mobile-bottom-sheet');
+            const backdrop = document.getElementById('bottom-sheet-backdrop');
+            if (sheet && backdrop) {
+                const isOpen = sheet.classList.contains('open');
+                if (isOpen) {
+                    sheet.classList.remove('open');
+                    backdrop.classList.remove('open');
+                } else {
+                    sheet.classList.add('open');
+                    backdrop.classList.add('open');
+                }
+            }
+        }
     </script>
 </body>
 </html>
