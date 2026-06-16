@@ -202,8 +202,8 @@
                         <td style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted); max-width:200px;">
                             <div style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${c.image.split('@')[0]}</div>
                             <div id="update-status-${c.name}" style="margin-top: 4px; display:flex; flex-direction:column; gap:4px; font-family:var(--font-sans);">
-                                <span onclick="checkContainerUpdate('${c.name}', '${c.image}', event)" style="color:var(--primary-light); cursor:pointer; text-decoration:underline; font-weight:600; font-size:10.5px; display:inline-block; width:fit-content;" title="Update auf Docker Registry prüfen">
-                                    🔍 Update prüfen
+                                <span onclick="checkContainerUpdate('${c.name}', '${c.image}', event)" style="color:var(--text-muted); cursor:pointer; text-decoration:underline; font-weight:600; font-size:10.5px; display:inline-block; width:fit-content;" title="Update auf Docker Registry prüfen">
+                                    ⌛ Prüfe auf Update...
                                 </span>
                             </div>
                         </td>
@@ -218,7 +218,7 @@
                             ${cfHtml}
                         </td>
                         <td style="text-align:right;">
-                            <div style="display:flex; gap:6px; justify-content:flex-end;">
+                            <div id="container-actions-${c.name}" style="display:flex; gap:6px; justify-content:flex-end;">
                                 <button onclick="executeContainerDirectAction('${c.name}', 'start')" class="btn btn-sm btn-success" title="Container starten" ${isRunning ? 'disabled style="opacity:0.3;"' : ''}>Start</button>
                                 <button onclick="executeContainerDirectAction('${c.name}', 'stop')" class="btn btn-sm btn-danger" title="Container stoppen" ${!isRunning ? 'disabled style="opacity:0.3;"' : ''}>Stop</button>
                                 <button onclick="executeContainerDirectAction('${c.name}', 'restart')" class="btn btn-sm" title="Container neu starten">Restart</button>
@@ -227,6 +227,11 @@
                         </td>
                     `;
                     tbody.appendChild(tr);
+
+                    // Automatischer Update-Check im Hintergrund
+                    setTimeout(() => {
+                        checkContainerUpdate(c.name, c.image);
+                    }, 100);
                 });
             }
 
@@ -564,13 +569,32 @@
             if (r.ok) {
                 const res = await r.json();
                 if (res.checked) {
+                    const actionsDiv = document.getElementById(`container-actions-${name}`);
                     if (res.update_available) {
                         statusEl.innerHTML = `
                             <span class="badge danger" style="font-size:9.5px; padding:2px 6px; font-weight:700;">⚠️ UPDATE VERFÜGBAR</span>
                             <button onclick="pullAndRecreateContainer('${name}', event)" class="btn btn-sm btn-success" style="font-size:10px; padding:2px 8px; height:auto; line-height:1; margin-top:2px;">Pull & Update</button>
                         `;
+                        
+                        // Add green Update button to action column
+                        if (actionsDiv && !actionsDiv.querySelector('.btn-update-img')) {
+                            const updateBtn = document.createElement('button');
+                            updateBtn.className = 'btn btn-sm btn-success btn-update-img';
+                            updateBtn.style.backgroundColor = 'var(--success)';
+                            updateBtn.style.borderColor = 'var(--success)';
+                            updateBtn.style.color = '#fff';
+                            updateBtn.style.fontWeight = 'bold';
+                            updateBtn.title = 'Image pullen & Container updaten';
+                            updateBtn.innerText = 'Update';
+                            updateBtn.onclick = (e) => pullAndRecreateContainer(name, e);
+                            actionsDiv.insertBefore(updateBtn, actionsDiv.firstChild);
+                        }
                     } else {
                         statusEl.innerHTML = '<span style="color:var(--success); font-weight:600;">🟢 Aktuell</span>';
+                        if (actionsDiv) {
+                            const existingBtn = actionsDiv.querySelector('.btn-update-img');
+                            if (existingBtn) existingBtn.remove();
+                        }
                     }
                 } else {
                     statusEl.innerHTML = `<span style="color:var(--text-muted);" title="${res.error || ''}">⚠️ Prüfen fehlgeschlagen</span>`;
@@ -600,6 +624,13 @@
                 if (res.ok) {
                     showToast("Container erfolgreich mit neuem Image aktualisiert!", "success");
                     statusEl.innerHTML = '<span style="color:var(--success); font-weight:600;">🟢 Aktualisiert</span>';
+                    
+                    const actionsDiv = document.getElementById(`container-actions-${name}`);
+                    if (actionsDiv) {
+                        const existingBtn = actionsDiv.querySelector('.btn-update-img');
+                        if (existingBtn) existingBtn.remove();
+                    }
+                    
                     triggerManualRefresh();
                     setTimeout(() => showStackDetail(detailSelectedStack), 2000);
                 } else {
