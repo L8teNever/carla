@@ -78,13 +78,70 @@
                autocomplete="off" 
                spellcheck="false"
                onkeydown="handleTerminalKeyDown(event)">
-        <button onclick="submitTerminalCommand()" class="btn btn-primary" style="padding: 6px 14px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+        <button id="console-submit-btn" onclick="submitTerminalCommand()" class="btn btn-primary" style="padding: 6px 14px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
             Senden ➔
         </button>
     </div>
 </div>
 
 <style>
+    /* Terminal Spinner & Loading States */
+    .terminal-spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(251, 191, 36, 0.2);
+        border-radius: 50%;
+        border-top-color: #fbbf24;
+        animation: terminal-spin 0.8s linear infinite;
+    }
+    
+    .btn-spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        border-top-color: #ffffff;
+        animation: terminal-spin 0.8s linear infinite;
+        vertical-align: middle;
+    }
+    
+    @keyframes terminal-spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .terminal-pulse-text {
+        animation: terminal-pulse 1.5s infinite ease-in-out;
+    }
+    
+    @keyframes terminal-pulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+    }
+    
+    /* Workspace loading states */
+    .console-workspace.loading-state #quick-commands-bar {
+        pointer-events: none;
+        opacity: 0.5;
+        transition: all 0.3s ease;
+    }
+    
+    .console-workspace.loading-state #console-input-area {
+        background: rgba(251, 191, 36, 0.03) !important;
+        transition: background 0.3s ease;
+    }
+    
+    .console-workspace.loading-state .console-prompt {
+        color: #fbbf24 !important;
+        animation: terminal-pulse 1s infinite ease-in-out;
+    }
+    
+    .console-workspace.loading-state #console-input-field {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
     /* Premium Monospace Custom Scrollbar for Terminal */
     #console-body::-webkit-scrollbar {
         width: 6.5px;
@@ -232,11 +289,35 @@
     async function submitTerminalCommand() {
         const inputEl = document.getElementById('console-input-field');
         const cmd = inputEl.value.trim();
-        if (!cmd) return;
+        if (!cmd || inputEl.disabled) return;
 
         const body = document.getElementById('console-body');
         body.innerText += `\n$ ${cmd}\n`;
         inputEl.value = '';
+
+        // UI-Zustand auf "Läuft" setzen
+        const workspace = document.getElementById('terminal-workspace');
+        const submitBtn = document.getElementById('console-submit-btn');
+        
+        workspace.classList.add('loading-state');
+        inputEl.disabled = true;
+        inputEl.placeholder = "Befehl wird ausgeführt...";
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `Läuft... <span class="btn-spinner"></span>`;
+        }
+
+        // Einen visuellen Inline-Ladeindikator im Terminalverlauf anzeigen
+        const loaderLine = document.createElement('div');
+        loaderLine.id = 'console-loader-line';
+        loaderLine.style.display = 'flex';
+        loaderLine.style.alignItems = 'center';
+        loaderLine.style.gap = '8px';
+        loaderLine.style.margin = '8px 0';
+        loaderLine.style.color = '#fbbf24';
+        loaderLine.innerHTML = `<span class="terminal-spinner"></span><span class="terminal-pulse-text">Befehl wird ausgeführt...</span>`;
+        body.appendChild(loaderLine);
+        body.scrollTop = body.scrollHeight;
 
         try {
             let resp;
@@ -256,6 +337,10 @@
                 });
             }
             
+            // Ladeindikator im Terminal entfernen vor Text-Zuweisung
+            const oldLoader = document.getElementById('console-loader-line');
+            if (oldLoader) oldLoader.remove();
+
             if (resp.ok) {
                 const data = await resp.json();
                 body.innerText += (data.output || '') + '\n';
@@ -264,11 +349,22 @@
                 body.innerText += `Fehler: ${err.error || 'Serverfehler'}\n`;
             }
         } catch(e) {
+            const oldLoader = document.getElementById('console-loader-line');
+            if (oldLoader) oldLoader.remove();
             body.innerText += `Verbindungsfehler: ${e.message}\n`;
+        } finally {
+            // UI-Zustand zurücksetzen
+            workspace.classList.remove('loading-state');
+            inputEl.disabled = false;
+            inputEl.placeholder = "Befehl eingeben...";
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `Senden ➔`;
+            }
+            // Eingabefeld wieder fokussieren
+            inputEl.focus();
+            body.scrollTop = body.scrollHeight;
         }
-        
-        // Auto Scroll to bottom
-        body.scrollTop = body.scrollHeight;
     }
 
     async function fetchContainerLogsNow(lines) {

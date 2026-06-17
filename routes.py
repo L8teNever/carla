@@ -1275,6 +1275,80 @@ def api_files_upload():
     return jsonify({"ok": True, "count": len(results), "results": results})
 
 
+@bp.route("/api/files/download", methods=["GET"])
+def api_files_download():
+    """Lädt eine einzelne Datei oder mehrere Dateien/Verzeichnisse als ZIP herunter."""
+    from flask import send_file
+    import os
+    import tempfile
+    import zipfile
+
+    paths = request.args.getlist("path")
+    if not paths:
+        single_path = request.args.get("path")
+        if single_path:
+            paths = [single_path]
+
+    if not paths:
+        return jsonify({"ok": False, "error": "Keine Dateien angegeben."}), 400
+
+    # Bereinige und filtere Pfade
+    sanitized_paths = [file_manager._sanitize_path(p) for p in paths]
+    existing_paths = []
+    for p in sanitized_paths:
+        if os.path.exists(p):
+            existing_paths.append(p)
+
+    if not existing_paths:
+        return jsonify({"ok": False, "error": "Die angegebenen Dateien existieren nicht."}), 404
+
+    # Fall 1: Einzelne Datei (kein Verzeichnis) -> Direkt senden
+    if len(existing_paths) == 1 and os.path.isfile(existing_paths[0]):
+        file_path = existing_paths[0]
+        return send_file(file_path, as_attachment=True, download_name=os.path.basename(file_path))
+
+    # Fall 2: Mehrere Dateien und/oder Verzeichnisse -> ZIP erstellen
+    temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    temp_zip_path = temp_zip.name
+    temp_zip.close()
+
+    try:
+        with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for p in existing_paths:
+                if os.path.isdir(p):
+                    # Verzeichnis rekursiv hinzufügen
+                    for root, dirs, files in os.walk(p):
+                        for file in files:
+                            file_abs = os.path.join(root, file)
+                            arcname = os.path.relpath(file_abs, os.path.dirname(p))
+                            zip_file.write(file_abs, arcname)
+                else:
+                    zip_file.write(p, os.path.basename(p))
+
+        if len(existing_paths) == 1:
+            download_name = f"{os.path.basename(existing_paths[0])}.zip"
+        else:
+            download_name = "carla_dateien.zip"
+
+        response = send_file(temp_zip_path, as_attachment=True, download_name=download_name)
+
+        @response.call_on_close
+        def cleanup():
+            try:
+                os.remove(temp_zip_path)
+            except Exception:
+                pass
+
+        return response
+
+    except Exception as e:
+        try:
+            os.remove(temp_zip_path)
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": f"Fehler beim Komprimieren: {str(e)}"}), 500
+
+
 @bp.route("/api/files/stack/<stack_name>", methods=["GET"])
 def api_files_stack(stack_name):
     """Gibt Arbeitsverzeichnis und Volumes eines Stacks zurueck."""

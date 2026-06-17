@@ -15,6 +15,7 @@
             <button onclick="fmOpenNewFileModal()" class="btn btn-sm">📄 Neue Datei</button>
             <button onclick="document.getElementById('fm-upload-input').click()" class="btn btn-sm">⬆ Hochladen</button>
             <input type="file" id="fm-upload-input" multiple style="display:none;" onchange="fmUploadFiles(this.files)">
+            <button id="fm-action-download" onclick="fmDownloadSelected()" class="btn btn-sm" style="display: none; color: var(--md-primary); border-color: var(--md-outline-variant);">⬇ Herunterladen</button>
             <button id="fm-action-rename" onclick="fmOpenRenameSelected()" class="btn btn-sm" style="display: none;">Umbenennen</button>
             <button id="fm-action-delete" onclick="fmDeleteSelected()" class="btn btn-sm btn-danger" style="display: none;">Löschen</button>
         </div>
@@ -101,7 +102,7 @@
 <script>
     let fmCurrentPath = "/";
     let fmSelectedFilePath = "";
-    let fmSelectedNode = null; // Currently selected file/folder card
+    let fmSelectedNodes = []; // Array of selected item objects
 
     function _pathFromUrl() {
         const p = window.location.pathname;
@@ -135,24 +136,57 @@
         _fmLoad(fmCurrentPath);
     }
 
-    function deselectFMNode() {
-        fmSelectedNode = null;
+    function deselectAllFMNodes() {
+        fmSelectedNodes = [];
         document.querySelectorAll('.fm-node-card').forEach(n => n.classList.remove('selected'));
-        document.getElementById('fm-action-rename').style.display = 'none';
-        document.getElementById('fm-action-delete').style.display = 'none';
+        updateFMActionsBar();
     }
 
-    function selectFMNode(item, element) {
-        deselectFMNode();
-        fmSelectedNode = item;
-        element.classList.add('selected');
-        document.getElementById('fm-action-rename').style.display = 'inline-flex';
-        document.getElementById('fm-action-delete').style.display = 'inline-flex';
+    function toggleFMNodeSelection(item, element) {
+        const index = fmSelectedNodes.findIndex(n => n.path === item.path);
+        if (index > -1) {
+            fmSelectedNodes.splice(index, 1);
+            element.classList.remove('selected');
+        } else {
+            fmSelectedNodes.push(item);
+            element.classList.add('selected');
+        }
+        updateFMActionsBar();
+    }
+
+    function updateFMActionsBar() {
+        const renameBtn = document.getElementById('fm-action-rename');
+        const deleteBtn = document.getElementById('fm-action-delete');
+        const downloadBtn = document.getElementById('fm-action-download');
+
+        const count = fmSelectedNodes.length;
+
+        if (count === 0) {
+            if (renameBtn) renameBtn.style.display = 'none';
+            if (deleteBtn) deleteBtn.style.display = 'none';
+            if (downloadBtn) downloadBtn.style.display = 'none';
+        } else if (count === 1) {
+            if (renameBtn) renameBtn.style.display = 'inline-flex';
+            if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+            if (downloadBtn) downloadBtn.style.display = 'inline-flex';
+        } else {
+            if (renameBtn) renameBtn.style.display = 'none';
+            if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+            if (downloadBtn) downloadBtn.style.display = 'inline-flex';
+            
+            deleteBtn.innerText = `🗑️ ${count} Löschen`;
+            downloadBtn.innerText = `⬇️ ${count} Herunterladen`;
+        }
+
+        if (count <= 1) {
+            if (deleteBtn) deleteBtn.innerText = 'Löschen';
+            if (downloadBtn) downloadBtn.innerText = 'Herunterladen';
+        }
     }
 
     async function _fmLoad(path) {
         const grid = document.getElementById('fm-directory-items');
-        deselectFMNode();
+        deselectAllFMNodes();
         try {
             const r = await fetch(`/api/files/browse?path=${encodeURIComponent(path)}`);
             const data = await r.json();
@@ -171,12 +205,22 @@
                 el.className = 'fm-node-card';
                 const isDir = item.type === 'dir';
                 const icon = isDir ? '📁' : '📄';
-                el.innerHTML = `<div class="fm-node-icon">${icon}</div><div class="fm-node-name" title="${item.name}">${item.name}</div>`;
-                el.onclick = (e) => { e.stopPropagation(); selectFMNode(item, el); };
+                
+                el.innerHTML = `
+                    <div class="fm-node-icon">${icon}</div>
+                    <div class="fm-node-name" title="${item.name}">${item.name}</div>
+                    <button class="fm-card-download-btn" onclick="event.stopPropagation(); fmDownloadSinglePath('${item.path.replace(/'/g, "\\'")}')" title="Direkt herunterladen">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 13px; height: 13px; display: block;">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                    </button>
+                `;
+                
+                el.onclick = (e) => { e.stopPropagation(); toggleFMNodeSelection(item, el); };
                 el.ondblclick = (e) => { e.stopPropagation(); isDir ? fmNavigate(item.path) : fmReadFile(item.path); };
                 grid.appendChild(el);
             });
-            grid.onclick = (e) => { if (e.target === grid) deselectFMNode(); };
+            grid.onclick = (e) => { if (e.target === grid) deselectAllFMNodes(); };
         } catch (e) {
             grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--danger);">Fehler beim Laden.</div>';
         }
@@ -353,20 +397,20 @@
     }
 
     function fmOpenRenameSelected() {
-        if (!fmSelectedNode) return;
-        document.getElementById('fm-rename-new-name').value = fmSelectedNode.name;
+        if (fmSelectedNodes.length !== 1) return;
+        document.getElementById('fm-rename-new-name').value = fmSelectedNodes[0].name;
         document.getElementById('fm-rename-modal').classList.add('active');
     }
 
     async function fmDoRename() {
         const name = document.getElementById('fm-rename-new-name').value.trim();
-        if (!name || !fmSelectedNode) return;
+        if (!name || fmSelectedNodes.length !== 1) return;
 
         try {
             const r = await fetch('/api/files/rename', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: fmSelectedNode.path, new_name: name })
+                body: JSON.stringify({ path: fmSelectedNodes[0].path, new_name: name })
             });
             if (r.ok) {
                 document.getElementById('fm-rename-modal').classList.remove('active');
@@ -377,20 +421,59 @@
     }
 
     async function fmDeleteSelected() {
-        if (!fmSelectedNode) return;
-        if (!confirm(`Möchtest du das Element '${fmSelectedNode.name}' wirklich löschen?`)) return;
+        if (fmSelectedNodes.length === 0) return;
+        const count = fmSelectedNodes.length;
+        const confirmMsg = count === 1 
+            ? `Möchtest du das Element '${fmSelectedNodes[0].name}' wirklich löschen?` 
+            : `Möchtest du diese ${count} Elemente wirklich löschen?`;
+        if (!confirm(confirmMsg)) return;
 
+        showToast(`Lösche ${count} Element(e)...`);
         try {
-            const r = await fetch('/api/files/delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: fmSelectedNode.path })
-            });
-            if (r.ok) {
-                showToast("Element gelöscht.");
-                fmNavigate(fmCurrentPath);
+            let failed = 0;
+            for (const node of fmSelectedNodes) {
+                const r = await fetch('/api/files/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: node.path })
+                });
+                if (!r.ok) failed++;
             }
+            if (failed > 0) {
+                showToast(`${failed} von ${count} Elementen konnten nicht gelöscht werden.`, 'error');
+            } else {
+                showToast("Elemente gelöscht.", 'success');
+            }
+            fmNavigate(fmCurrentPath);
         } catch(e) { console.error(e); }
+    }
+
+    function fmDownloadSelected() {
+        if (fmSelectedNodes.length === 0) return;
+        
+        const params = new URLSearchParams();
+        fmSelectedNodes.forEach(node => {
+            params.append('path', node.path);
+        });
+        
+        const downloadUrl = `/api/files/download?${params.toString()}`;
+        
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function fmDownloadSinglePath(path) {
+        const downloadUrl = `/api/files/download?path=${encodeURIComponent(path)}`;
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 </script>
 {% endblock %}
