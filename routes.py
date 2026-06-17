@@ -1296,8 +1296,11 @@ def api_files_download():
     sanitized_paths = [file_manager._sanitize_path(p) for p in paths]
     existing_paths = []
     for p in sanitized_paths:
-        if os.path.exists(p):
-            existing_paths.append(p)
+        check_path = p
+        if os.name == 'nt' and p.startswith("/\\"):
+            check_path = p[1:]
+        if os.path.exists(check_path):
+            existing_paths.append(check_path)
 
     if not existing_paths:
         return jsonify({"ok": False, "error": "Die angegebenen Dateien existieren nicht."}), 404
