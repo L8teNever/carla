@@ -87,10 +87,12 @@ def write_file(path: str, content: str) -> dict:
 def create_directory(path: str) -> dict:
     """Erstellt ein neues Verzeichnis."""
     path = _sanitize_path(path)
-    result = system_executor.execute_command(f"mkdir -p {_quote(path)}")
-    if result and "Error" in result:
-        return {"ok": False, "error": f"Fehler: {result}"}
-    return {"ok": True, "path": path}
+    import os
+    try:
+        os.makedirs(path, exist_ok=True)
+        return {"ok": True, "path": path}
+    except Exception as e:
+        return {"ok": False, "error": f"Fehler: {e}"}
 
 
 def delete_item(path: str) -> dict:
@@ -116,17 +118,38 @@ def delete_item(path: str) -> dict:
 
 
 def upload_file(dest_dir: str, filename: str, file_bytes: bytes) -> dict:
-    """Speichert eine hochgeladene Datei in ein Verzeichnis."""
+    """Speichert eine hochgeladene Datei in ein Verzeichnis (inklusive Unterordnern)."""
     import os
     dest_dir = _sanitize_path(dest_dir)
-    safe_name = os.path.basename(filename)
-    if not safe_name:
-        return {"ok": False, "error": "Ungültiger Dateiname."}
-    dest_path = f"{dest_dir.rstrip('/')}/{safe_name}"
+    
+    # Pfadbereinigung für relative Pfade (Unterordner)
+    filename = filename.replace("\\", "/").replace("\0", "")
+    combined = f"{dest_dir.rstrip('/')}/{filename.lstrip('/')}"
+    target_path = _sanitize_path(combined)
+    
+    # Path Traversal Schutz via os.path.commonpath
     try:
-        with open(dest_path, "wb") as f:
+        norm_dest = os.path.normpath(dest_dir)
+        norm_target = os.path.normpath(target_path)
+        common = os.path.commonpath([norm_dest, norm_target])
+        is_safe = (os.path.normcase(common) == os.path.normcase(norm_dest))
+    except (ValueError, Exception):
+        is_safe = False
+
+    if not is_safe:
+        return {"ok": False, "error": "Ungültiger Pfad (Path Traversal erkannt)."}
+        
+    # Elternverzeichnis erstellen falls nötig
+    parent_dir = _parent(target_path)
+    if parent_dir != dest_dir:
+        create_dir_res = create_directory(parent_dir)
+        if not create_dir_res.get("ok"):
+            return {"ok": False, "error": f"Konnte Unterverzeichnis nicht erstellen: {create_dir_res.get('error')}"}
+            
+    try:
+        with open(target_path, "wb") as f:
             f.write(file_bytes)
-        return {"ok": True, "path": dest_path}
+        return {"ok": True, "path": target_path}
     except Exception as e:
         return {"ok": False, "error": f"Fehler beim Schreiben: {e}"}
 
@@ -324,13 +347,19 @@ def get_stack_compose(stack_name: str) -> dict:
 def _sanitize_path(path: str) -> str:
     """Bereinigt einen Pfad: kein Traversal, muss absolut sein."""
     import os.path
+    import os
     # Doppelpunkte und Traversal entfernen
     path = path.replace("\0", "")
     # Normalisieren (loest .. auf)
     path = os.path.normpath(path)
+    # Separator vereinheitlichen (wichtig für Windows-Kompatibilität bei Tests)
+    path = path.replace(os.sep, "/")
     # Muss absolut sein
     if not path.startswith("/"):
         path = "/" + path
+    # Unter Windows den führenden Slash bei Laufwerksbuchstaben entfernen (z.B. /c:/... -> c:/...)
+    if os.name == 'nt' and path.startswith("/") and len(path) > 2 and path[1].isalpha() and path[2] == ':':
+        path = path[1:]
     return path
 
 

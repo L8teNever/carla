@@ -13,8 +13,10 @@
         <div class="fm-action-bar">
             <button onclick="fmOpenNewFolderModal()" class="btn btn-sm">📁 Neuer Ordner</button>
             <button onclick="fmOpenNewFileModal()" class="btn btn-sm">📄 Neue Datei</button>
-            <button onclick="document.getElementById('fm-upload-input').click()" class="btn btn-sm">⬆ Hochladen</button>
+            <button onclick="document.getElementById('fm-upload-input').click()" class="btn btn-sm">⬆ Datei hochladen</button>
             <input type="file" id="fm-upload-input" multiple style="display:none;" onchange="fmUploadFiles(this.files)">
+            <button onclick="document.getElementById('fm-folder-upload-input').click()" class="btn btn-sm">⬆ Ordner hochladen</button>
+            <input type="file" id="fm-folder-upload-input" webkitdirectory directory multiple style="display:none;" onchange="fmUploadFolder(this.files)">
             <button id="fm-action-download" onclick="fmDownloadSelected()" class="btn btn-sm" style="display: none; color: var(--md-primary); border-color: var(--md-outline-variant);">⬇ Herunterladen</button>
             <button id="fm-action-rename" onclick="fmOpenRenameSelected()" class="btn btn-sm" style="display: none;">Umbenennen</button>
             <button id="fm-action-delete" onclick="fmDeleteSelected()" class="btn btn-sm btn-danger" style="display: none;">Löschen</button>
@@ -29,7 +31,7 @@
         <!-- Directory listing -->
     </div>
     <div id="fm-drop-overlay" style="display:none;position:fixed;inset:0;background:rgba(124,58,237,0.18);border:3px dashed var(--primary);border-radius:var(--r-md);z-index:9999;display:none;align-items:center;justify-content:center;pointer-events:none;">
-        <div style="font-size:1.4rem;color:var(--primary);font-weight:600;background:rgba(13,13,13,0.85);padding:1.5rem 3rem;border-radius:var(--r-md);">Dateien hier ablegen</div>
+        <div style="font-size:1.4rem;color:var(--primary);font-weight:600;background:rgba(13,13,13,0.85);padding:1.5rem 3rem;border-radius:var(--r-md);">Dateien oder Ordner hier ablegen</div>
     </div>
 
     <!-- Floating inline code editor -->
@@ -288,10 +290,84 @@
             document.getElementById('fm-drop-overlay').style.display = 'none';
         }
     }
-    function fmOnDrop(e) {
+    
+    async function fmReadEntry(entry, path = '') {
+        const files = [];
+        if (entry.isFile) {
+            const file = await new Promise((resolve, reject) => entry.file(resolve, reject));
+            const relPath = path ? `${path}/${file.name}` : file.name;
+            files.push({ file, relPath });
+        } else if (entry.isDirectory) {
+            const reader = entry.createReader();
+            const entries = await new Promise((resolve) => {
+                const allEntries = [];
+                const readAll = () => {
+                    reader.readEntries((results) => {
+                        if (results.length) {
+                            allEntries.push(...results);
+                            readAll();
+                        } else {
+                            resolve(allEntries);
+                        }
+                    });
+                };
+                readAll();
+            });
+
+            const newPath = path ? `${path}/${entry.name}` : entry.name;
+            for (const subEntry of entries) {
+                const subFiles = await fmReadEntry(subEntry, newPath);
+                files.push(...subFiles);
+            }
+        }
+        return files;
+    }
+
+    async function fmOnDrop(e) {
         e.preventDefault();
         document.getElementById('fm-drop-overlay').style.display = 'none';
-        if (e.dataTransfer.files.length) fmUploadFiles(e.dataTransfer.files);
+        
+        const items = e.dataTransfer.items;
+        if (!items || !items.length) {
+            if (e.dataTransfer.files.length) {
+                fmUploadFiles(e.dataTransfer.files);
+            }
+            return;
+        }
+
+        showToast("Lese gezogene Dateien und Ordner...");
+        const allFiles = [];
+        for (const item of items) {
+            if (item.kind !== 'file') continue;
+            const entry = item.webkitGetAsEntry();
+            if (!entry) continue;
+            const entryFiles = await fmReadEntry(entry);
+            allFiles.push(...entryFiles);
+        }
+
+        if (allFiles.length === 0) {
+            return;
+        }
+
+        const form = new FormData();
+        form.append('path', fmCurrentPath);
+        for (const { file, relPath } of allFiles) {
+            form.append('files', file, relPath);
+        }
+
+        showToast(`Lade ${allFiles.length} Datei(en) hoch...`);
+        try {
+            const r = await fetch('/api/files/upload', { method: 'POST', body: form });
+            const res = await r.json();
+            if (res.ok) {
+                showToast(`${res.count} Datei(en) erfolgreich hochgeladen.`, 'success');
+            } else {
+                showToast(res.error || 'Upload fehlgeschlagen.', 'error');
+            }
+        } catch(e) { showToast(e.message, 'error'); }
+        finally {
+            _fmLoad(fmCurrentPath);
+        }
     }
 
     async function fmUploadFiles(files) {
@@ -313,6 +389,33 @@
         } catch(e) { showToast(e.message, 'error'); }
         finally {
             document.getElementById('fm-upload-input').value = '';
+            _fmLoad(fmCurrentPath);
+        }
+    }
+
+    async function fmUploadFolder(files) {
+        if (!files || !files.length) return;
+        const form = new FormData();
+        form.append('path', fmCurrentPath);
+        let count = 0;
+        for (const f of files) {
+            const relPath = f.webkitRelativePath || f.name;
+            form.append('files', f, relPath);
+            count++;
+        }
+
+        showToast(`Lade Ordner mit ${count} Datei(en) hoch...`);
+        try {
+            const r = await fetch('/api/files/upload', { method: 'POST', body: form });
+            const res = await r.json();
+            if (res.ok) {
+                showToast(`${res.count} Datei(en) erfolgreich hochgeladen.`, 'success');
+            } else {
+                showToast(res.error || 'Upload fehlgeschlagen.', 'error');
+            }
+        } catch(e) { showToast(e.message, 'error'); }
+        finally {
+            document.getElementById('fm-folder-upload-input').value = '';
             _fmLoad(fmCurrentPath);
         }
     }
