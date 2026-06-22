@@ -1,6 +1,38 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+.fm-dropdown {
+    position: relative;
+    display: inline-block;
+}
+.fm-dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 6px;
+    background-color: var(--md-surface-container-high);
+    min-width: 160px;
+    box-shadow: var(--md-shadow-2);
+    border: 1px solid var(--md-outline-variant);
+    border-radius: var(--r-md);
+    z-index: 100;
+    overflow: hidden;
+}
+.fm-dropdown-content a {
+    color: var(--md-text);
+    padding: 10px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 13px;
+    text-align: left;
+    transition: var(--md-transition);
+}
+.fm-dropdown-content a:hover {
+    background-color: var(--md-surface-variant);
+}
+</style>
 <div class="view-title">Datei-Manager</div>
 <div class="view-subtitle">Host-Dateien durchsuchen und Container-Konfigurationen editieren</div>
 
@@ -13,10 +45,18 @@
         <div class="fm-action-bar">
             <button onclick="fmOpenNewFolderModal()" class="btn btn-sm">📁 Neuer Ordner</button>
             <button onclick="fmOpenNewFileModal()" class="btn btn-sm">📄 Neue Datei</button>
-            <button onclick="document.getElementById('fm-upload-input').click()" class="btn btn-sm">⬆ Datei hochladen</button>
+            
+            <!-- Upload Dropdown Menu -->
+            <div class="fm-dropdown">
+                <button onclick="fmToggleUploadDropdown(event)" class="btn btn-sm">⬆ Hochladen ▾</button>
+                <div id="fm-upload-dropdown-content" class="fm-dropdown-content">
+                    <a href="#" onclick="document.getElementById('fm-upload-input').click(); fmCloseUploadDropdown(); return false;">📄 Dateien hochladen</a>
+                    <a href="#" onclick="document.getElementById('fm-folder-upload-input').click(); fmCloseUploadDropdown(); return false;">📁 Ordner hochladen</a>
+                </div>
+            </div>
             <input type="file" id="fm-upload-input" multiple style="display:none;" onchange="fmUploadFiles(this.files)">
-            <button onclick="document.getElementById('fm-folder-upload-input').click()" class="btn btn-sm">⬆ Ordner hochladen</button>
             <input type="file" id="fm-folder-upload-input" webkitdirectory directory multiple style="display:none;" onchange="fmUploadFolder(this.files)">
+            
             <button id="fm-action-download" onclick="fmDownloadSelected()" class="btn btn-sm" style="display: none; color: var(--md-primary); border-color: var(--md-outline-variant);">⬇ Herunterladen</button>
             <button id="fm-action-rename" onclick="fmOpenRenameSelected()" class="btn btn-sm" style="display: none;">Umbenennen</button>
             <button id="fm-action-delete" onclick="fmDeleteSelected()" class="btn btn-sm btn-danger" style="display: none;">Löschen</button>
@@ -576,7 +616,23 @@
         a.download = '';
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
     }
+
+    function fmToggleUploadDropdown(e) {
+        e.stopPropagation();
+        const content = document.getElementById('fm-upload-dropdown-content');
+        if (content) {
+            content.style.display = content.style.display === 'block' ? 'none' : 'block';
+        }
+    }
+
+    function fmCloseUploadDropdown() {
+        const content = document.getElementById('fm-upload-dropdown-content');
+        if (content) content.style.display = 'none';
+    }
+
+    document.addEventListener('click', function() {
+        fmCloseUploadDropdown();
+    });
 </script>
 {% endblock %}
