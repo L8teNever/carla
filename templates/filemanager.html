@@ -400,7 +400,12 @@
             const r = await fetch('/api/files/upload', { method: 'POST', body: form });
             const res = await r.json();
             if (res.ok) {
-                showToast(`${res.count} Datei(en) erfolgreich hochgeladen.`, 'success');
+                const hasExtracted = res.results && res.results.some(r => r.extracted);
+                if (hasExtracted) {
+                    showToast("Dateien hochgeladen und ZIP-Archiv automatisch entpackt!", "success");
+                } else {
+                    showToast(`${res.count} Datei(en) erfolgreich hochgeladen.`, 'success');
+                }
             } else {
                 showToast(res.error || 'Upload fehlgeschlagen.', 'error');
             }
@@ -422,7 +427,12 @@
             const r = await fetch('/api/files/upload', { method: 'POST', body: form });
             const res = await r.json();
             if (res.ok) {
-                showToast(`${res.count} Datei${res.count > 1 ? 'en' : ''} hochgeladen.`, 'success');
+                const hasExtracted = res.results && res.results.some(r => r.extracted);
+                if (hasExtracted) {
+                    showToast("Dateien hochgeladen und ZIP-Archiv automatisch entpackt!", "success");
+                } else {
+                    showToast(`${res.count} Datei${res.count > 1 ? 'en' : ''} hochgeladen.`, 'success');
+                }
             } else {
                 showToast(res.error || 'Upload fehlgeschlagen.', 'error');
             }
@@ -449,7 +459,12 @@
             const r = await fetch('/api/files/upload', { method: 'POST', body: form });
             const res = await r.json();
             if (res.ok) {
-                showToast(`${res.count} Datei(en) erfolgreich hochgeladen.`, 'success');
+                const hasExtracted = res.results && res.results.some(r => r.extracted);
+                if (hasExtracted) {
+                    showToast("Ordner hochgeladen und ZIP-Archiv automatisch entpackt!", "success");
+                } else {
+                    showToast(`${res.count} Datei(en) erfolgreich hochgeladen.`, 'success');
+                }
             } else {
                 showToast(res.error || 'Upload fehlgeschlagen.', 'error');
             }

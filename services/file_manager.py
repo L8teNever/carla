@@ -149,9 +149,44 @@ def upload_file(dest_dir: str, filename: str, file_bytes: bytes) -> dict:
     try:
         with open(target_path, "wb") as f:
             f.write(file_bytes)
-        return {"ok": True, "path": target_path}
     except Exception as e:
         return {"ok": False, "error": f"Fehler beim Schreiben: {e}"}
+
+    # ZIP-Dateien automatisch entpacken
+    if filename.lower().endswith(".zip"):
+        import zipfile
+        import io
+        extract_dir = _parent(target_path)
+        try:
+            with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
+                # 1. Sicherheits-Check gegen Zip-Slip (Path Traversal in Zip)
+                for member in z.infolist():
+                    member_name = member.filename.replace("\\", "/").replace("\0", "")
+                    member_target = _sanitize_path(f"{extract_dir.rstrip('/')}/{member_name.lstrip('/')}")
+                    try:
+                        norm_ext = os.path.normpath(extract_dir)
+                        norm_memb = os.path.normpath(member_target)
+                        common = os.path.commonpath([norm_ext, norm_memb])
+                        if os.path.normcase(common) != os.path.normcase(norm_ext):
+                            return {"ok": False, "error": f"Sicherheitswarnung: Unzulässiger Pfad in Zip '{member.filename}'"}
+                    except Exception:
+                        return {"ok": False, "error": f"Sicherheitsfehler beim Validieren von '{member.filename}'"}
+
+                # 2. Dateien entpacken
+                for member in z.infolist():
+                    member_name = member.filename.replace("\\", "/").replace("\0", "")
+                    member_target = _sanitize_path(f"{extract_dir.rstrip('/')}/{member_name.lstrip('/')}")
+                    if member.is_dir():
+                        os.makedirs(member_target, exist_ok=True)
+                    else:
+                        os.makedirs(os.path.dirname(member_target), exist_ok=True)
+                        with open(member_target, "wb") as f:
+                            f.write(z.read(member))
+            return {"ok": True, "path": target_path, "extracted": True}
+        except Exception as e:
+            return {"ok": False, "error": f"Fehler beim Entpacken der Zip-Datei: {e}"}
+
+    return {"ok": True, "path": target_path}
 
 
 def rename_item(old_path: str, new_name: str) -> dict:
