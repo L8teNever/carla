@@ -38,6 +38,9 @@
             <button onclick="fetchContainerLogsNow('start')" class="btn btn-sm" style="font-size: 11.5px; padding: 6px 12px; color:var(--primary-light); border-color: rgba(124, 58, 237, 0.2);">Seit Start</button>
             {% endif %}
             <button onclick="clearConsoleLog()" class="btn btn-sm" style="font-size: 11.5px; padding: 6px 12px; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: var(--danger);">🧹 Löschen</button>
+            {% if not container_name %}
+            <button onclick="resetTerminalCwd()" class="btn btn-sm" title="Zurück zum Home-Verzeichnis" style="font-size: 11.5px; padding: 6px 12px; background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.2); color: #818cf8;">🏠 Home</button>
+            {% endif %}
         </div>
     </div>
 
@@ -67,11 +70,12 @@
     </div>
 
     <!-- Input Row (Always sticky at the bottom of console) -->
-    <div class="console-input-area" id="console-input-area" style="display: none; padding: 12px 16px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.3); align-items: center; gap: 10px;">
-        <span class="console-prompt" style="font-family: var(--font-mono); font-weight: 700; color: var(--primary-light); font-size: 14px; user-select: none;">$</span>
+    <div class="console-input-area" id="console-input-area" style="display: none; padding: 12px 16px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.3); align-items: center; gap: 10px; flex-wrap: wrap;">
+        <!-- Prompt: shows current path when in host mode -->
+        <span class="console-prompt" id="console-prompt-label" style="font-family: var(--font-mono); font-weight: 700; color: var(--primary-light); font-size: 13px; user-select: none; white-space: nowrap; max-width: 50%; overflow: hidden; text-overflow: ellipsis;">$</span>
         <input type="text" id="console-input-field" class="console-input" 
                placeholder="Befehl eingeben..." 
-               style="flex: 1; background: transparent; border: none; outline: none; font-family: var(--font-mono); font-size: 13.5px; color: #a7f3d0; padding: 4px 0;"
+               style="flex: 1; min-width: 120px; background: transparent; border: none; outline: none; font-family: var(--font-mono); font-size: 13.5px; color: #a7f3d0; padding: 4px 0;"
                inputmode="text" 
                autocorrect="off" 
                autocapitalize="none" 
@@ -182,6 +186,9 @@
     const terminalSelectedContainer = "{{ container_name }}";
     let activeTerminalTab = 'logs';
     let terminalInterval = null;
+    let terminalCwd = null;       // Current working directory (host terminal only)
+    let cmdHistory = [];          // Command history buffer
+    let historyIndex = -1;        // Position in history when navigating
 
     async function initPage(data) {
         // Handle visual viewport height (virtual keyboard helper)
@@ -189,7 +196,6 @@
             const updateViewportHeight = () => {
                 const vh = window.visualViewport.height;
                 document.documentElement.style.setProperty('--viewport-height', `${vh}px`);
-                // Auto-scroll when keyboard opens
                 if (document.activeElement && document.activeElement.id === 'console-input-field') {
                     setTimeout(() => {
                         const body = document.getElementById('console-body');
@@ -200,6 +206,17 @@
             window.visualViewport.addEventListener('resize', updateViewportHeight);
             window.visualViewport.addEventListener('scroll', updateViewportHeight);
             updateViewportHeight();
+        }
+
+        // Load initial cwd from server for host terminal
+        if (!terminalSelectedContainer) {
+            try {
+                const r = await fetch('/api/terminal/cwd');
+                if (r.ok) {
+                    const d = await r.json();
+                    terminalCwd = d.cwd;
+                }
+            } catch(e) { /* silent */ }
         }
 
         {% if container_name %}
@@ -213,12 +230,32 @@
         stopTerminalPolling();
     });
 
+    // ------------------------------------------------------------------
+    // Prompt rendering
+    // ------------------------------------------------------------------
+    function updatePrompt(cwd) {
+        const label = document.getElementById('console-prompt-label');
+        if (!label) return;
+        if (!terminalSelectedContainer && cwd) {
+            // Shorten path for display: show last 2 segments
+            const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean);
+            const display = parts.length > 2
+                ? '…/' + parts.slice(-2).join('/')
+                : (cwd.replace(/\\/g, '/') || '/');
+            label.textContent = display + ' $';
+            label.title = cwd;  // Full path on hover
+        } else {
+            label.textContent = (terminalSelectedContainer || 'host') + ' $';
+            label.title = '';
+        }
+    }
+
     function switchTerminalTab(tabId) {
         activeTerminalTab = tabId;
-        
+
         const logBtn = document.querySelectorAll('#terminal-view-tabs .tab-btn')[0];
         const execBtn = document.querySelectorAll('#terminal-view-tabs .tab-btn')[1];
-        
+
         const subTitle = document.getElementById('console-sub-title');
         const controls = document.getElementById('console-logs-controls');
         const inputArea = document.getElementById('console-input-area');
@@ -244,7 +281,7 @@
         } else {
             if (logBtn) logBtn.classList.remove('active');
             if (execBtn) execBtn.classList.add('active');
-            
+
             if (terminalSelectedContainer) {
                 subTitle.innerText = "Befehlsausführung (docker exec)";
                 body.style.color = '#a7f3d0';
@@ -252,14 +289,15 @@
             } else {
                 subTitle.innerText = "System-Shell (Host)";
                 body.style.color = '#38bdf8';
-                body.innerText = "CARLA Host-Konsole bereit. Befehle werden direkt auf dem Server ausgeführt.\n";
+                const cwdDisplay = terminalCwd || '~';
+                body.innerText = `CARLA Host-Konsole bereit. Aktuelles Verzeichnis: ${cwdDisplay}\n`;
+                updatePrompt(terminalCwd);
             }
 
-            if (controls) controls.style.display = 'none';
+            if (controls) controls.style.display = 'flex';
             inputArea.style.display = 'flex';
             quickBar.style.display = 'flex';
-            
-            // Focus input field
+
             setTimeout(() => {
                 document.getElementById('console-input-field').focus();
             }, 100);
@@ -280,9 +318,44 @@
         document.getElementById('console-body').innerText = '';
     }
 
+    async function resetTerminalCwd() {
+        try {
+            const r = await fetch('/api/terminal/cwd', { method: 'DELETE' });
+            if (r.ok) {
+                const d = await r.json();
+                terminalCwd = d.cwd;
+                updatePrompt(terminalCwd);
+                const body = document.getElementById('console-body');
+                body.innerText += `\n[Verzeichnis zurückgesetzt auf: ${terminalCwd}]\n`;
+                body.scrollTop = body.scrollHeight;
+            }
+        } catch(e) { /* silent */ }
+    }
+
     function handleTerminalKeyDown(event) {
         if (event.key === 'Enter') {
             submitTerminalCommand();
+            return;
+        }
+        // ↑ Arrow – navigate backwards in history
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            if (cmdHistory.length === 0) return;
+            historyIndex = Math.min(historyIndex + 1, cmdHistory.length - 1);
+            document.getElementById('console-input-field').value = cmdHistory[historyIndex];
+            return;
+        }
+        // ↓ Arrow – navigate forwards in history
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            if (historyIndex <= 0) {
+                historyIndex = -1;
+                document.getElementById('console-input-field').value = '';
+                return;
+            }
+            historyIndex--;
+            document.getElementById('console-input-field').value = cmdHistory[historyIndex];
+            return;
         }
     }
 
@@ -291,14 +364,21 @@
         const cmd = inputEl.value.trim();
         if (!cmd || inputEl.disabled) return;
 
+        // Push to history (avoid duplicate at front)
+        if (cmdHistory[0] !== cmd) {
+            cmdHistory.unshift(cmd);
+            if (cmdHistory.length > 100) cmdHistory.pop();
+        }
+        historyIndex = -1;
+
         const body = document.getElementById('console-body');
-        body.innerText += `\n$ ${cmd}\n`;
+        const promptText = document.getElementById('console-prompt-label')?.textContent || '$';
+        body.innerText += `\n${promptText} ${cmd}\n`;
         inputEl.value = '';
 
-        // UI-Zustand auf "Läuft" setzen
+        // UI – loading state
         const workspace = document.getElementById('terminal-workspace');
         const submitBtn = document.getElementById('console-submit-btn');
-        
         workspace.classList.add('loading-state');
         inputEl.disabled = true;
         inputEl.placeholder = "Befehl wird ausgeführt...";
@@ -307,14 +387,10 @@
             submitBtn.innerHTML = `Läuft... <span class="btn-spinner"></span>`;
         }
 
-        // Einen visuellen Inline-Ladeindikator im Terminalverlauf anzeigen
+        // Inline loading indicator
         const loaderLine = document.createElement('div');
         loaderLine.id = 'console-loader-line';
-        loaderLine.style.display = 'flex';
-        loaderLine.style.alignItems = 'center';
-        loaderLine.style.gap = '8px';
-        loaderLine.style.margin = '8px 0';
-        loaderLine.style.color = '#fbbf24';
+        loaderLine.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 0;color:#fbbf24;';
         loaderLine.innerHTML = `<span class="terminal-spinner"></span><span class="terminal-pulse-text">Befehl wird ausgeführt...</span>`;
         body.appendChild(loaderLine);
         body.scrollTop = body.scrollHeight;
@@ -322,30 +398,42 @@
         try {
             let resp;
             if (terminalSelectedContainer) {
-                // Docker container exec
+                // Docker container exec (unchanged)
                 resp = await fetch(`/api/container/${encodeURIComponent(terminalSelectedContainer)}/exec`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ command: cmd })
                 });
             } else {
-                // Host system exec
-                resp = await fetch(`/api/system/exec`, {
+                // Host terminal – use new stateful endpoint
+                resp = await fetch('/api/terminal/exec', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ command: cmd })
                 });
             }
-            
-            // Ladeindikator im Terminal entfernen vor Text-Zuweisung
+
             const oldLoader = document.getElementById('console-loader-line');
             if (oldLoader) oldLoader.remove();
 
             if (resp.ok) {
                 const data = await resp.json();
-                body.innerText += (data.output || '') + '\n';
+
+                // Clear terminal if 'clear' was called
+                if (data.clear) {
+                    body.innerText = '';
+                } else {
+                    const out = (data.output || '').trimEnd();
+                    if (out) body.innerText += out + '\n';
+                }
+
+                // Update cwd if returned (host terminal only)
+                if (data.cwd !== undefined) {
+                    terminalCwd = data.cwd;
+                    updatePrompt(terminalCwd);
+                }
             } else {
-                const err = await resp.json();
+                const err = await resp.json().catch(() => ({}));
                 body.innerText += `Fehler: ${err.error || 'Serverfehler'}\n`;
             }
         } catch(e) {
@@ -353,7 +441,6 @@
             if (oldLoader) oldLoader.remove();
             body.innerText += `Verbindungsfehler: ${e.message}\n`;
         } finally {
-            // UI-Zustand zurücksetzen
             workspace.classList.remove('loading-state');
             inputEl.disabled = false;
             inputEl.placeholder = "Befehl eingeben...";
@@ -361,7 +448,6 @@
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = `Senden ➔`;
             }
-            // Eingabefeld wieder fokussieren
             inputEl.focus();
             body.scrollTop = body.scrollHeight;
         }
