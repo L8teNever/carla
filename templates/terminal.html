@@ -1,483 +1,418 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- Page Header -->
 <div style="display:flex; align-items:center; gap: 15px; margin-bottom: 10px; flex-wrap: wrap;">
     <a href="/" class="btn btn-icon" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border);">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </a>
     <div style="display: flex; flex-direction: column; gap: 2px;">
-        <div class="view-title" id="terminal-container-title" style="margin-bottom: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px;">
+        <div class="view-title" style="margin-bottom: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px;">
             {% if container_name %}{{ container_name }} | Konsole{% else %}Host System-Terminal{% endif %}
         </div>
         <div class="view-subtitle" style="margin-top: 0; opacity: 0.7; font-size: 13px;">
-            {% if container_name %}Echtzeit-Logs und interaktive Befehlsausführung im Container{% else %}Interaktive Shell-Befehle direkt auf dem Host-Server ausführen{% endif %}
+            {% if container_name %}Echtzeit-Logs und interaktive Befehlsausführung im Container{% else %}Vollwertige interaktive Shell direkt auf dem Host-Server{% endif %}
         </div>
     </div>
 </div>
 
-<!-- Navigation Tabs (Only if container_name is set) -->
+<!-- Nav Tabs (container mode only) -->
 {% if container_name %}
 <div class="tabs-nav" id="terminal-view-tabs" style="margin-bottom: 15px; display: flex; gap: 8px;">
-    <button class="tab-btn active" onclick="switchTerminalTab('logs')" style="padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: var(--r-md); transition: all 0.2s;">📋 Logs</button>
-    <button class="tab-btn" onclick="switchTerminalTab('exec')" style="padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: var(--r-md); transition: all 0.2s;">💻 Interaktive Shell</button>
+    <button class="tab-btn active" onclick="switchTerminalTab('logs')" style="padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: var(--r-md);">📋 Logs</button>
+    <button class="tab-btn" onclick="switchTerminalTab('exec')" style="padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: var(--r-md);">💻 Interaktive Shell</button>
 </div>
 {% endif %}
 
-<!-- Responsive Terminal Workspace -->
+<!-- Toolbar (host terminal only) -->
+{% if not container_name %}
+<div style="display:flex; align-items:center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+    <span id="pty-status-dot" style="width:9px;height:9px;border-radius:50%;background:#ef4444;display:inline-block;flex-shrink:0;"></span>
+    <span id="pty-status-label" style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">Verbinde…</span>
+    <div style="flex:1;"></div>
+    <button onclick="termReconnect()" class="btn btn-sm" style="font-size:11.5px;padding:5px 12px;">🔄 Neu verbinden</button>
+    <button onclick="termClear()" class="btn btn-sm" style="font-size:11.5px;padding:5px 12px;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);color:var(--danger);">🧹 Löschen</button>
+</div>
+{% endif %}
+
+<!-- xterm.js terminal container (host terminal) -->
+{% if not container_name %}
+<div id="pty-wrapper" style="border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--border); background: #0d0d0f; box-shadow: var(--shadow-lg);">
+    <div id="pty-terminal" style="width:100%; height: calc(100vh - 230px); min-height: 300px;"></div>
+</div>
+{% endif %}
+
+<!-- Legacy log/exec workspace (container mode) -->
+{% if container_name %}
 <div class="console-workspace" id="terminal-workspace" style="display: flex; flex-direction: column; background: rgba(10, 10, 12, 0.95); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; box-shadow: var(--shadow-lg);">
-    
-    <!-- Title / Control Bar -->
     <div class="console-tabbar" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); flex-wrap: wrap; gap: 10px;">
-        <span style="font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--primary-light);" id="console-sub-title">
-            {% if container_name %}Container Logs{% else %}Host Terminal{% endif %}
-        </span>
+        <span style="font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--primary-light);" id="console-sub-title">Container Logs</span>
         <div style="display:flex; gap: 8px;" id="console-logs-controls">
-            {% if container_name %}
             <button onclick="fetchContainerLogsNow(100)" class="btn btn-sm" style="font-size: 11.5px; padding: 6px 12px;">100 Zeilen</button>
             <button onclick="fetchContainerLogsNow('start')" class="btn btn-sm" style="font-size: 11.5px; padding: 6px 12px; color:var(--primary-light); border-color: rgba(124, 58, 237, 0.2);">Seit Start</button>
-            {% endif %}
             <button onclick="clearConsoleLog()" class="btn btn-sm" style="font-size: 11.5px; padding: 6px 12px; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: var(--danger);">🧹 Löschen</button>
-            {% if not container_name %}
-            <button onclick="resetTerminalCwd()" class="btn btn-sm" title="Zurück zum Home-Verzeichnis" style="font-size: 11.5px; padding: 6px 12px; background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.2); color: #818cf8;">🏠 Home</button>
-            {% endif %}
         </div>
     </div>
-
-    <!-- Output Body -->
     <div class="console-body" id="console-body" style="flex: 1; min-height: 250px; max-height: 60vh; overflow-y: auto; padding: 16px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; color: #cbd5e1; white-space: pre-wrap; word-break: break-all; scroll-behavior: smooth;">
         Lade Terminal...
     </div>
-
-    <!-- Mobile Quick-Command Bar (Only for Exec/Shell Mode) -->
     <div id="quick-commands-bar" style="display: none; background: rgba(255,255,255,0.01); border-top: 1px dashed var(--border); padding: 8px 12px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; gap: 6px; align-items: center;">
         <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-right: 6px;">Kürzel:</span>
-        {% if container_name %}
         <button onclick="pasteQuickCommand('ls -la')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">ls -la</button>
         <button onclick="pasteQuickCommand('env')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">env</button>
         <button onclick="pasteQuickCommand('df -h')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">df -h</button>
         <button onclick="pasteQuickCommand('ps aux')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">ps aux</button>
-        <button onclick="pasteQuickCommand('whoami')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">whoami</button>
-        {% else %}
-        <button onclick="pasteQuickCommand('docker ps')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">docker ps</button>
-        <button onclick="pasteQuickCommand('docker stats --no-stream')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">docker stats</button>
-        <button onclick="pasteQuickCommand('df -h')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">df -h</button>
-        <button onclick="pasteQuickCommand('free -m')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">free -m</button>
-        <button onclick="pasteQuickCommand('uname -a')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">uname -a</button>
-        <button onclick="pasteQuickCommand('ls -la /opt/stacks')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;">ls /opt/stacks</button>
-        {% endif %}
         <button onclick="pasteQuickCommand('clear')" class="btn btn-sm" style="font-family: var(--font-mono); font-size: 11px; padding: 4px 10px; background: rgba(255,255,255,0.05);">clear</button>
     </div>
-
-    <!-- Input Row (Always sticky at the bottom of console) -->
     <div class="console-input-area" id="console-input-area" style="display: none; padding: 12px 16px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.3); align-items: center; gap: 10px; flex-wrap: wrap;">
-        <!-- Prompt: shows current path when in host mode -->
-        <span class="console-prompt" id="console-prompt-label" style="font-family: var(--font-mono); font-weight: 700; color: var(--primary-light); font-size: 13px; user-select: none; white-space: nowrap; max-width: 50%; overflow: hidden; text-overflow: ellipsis;">$</span>
-        <input type="text" id="console-input-field" class="console-input" 
-               placeholder="Befehl eingeben..." 
+        <span class="console-prompt" id="console-prompt-label" style="font-family: var(--font-mono); font-weight: 700; color: var(--primary-light); font-size: 13px; user-select: none; white-space: nowrap;">$ </span>
+        <input type="text" id="console-input-field" class="console-input"
+               placeholder="Befehl eingeben..."
                style="flex: 1; min-width: 120px; background: transparent; border: none; outline: none; font-family: var(--font-mono); font-size: 13.5px; color: #a7f3d0; padding: 4px 0;"
-               inputmode="text" 
-               autocorrect="off" 
-               autocapitalize="none" 
-               autocomplete="off" 
-               spellcheck="false"
+               inputmode="text" autocorrect="off" autocapitalize="none" autocomplete="off" spellcheck="false"
                onkeydown="handleTerminalKeyDown(event)">
-        <button id="console-submit-btn" onclick="submitTerminalCommand()" class="btn btn-primary" style="padding: 6px 14px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
-            Senden ➔
-        </button>
+        <button id="console-submit-btn" onclick="submitTerminalCommand()" class="btn btn-primary" style="padding: 6px 14px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px;">Senden ➔</button>
     </div>
 </div>
+{% endif %}
 
 <style>
-    /* Terminal Spinner & Loading States */
-    .terminal-spinner {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        border: 2px solid rgba(251, 191, 36, 0.2);
-        border-radius: 50%;
-        border-top-color: #fbbf24;
-        animation: terminal-spin 0.8s linear infinite;
-    }
-    
-    .btn-spinner {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
-        border-top-color: #ffffff;
-        animation: terminal-spin 0.8s linear infinite;
-        vertical-align: middle;
-    }
-    
-    @keyframes terminal-spin {
-        to { transform: rotate(360deg); }
-    }
-    
-    .terminal-pulse-text {
-        animation: terminal-pulse 1.5s infinite ease-in-out;
-    }
-    
-    @keyframes terminal-pulse {
-        0%, 100% { opacity: 0.6; }
-        50% { opacity: 1; }
-    }
-    
-    /* Workspace loading states */
-    .console-workspace.loading-state #quick-commands-bar {
-        pointer-events: none;
-        opacity: 0.5;
-        transition: all 0.3s ease;
-    }
-    
-    .console-workspace.loading-state #console-input-area {
-        background: rgba(251, 191, 36, 0.03) !important;
-        transition: background 0.3s ease;
-    }
-    
-    .console-workspace.loading-state .console-prompt {
-        color: #fbbf24 !important;
-        animation: terminal-pulse 1s infinite ease-in-out;
-    }
-    
-    .console-workspace.loading-state #console-input-field {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
+/* ── xterm.js overrides ──────────────────────────────────── */
+#pty-terminal .xterm { height: 100%; }
+#pty-terminal .xterm-viewport { overflow-y: auto !important; }
+#pty-terminal .xterm-screen  { padding: 10px 14px; }
 
-    /* Premium Monospace Custom Scrollbar for Terminal */
-    #console-body::-webkit-scrollbar {
-        width: 6.5px;
-        height: 6.5px;
-    }
-    #console-body::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    #console-body::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: var(--r-md);
-    }
-    #console-body::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.2);
-    }
-    
-    /* Horizontal scroll quick commands custom bar */
-    #quick-commands-bar::-webkit-scrollbar {
-        height: 4px;
-    }
-    #quick-commands-bar::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 2px;
-    }
-    
-    /* Virtual keyboard dynamic height adjustment on mobile devices */
-    @media (max-width: 768px) {
-        .console-body {
-            min-height: 200px !important;
-            max-height: calc(var(--viewport-height, 100vh) - 260px) !important;
-        }
-    }
+/* scrollbar */
+#pty-terminal .xterm-viewport::-webkit-scrollbar { width: 7px; }
+#pty-terminal .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+#pty-terminal .xterm-viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 4px; }
+#pty-terminal .xterm-viewport::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.22); }
+
+/* legacy console scrollbar */
+#console-body::-webkit-scrollbar { width: 6.5px; }
+#console-body::-webkit-scrollbar-track { background: transparent; }
+#console-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: var(--r-md); }
+#console-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
+
+.terminal-spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(251,191,36,.2); border-radius: 50%;
+    border-top-color: #fbbf24; animation: tspin .8s linear infinite;
+}
+@keyframes tspin { to { transform: rotate(360deg); } }
 </style>
 {% endblock %}
 
+
 {% block extra_js %}
+<!-- xterm.js + FitAddon from CDN (only loaded for host terminal) -->
+{% if not container_name %}
+<link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
+{% endif %}
+
 <script>
-    const terminalSelectedContainer = "{{ container_name }}";
-    let activeTerminalTab = 'logs';
-    let terminalInterval = null;
-    let terminalCwd = null;       // Current working directory (host terminal only)
-    let cmdHistory = [];          // Command history buffer
-    let historyIndex = -1;        // Position in history when navigating
+const terminalSelectedContainer = "{{ container_name }}";
+let terminalInterval = null;
 
-    async function initPage(data) {
-        // Handle visual viewport height (virtual keyboard helper)
-        if (window.visualViewport) {
-            const updateViewportHeight = () => {
-                const vh = window.visualViewport.height;
-                document.documentElement.style.setProperty('--viewport-height', `${vh}px`);
-                if (document.activeElement && document.activeElement.id === 'console-input-field') {
-                    setTimeout(() => {
-                        const body = document.getElementById('console-body');
-                        body.scrollTop = body.scrollHeight;
-                    }, 150);
-                }
-            };
-            window.visualViewport.addEventListener('resize', updateViewportHeight);
-            window.visualViewport.addEventListener('scroll', updateViewportHeight);
-            updateViewportHeight();
-        }
+/* ============================================================
+   HOST TERMINAL – xterm.js + WebSocket PTY
+   ============================================================ */
+{% if not container_name %}
 
-        // Load initial cwd from server for host terminal
-        if (!terminalSelectedContainer) {
-            try {
-                const r = await fetch('/api/terminal/cwd');
-                if (r.ok) {
-                    const d = await r.json();
-                    terminalCwd = d.cwd;
-                }
-            } catch(e) { /* silent */ }
-        }
+let ptyTerm   = null;
+let ptyWs     = null;
+let fitAddon  = null;
+let ptyAlive  = false;
 
-        {% if container_name %}
-            switchTerminalTab('logs');
-        {% else %}
-            switchTerminalTab('exec');
-        {% endif %}
-    }
+function setStatus(connected) {
+    ptyAlive = connected;
+    const dot   = document.getElementById('pty-status-dot');
+    const label = document.getElementById('pty-status-label');
+    if (dot)   dot.style.background   = connected ? '#22c55e' : '#ef4444';
+    if (label) label.textContent       = connected ? 'Verbunden – vollwertige PTY-Shell' : 'Getrennt';
+}
 
-    window.addEventListener('beforeunload', () => {
-        stopTerminalPolling();
+function termClear() {
+    if (ptyTerm) ptyTerm.clear();
+}
+
+function termReconnect() {
+    if (ptyWs) { try { ptyWs.close(); } catch(e) {} }
+    setTimeout(initPtyTerminal, 300);
+}
+
+function initPtyTerminal() {
+    const container = document.getElementById('pty-terminal');
+    if (!container) return;
+
+    // Destroy previous instance if exists
+    if (ptyTerm) { ptyTerm.dispose(); ptyTerm = null; }
+
+    ptyTerm = new Terminal({
+        fontFamily: '"Cascadia Code", "JetBrains Mono", "Fira Code", "Consolas", monospace',
+        fontSize: 14,
+        lineHeight: 1.4,
+        theme: {
+            background:   '#0d0d0f',
+            foreground:   '#e2e8f0',
+            cursor:       '#a78bfa',
+            cursorAccent: '#0d0d0f',
+            black:        '#1e1e2e',
+            red:          '#f38ba8',
+            green:        '#a6e3a1',
+            yellow:       '#f9e2af',
+            blue:         '#89b4fa',
+            magenta:      '#cba6f7',
+            cyan:         '#89dceb',
+            white:        '#cdd6f4',
+            brightBlack:  '#585b70',
+            brightRed:    '#f38ba8',
+            brightGreen:  '#a6e3a1',
+            brightYellow: '#f9e2af',
+            brightBlue:   '#89b4fa',
+            brightMagenta:'#cba6f7',
+            brightCyan:   '#89dceb',
+            brightWhite:  '#ffffff',
+            selectionBackground: 'rgba(167,139,250,0.25)',
+        },
+        cursorBlink: true,
+        cursorStyle: 'block',
+        scrollback:  5000,
+        allowProposedApi: true,
     });
 
-    // ------------------------------------------------------------------
-    // Prompt rendering
-    // ------------------------------------------------------------------
-    function updatePrompt(cwd) {
-        const label = document.getElementById('console-prompt-label');
-        if (!label) return;
-        if (!terminalSelectedContainer && cwd) {
-            // Shorten path for display: show last 2 segments
-            const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean);
-            const display = parts.length > 2
-                ? '…/' + parts.slice(-2).join('/')
-                : (cwd.replace(/\\/g, '/') || '/');
-            label.textContent = display + ' $';
-            label.title = cwd;  // Full path on hover
-        } else {
-            label.textContent = (terminalSelectedContainer || 'host') + ' $';
-            label.title = '';
+    fitAddon = new FitAddon.FitAddon();
+    ptyTerm.loadAddon(fitAddon);
+
+    const linkAddon = new WebLinksAddon.WebLinksAddon();
+    ptyTerm.loadAddon(linkAddon);
+
+    ptyTerm.open(container);
+    fitAddon.fit();
+
+    // Send resize on window resize
+    const resizeObs = new ResizeObserver(() => {
+        if (fitAddon) {
+            fitAddon.fit();
+            sendResize();
         }
+    });
+    resizeObs.observe(container);
+
+    // Connect WebSocket
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${proto}://${location.host}/ws/terminal`;
+    setStatus(false);
+
+    try {
+        ptyWs = new WebSocket(wsUrl);
+    } catch(e) {
+        ptyTerm.write(`\x1b[31mFehler beim Verbinden: ${e.message}\x1b[0m\r\n`);
+        return;
     }
 
-    function switchTerminalTab(tabId) {
-        activeTerminalTab = tabId;
+    ptyWs.onopen = () => {
+        setStatus(true);
+        sendResize();
+    };
 
-        const logBtn = document.querySelectorAll('#terminal-view-tabs .tab-btn')[0];
-        const execBtn = document.querySelectorAll('#terminal-view-tabs .tab-btn')[1];
-
-        const subTitle = document.getElementById('console-sub-title');
-        const controls = document.getElementById('console-logs-controls');
-        const inputArea = document.getElementById('console-input-area');
-        const quickBar = document.getElementById('quick-commands-bar');
-        const body = document.getElementById('console-body');
-
-        stopTerminalPolling();
-
-        if (tabId === 'logs') {
-            if (logBtn) logBtn.classList.add('active');
-            if (execBtn) execBtn.classList.remove('active');
-            subTitle.innerText = "System Protokoll (docker logs)";
-            if (controls) controls.style.display = 'flex';
-            inputArea.style.display = 'none';
-            quickBar.style.display = 'none';
-            body.style.color = '#cbd5e1';
-            body.innerText = "Lade Logs...";
-
-            fetchContainerLogsNow(100);
-            terminalInterval = setInterval(() => {
-                fetchContainerLogsNow(100);
-            }, 4000);
+    ptyWs.onmessage = (ev) => {
+        if (typeof ev.data === 'string') {
+            ptyTerm.write(ev.data);
         } else {
-            if (logBtn) logBtn.classList.remove('active');
-            if (execBtn) execBtn.classList.add('active');
-
-            if (terminalSelectedContainer) {
-                subTitle.innerText = "Befehlsausführung (docker exec)";
-                body.style.color = '#a7f3d0';
-                body.innerText = "CARLA Exec-Konsole bereit. Befehle werden direkt im Container ausgeführt.\n";
-            } else {
-                subTitle.innerText = "System-Shell (Host)";
-                body.style.color = '#38bdf8';
-                const cwdDisplay = terminalCwd || '~';
-                body.innerText = `CARLA Host-Konsole bereit. Aktuelles Verzeichnis: ${cwdDisplay}\n`;
-                updatePrompt(terminalCwd);
-            }
-
-            if (controls) controls.style.display = 'flex';
-            inputArea.style.display = 'flex';
-            quickBar.style.display = 'flex';
-
-            setTimeout(() => {
-                document.getElementById('console-input-field').focus();
-            }, 100);
+            ev.data.arrayBuffer().then(buf => {
+                ptyTerm.write(new Uint8Array(buf));
+            });
         }
+    };
+
+    ptyWs.onclose = () => {
+        setStatus(false);
+        if (ptyTerm) ptyTerm.write('\r\n\x1b[31m[Verbindung getrennt]\x1b[0m\r\n');
+    };
+
+    ptyWs.onerror = () => {
+        setStatus(false);
+        if (ptyTerm) ptyTerm.write('\x1b[31m[WebSocket-Fehler]\x1b[0m\r\n');
+    };
+
+    // Keyboard input → WebSocket
+    ptyTerm.onData((data) => {
+        if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+            ptyWs.send(JSON.stringify({ type: 'input', data }));
+        }
+    });
+}
+
+function sendResize() {
+    if (!ptyTerm || !ptyWs || ptyWs.readyState !== WebSocket.OPEN) return;
+    ptyWs.send(JSON.stringify({
+        type: 'resize',
+        cols: ptyTerm.cols,
+        rows: ptyTerm.rows,
+    }));
+}
+
+async function initPage(data) {
+    // Small delay so xterm CDN scripts are parsed
+    setTimeout(initPtyTerminal, 100);
+}
+
+window.addEventListener('beforeunload', () => {
+    if (ptyWs) try { ptyWs.close(); } catch(e) {}
+});
+
+{% endif %}  {# end not container_name #}
+
+
+/* ============================================================
+   CONTAINER MODE – legacy log + exec (unchanged)
+   ============================================================ */
+{% if container_name %}
+
+let activeTerminalTab = 'logs';
+let cmdHistory        = [];
+let historyIndex      = -1;
+
+async function initPage(data) {
+    switchTerminalTab('logs');
+}
+
+window.addEventListener('beforeunload', () => { stopTerminalPolling(); });
+
+function switchTerminalTab(tabId) {
+    activeTerminalTab = tabId;
+    const logBtn  = document.querySelectorAll('#terminal-view-tabs .tab-btn')[0];
+    const execBtn = document.querySelectorAll('#terminal-view-tabs .tab-btn')[1];
+    const subTitle  = document.getElementById('console-sub-title');
+    const controls  = document.getElementById('console-logs-controls');
+    const inputArea = document.getElementById('console-input-area');
+    const quickBar  = document.getElementById('quick-commands-bar');
+    const body      = document.getElementById('console-body');
+
+    stopTerminalPolling();
+
+    if (tabId === 'logs') {
+        if (logBtn)  logBtn.classList.add('active');
+        if (execBtn) execBtn.classList.remove('active');
+        subTitle.innerText = 'System Protokoll (docker logs)';
+        if (controls) controls.style.display = 'flex';
+        inputArea.style.display = 'none';
+        quickBar.style.display  = 'none';
+        body.style.color = '#cbd5e1';
+        body.innerText   = 'Lade Logs…';
+        fetchContainerLogsNow(100);
+        terminalInterval = setInterval(() => fetchContainerLogsNow(100), 4000);
+    } else {
+        if (logBtn)  logBtn.classList.remove('active');
+        if (execBtn) execBtn.classList.add('active');
+        subTitle.innerText = 'Befehlsausführung (docker exec)';
+        body.style.color = '#a7f3d0';
+        body.innerText   = 'CARLA Exec-Konsole bereit.\n';
+        if (controls) controls.style.display = 'none';
+        inputArea.style.display = 'flex';
+        quickBar.style.display  = 'flex';
+        setTimeout(() => document.getElementById('console-input-field').focus(), 100);
     }
+}
 
-    function pasteQuickCommand(cmd) {
-        if (cmd === 'clear') {
-            clearConsoleLog();
-            return;
+function pasteQuickCommand(cmd) {
+    if (cmd === 'clear') { clearConsoleLog(); return; }
+    const el = document.getElementById('console-input-field');
+    el.value = cmd; el.focus();
+}
+
+function clearConsoleLog() { document.getElementById('console-body').innerText = ''; }
+
+function handleTerminalKeyDown(e) {
+    if (e.key === 'Enter') { submitTerminalCommand(); return; }
+    if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!cmdHistory.length) return;
+        historyIndex = Math.min(historyIndex + 1, cmdHistory.length - 1);
+        document.getElementById('console-input-field').value = cmdHistory[historyIndex];
+        return;
+    }
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (historyIndex <= 0) { historyIndex = -1; document.getElementById('console-input-field').value = ''; return; }
+        historyIndex--;
+        document.getElementById('console-input-field').value = cmdHistory[historyIndex];
+    }
+}
+
+async function submitTerminalCommand() {
+    const inputEl = document.getElementById('console-input-field');
+    const cmd = inputEl.value.trim();
+    if (!cmd || inputEl.disabled) return;
+
+    if (cmdHistory[0] !== cmd) { cmdHistory.unshift(cmd); if (cmdHistory.length > 100) cmdHistory.pop(); }
+    historyIndex = -1;
+
+    const body      = document.getElementById('console-body');
+    const workspace = document.getElementById('terminal-workspace');
+    const submitBtn = document.getElementById('console-submit-btn');
+
+    body.innerText += `\n$ ${cmd}\n`;
+    inputEl.value   = '';
+
+    workspace.classList.add('loading-state');
+    inputEl.disabled = true;
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = `Läuft… <span class="terminal-spinner"></span>`; }
+
+    const loaderLine = document.createElement('div');
+    loaderLine.id    = 'console-loader-line';
+    loaderLine.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 0;color:#fbbf24;';
+    loaderLine.innerHTML = `<span class="terminal-spinner"></span><span>Befehl wird ausgeführt…</span>`;
+    body.appendChild(loaderLine);
+    body.scrollTop = body.scrollHeight;
+
+    try {
+        const resp = await fetch(`/api/container/${encodeURIComponent(terminalSelectedContainer)}/exec`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: cmd })
+        });
+        const oldLoader = document.getElementById('console-loader-line');
+        if (oldLoader) oldLoader.remove();
+        if (resp.ok) {
+            const data = await resp.json();
+            body.innerText += (data.output || '') + '\n';
+        } else {
+            const err = await resp.json().catch(() => ({}));
+            body.innerText += `Fehler: ${err.error || 'Serverfehler'}\n`;
         }
-        const inputEl = document.getElementById('console-input-field');
-        inputEl.value = cmd;
+    } catch(e) {
+        const oldLoader = document.getElementById('console-loader-line');
+        if (oldLoader) oldLoader.remove();
+        body.innerText += `Verbindungsfehler: ${e.message}\n`;
+    } finally {
+        workspace.classList.remove('loading-state');
+        inputEl.disabled = false;
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = 'Senden ➔'; }
         inputEl.focus();
-    }
-
-    function clearConsoleLog() {
-        document.getElementById('console-body').innerText = '';
-    }
-
-    async function resetTerminalCwd() {
-        try {
-            const r = await fetch('/api/terminal/cwd', { method: 'DELETE' });
-            if (r.ok) {
-                const d = await r.json();
-                terminalCwd = d.cwd;
-                updatePrompt(terminalCwd);
-                const body = document.getElementById('console-body');
-                body.innerText += `\n[Verzeichnis zurückgesetzt auf: ${terminalCwd}]\n`;
-                body.scrollTop = body.scrollHeight;
-            }
-        } catch(e) { /* silent */ }
-    }
-
-    function handleTerminalKeyDown(event) {
-        if (event.key === 'Enter') {
-            submitTerminalCommand();
-            return;
-        }
-        // ↑ Arrow – navigate backwards in history
-        if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            if (cmdHistory.length === 0) return;
-            historyIndex = Math.min(historyIndex + 1, cmdHistory.length - 1);
-            document.getElementById('console-input-field').value = cmdHistory[historyIndex];
-            return;
-        }
-        // ↓ Arrow – navigate forwards in history
-        if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            if (historyIndex <= 0) {
-                historyIndex = -1;
-                document.getElementById('console-input-field').value = '';
-                return;
-            }
-            historyIndex--;
-            document.getElementById('console-input-field').value = cmdHistory[historyIndex];
-            return;
-        }
-    }
-
-    async function submitTerminalCommand() {
-        const inputEl = document.getElementById('console-input-field');
-        const cmd = inputEl.value.trim();
-        if (!cmd || inputEl.disabled) return;
-
-        // Push to history (avoid duplicate at front)
-        if (cmdHistory[0] !== cmd) {
-            cmdHistory.unshift(cmd);
-            if (cmdHistory.length > 100) cmdHistory.pop();
-        }
-        historyIndex = -1;
-
-        const body = document.getElementById('console-body');
-        const promptText = document.getElementById('console-prompt-label')?.textContent || '$';
-        body.innerText += `\n${promptText} ${cmd}\n`;
-        inputEl.value = '';
-
-        // UI – loading state
-        const workspace = document.getElementById('terminal-workspace');
-        const submitBtn = document.getElementById('console-submit-btn');
-        workspace.classList.add('loading-state');
-        inputEl.disabled = true;
-        inputEl.placeholder = "Befehl wird ausgeführt...";
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `Läuft... <span class="btn-spinner"></span>`;
-        }
-
-        // Inline loading indicator
-        const loaderLine = document.createElement('div');
-        loaderLine.id = 'console-loader-line';
-        loaderLine.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 0;color:#fbbf24;';
-        loaderLine.innerHTML = `<span class="terminal-spinner"></span><span class="terminal-pulse-text">Befehl wird ausgeführt...</span>`;
-        body.appendChild(loaderLine);
-        body.scrollTop = body.scrollHeight;
-
-        try {
-            let resp;
-            if (terminalSelectedContainer) {
-                // Docker container exec (unchanged)
-                resp = await fetch(`/api/container/${encodeURIComponent(terminalSelectedContainer)}/exec`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ command: cmd })
-                });
-            } else {
-                // Host terminal – use new stateful endpoint
-                resp = await fetch('/api/terminal/exec', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ command: cmd })
-                });
-            }
-
-            const oldLoader = document.getElementById('console-loader-line');
-            if (oldLoader) oldLoader.remove();
-
-            if (resp.ok) {
-                const data = await resp.json();
-
-                // Clear terminal if 'clear' was called
-                if (data.clear) {
-                    body.innerText = '';
-                } else {
-                    const out = (data.output || '').trimEnd();
-                    if (out) body.innerText += out + '\n';
-                }
-
-                // Update cwd if returned (host terminal only)
-                if (data.cwd !== undefined) {
-                    terminalCwd = data.cwd;
-                    updatePrompt(terminalCwd);
-                }
-            } else {
-                const err = await resp.json().catch(() => ({}));
-                body.innerText += `Fehler: ${err.error || 'Serverfehler'}\n`;
-            }
-        } catch(e) {
-            const oldLoader = document.getElementById('console-loader-line');
-            if (oldLoader) oldLoader.remove();
-            body.innerText += `Verbindungsfehler: ${e.message}\n`;
-        } finally {
-            workspace.classList.remove('loading-state');
-            inputEl.disabled = false;
-            inputEl.placeholder = "Befehl eingeben...";
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = `Senden ➔`;
-            }
-            inputEl.focus();
-            body.scrollTop = body.scrollHeight;
-        }
-    }
-
-    async function fetchContainerLogsNow(lines) {
-        if (!terminalSelectedContainer) return;
-        const body = document.getElementById('console-body');
-        let url = `/api/container/${encodeURIComponent(terminalSelectedContainer)}/logs`;
-        if (lines === 'start') {
-            url = `/api/container/${encodeURIComponent(terminalSelectedContainer)}/logs-since-start`;
-        }
-
-        try {
-            const r = await fetch(url);
-            if (r.ok) {
-                const data = await r.json();
-                body.textContent = data.logs || "Keine Logs vorhanden.";
-            }
-        } catch(e) {
-            body.textContent = `Fehler beim Laden: ${e.message}`;
-        }
         body.scrollTop = body.scrollHeight;
     }
+}
 
-    function stopTerminalPolling() {
-        if (terminalInterval) {
-            clearInterval(terminalInterval);
-            terminalInterval = null;
-        }
-    }
+async function fetchContainerLogsNow(lines) {
+    if (!terminalSelectedContainer) return;
+    const body = document.getElementById('console-body');
+    let url = `/api/container/${encodeURIComponent(terminalSelectedContainer)}/logs`;
+    if (lines === 'start') url = `/api/container/${encodeURIComponent(terminalSelectedContainer)}/logs-since-start`;
+    try {
+        const r = await fetch(url);
+        if (r.ok) { const d = await r.json(); body.textContent = d.logs || 'Keine Logs vorhanden.'; }
+    } catch(e) { body.textContent = `Fehler: ${e.message}`; }
+    body.scrollTop = body.scrollHeight;
+}
+
+function stopTerminalPolling() {
+    if (terminalInterval) { clearInterval(terminalInterval); terminalInterval = null; }
+}
+
+{% endif %} {# end container_name #}
 </script>
 {% endblock %}

@@ -15,6 +15,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from flask import Flask
+from flask_sock import Sock
 from routes import bp, start_background_fetch
 from services import cache, metrics_worker, setup, backup, discovery, github_deploy
 import config
@@ -22,6 +23,11 @@ import config
 app = Flask(__name__)
 app.secret_key = getattr(config, 'SECRET_KEY', 'carla-terminal-session-key-2024')
 app.register_blueprint(bp)
+
+# WebSocket support (flask-sock)
+sock = Sock(app)
+import ws_routes  # registers @sock.route handlers
+ws_routes.init(sock)
 
 print("\n" + "="*60)
 print("[CARLA] Server gestartet!")
