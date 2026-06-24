@@ -20,6 +20,7 @@ from services import cache, metrics_worker, setup, backup, discovery, github_dep
 import config
 
 app = Flask(__name__)
+app.secret_key = getattr(config, 'SECRET_KEY', 'carla-terminal-session-key-2024')
 app.register_blueprint(bp)
 
 print("\n" + "="*60)

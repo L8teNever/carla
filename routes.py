@@ -461,6 +461,91 @@ def api_system_exec():
     return jsonify({"output": output})
 
 
+@bp.route("/api/terminal/exec", methods=["POST"])
+def api_terminal_exec():
+    """Stateful terminal execution – maintains cwd across commands via session."""
+    import os, subprocess, shlex
+    from flask import session
+
+    data = request.json or {}
+    cmd = (data.get("command") or "").strip()
+    if not cmd:
+        return jsonify({"error": "Kein Befehl gesendet"}), 400
+
+    # Restore working directory from session (default to home dir)
+    cwd = session.get("terminal_cwd") or os.path.expanduser("~")
+    if not os.path.isdir(cwd):
+        cwd = os.path.expanduser("~")
+
+    # Handle 'clear' locally – no output, just reset terminal
+    if cmd in ("clear", "cls"):
+        return jsonify({"output": "", "cwd": cwd, "clear": True})
+
+    # ------------------------------------------------------------------
+    # Handle cd command – update cwd in session, don't run as subprocess
+    # ------------------------------------------------------------------
+    if cmd.startswith("cd"):
+        parts = cmd.split(None, 1)
+        target = parts[1].strip() if len(parts) > 1 else os.path.expanduser("~")
+        # Expand ~ and env vars
+        target = os.path.expandvars(os.path.expanduser(target))
+        # Resolve relative to current cwd
+        new_dir = target if os.path.isabs(target) else os.path.join(cwd, target)
+        new_dir = os.path.normpath(new_dir)
+        if os.path.isdir(new_dir):
+            session["terminal_cwd"] = new_dir
+            session.modified = True
+            return jsonify({"output": "", "cwd": new_dir})
+        else:
+            return jsonify({"output": f"cd: {target}: No such file or directory", "cwd": cwd})
+
+    # ------------------------------------------------------------------
+    # All other commands – run as subprocess in current cwd
+    # ------------------------------------------------------------------
+    try:
+        result = subprocess.run(
+            cmd, shell=True,
+            capture_output=True, text=True,
+            timeout=30, cwd=cwd
+        )
+        output = result.stdout
+        if result.stderr:
+            output += result.stderr
+        output = output.rstrip("\n")
+    except subprocess.TimeoutExpired:
+        output = "Fehler: Befehl hat das Timeout (30s) überschritten."
+    except Exception as e:
+        output = f"Fehler: {e}"
+
+    # Persist cwd in session
+    session["terminal_cwd"] = cwd
+    session.modified = True
+
+    return jsonify({"output": output, "cwd": cwd})
+
+
+@bp.route("/api/terminal/cwd", methods=["GET"])
+def api_terminal_cwd():
+    """Returns the current terminal working directory."""
+    import os
+    from flask import session
+    cwd = session.get("terminal_cwd") or os.path.expanduser("~")
+    if not os.path.isdir(cwd):
+        cwd = os.path.expanduser("~")
+    return jsonify({"cwd": cwd})
+
+
+@bp.route("/api/terminal/cwd", methods=["DELETE"])
+def api_terminal_reset_cwd():
+    """Resets the terminal working directory to home."""
+    import os
+    from flask import session
+    session["terminal_cwd"] = os.path.expanduser("~")
+    session.modified = True
+    return jsonify({"cwd": session["terminal_cwd"]})
+
+
+
 @bp.route("/api/container/<name>/check-update", methods=["GET"])
 def api_container_check_update(name):
     """Prueft ob ein Update fuer das Image des Containers verfuegbar ist."""
