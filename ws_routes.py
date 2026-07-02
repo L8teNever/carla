@@ -44,6 +44,7 @@ def _run_winpty(ws, cols, rows, container_name=None):
 
     import shutil
     proc = None
+    cwd = None
     
     if container_name:
         docker_path = shutil.which("docker")
@@ -57,19 +58,21 @@ def _run_winpty(ws, cols, rows, container_name=None):
                     has_bash = True
             except Exception:
                 pass
-            shell_cmd = f"exec -it {container_name} {'bash' if has_bash else 'sh'}"
+            shell_cmd = f"exec -it -u root -w / {container_name} {'bash' if has_bash else 'sh'}"
             try:
-                proc = winpty.PtyProcess.spawn(docker_path, cmdline=shell_cmd, dimensions=(rows, cols))
+                proc = winpty.PtyProcess.spawn(docker_path, cmdline=shell_cmd, cwd=cwd, dimensions=(rows, cols))
             except Exception as e:
                 ws.send(f"[CARLA] Docker winpty Fehler: {e}\r\n")
                 return
         else:
             ws.send("\r\n\x1b[33m[CARLA] Docker CLI nicht gefunden. Fallback zu Powershell...\x1b[0m\r\n")
             shell = os.environ.get("COMSPEC", "powershell.exe")
-            proc = winpty.PtyProcess.spawn(shell, dimensions=(rows, cols))
+            cwd = "C:\\"
+            proc = winpty.PtyProcess.spawn(shell, cwd=cwd, dimensions=(rows, cols))
     else:
         shell = os.environ.get("COMSPEC", "powershell.exe")
-        proc = winpty.PtyProcess.spawn(shell, dimensions=(rows, cols))
+        cwd = "C:\\"
+        proc = winpty.PtyProcess.spawn(shell, cwd=cwd, dimensions=(rows, cols))
 
     stop  = threading.Event()
     inp_q = _queue.Queue()   # ws messages  → main thread → PTY
@@ -167,10 +170,12 @@ def _run_unix_pty(ws, cols, rows, container_name=None):
                 has_bash = True
         except Exception:
             pass
-        shell_args = ["docker", "exec", "-it", container_name, "bash" if has_bash else "sh"]
+        shell_args = ["docker", "exec", "-it", "-u", "root", "-w", "/", container_name, "bash" if has_bash else "sh"]
+        cwd = None
     else:
         shell = os.environ.get("SHELL", "/bin/bash")
         shell_args = [shell]
+        cwd = "/"
 
     master_fd, slave_fd = pty.openpty()
 
@@ -184,6 +189,7 @@ def _run_unix_pty(ws, cols, rows, container_name=None):
     proc = subprocess.Popen(
         shell_args, stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
         close_fds=True, env={**os.environ, "TERM": "xterm-256color"},
+        cwd=cwd,
     )
     os.close(slave_fd)
 

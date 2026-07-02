@@ -206,7 +206,7 @@ function initPtyTerminal() {
     ptyTerm.open(container);
     fitAddon.fit();
 
-    // Strg+C → kopieren (falls Auswahl vorhanden), Strg+V → einfügen
+    // Strg+C → kopieren (falls Auswahl vorhanden), Strg+V lassen wir fuer nativen Browser-Paste durch
     ptyTerm.attachCustomKeyEventHandler((ev) => {
         if (ev.ctrlKey && ev.type === 'keydown') {
             const key = ev.key.toLowerCase();
@@ -215,9 +215,6 @@ function initPtyTerminal() {
                     termCopy();
                     return false; // stop bubble
                 }
-            } else if (key === 'v') {
-                termPaste();
-                return false; // stop bubble
             }
         }
         return true;
