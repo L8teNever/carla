@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server, vhost_server, token_gate
+from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server, vhost_server, token_gate, storage_service
 import config
 
 bp = Blueprint("main", __name__)
@@ -335,6 +335,10 @@ def domains_route():
 def editor_view():
     return render_template("editor.html")
 
+@bp.route("/storage")
+def storage_route():
+    return render_template("storage.html")
+
 @bp.route("/api/timeline/snapshots", methods=["GET"])
 def api_timeline_list():
     limit = request.args.get("limit", 100, type=int)
@@ -409,6 +413,20 @@ def api_metrics_server():
     limit = request.args.get("limit", 60, type=int)
     history = metrics_db.get_server_metrics_history(limit=limit)
     return jsonify(history)
+
+@bp.route("/api/storage/info", methods=["GET"])
+def api_storage_info():
+    return jsonify(storage_service.get_storage_data())
+
+@bp.route("/api/storage/clean", methods=["POST"])
+def api_storage_clean():
+    options = request.json or {}
+    result = storage_service.execute_cleanup(options)
+    try:
+        start_background_fetch()
+    except Exception:
+        pass
+    return jsonify(result)
 
 @bp.route("/api/metrics/stacks", methods=["GET"])
 def api_metrics_stacks():

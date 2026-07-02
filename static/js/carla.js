@@ -173,6 +173,7 @@ const SEARCHABLE_ITEMS = [
     { title: "Dashboard / Stacks", desc: "Übersicht aller Docker-Compose Projekte", type: "page", url: "/" },
     { title: "Live Map / Infrastruktur", desc: "Visuelle Darstellung von Containern und Netzwerken", type: "page", url: "/infrastructure" },
     { title: "Performance / Leistung", desc: "Auslastungs-Historie von CPU, RAM und Festplatten", type: "page", url: "/performance" },
+    { title: "Speicherplatz / Storage", desc: "Speicherplatzbelegung von Host und Docker-Ressourcen", type: "page", url: "/storage" },
     { title: "Timeline / Protokolle", desc: "Echtzeit-Logs und System-Ereignisse", type: "page", url: "/timeline" },
     { title: "Backup / Sicherung", desc: "Daten-Sicherung erstellen und verwalten", type: "page", url: "/backup" },
     { title: "Ports / Belegungen", desc: "Freie und belegte Netzwerk-Ports einsehen", type: "page", url: "/ports" },

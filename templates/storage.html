@@ -1,0 +1,740 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    /* Tabs styling */
+    .tabs-container {
+        display: flex;
+        gap: 8px;
+        border-bottom: 1px solid var(--md-outline-variant);
+        margin-bottom: 24px;
+        padding-bottom: 8px;
+        flex-wrap: wrap;
+    }
+    .tab-btn {
+        background: transparent;
+        border: none;
+        color: var(--md-text-muted);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: var(--r-full);
+        cursor: pointer;
+        transition: var(--md-transition);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .tab-btn:hover {
+        color: var(--md-text);
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    .tab-btn.active {
+        color: var(--md-on-primary-container);
+        background-color: var(--md-primary-container);
+    }
+    .tab-btn svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+    }
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+        animation: mdFadeIn 0.3s ease-out;
+    }
+
+    /* Progress bar custom styling */
+    .storage-progress-container {
+        margin: 15px 0;
+    }
+    .storage-progress-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        margin-bottom: 6px;
+        color: var(--md-text-muted);
+    }
+    .storage-progress-label strong {
+        color: var(--md-text);
+    }
+    .storage-progress-bar {
+        height: 12px;
+        background: var(--md-surface-container-high);
+        border-radius: var(--r-full);
+        overflow: hidden;
+        position: relative;
+    }
+    .storage-progress-fill {
+        height: 100%;
+        border-radius: var(--r-full);
+        width: 0%;
+        transition: width 1s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.5s ease;
+    }
+
+    /* Stacked progress bar for Docker breakdown */
+    .docker-progress-bar {
+        height: 20px;
+        background: var(--md-surface-container-high);
+        border-radius: var(--r-full);
+        overflow: hidden;
+        display: flex;
+        margin: 15px 0;
+    }
+    .docker-progress-segment {
+        height: 100%;
+        transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    .docker-progress-segment:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 25px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.85);
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: var(--r-sm);
+        font-size: 11px;
+        font-family: var(--font-sans);
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 10;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    .legend-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 12px;
+        margin-top: 15px;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--md-text-muted);
+    }
+    .legend-color {
+        width: 12px;
+        height: 12px;
+        border-radius: var(--r-sm);
+        flex-shrink: 0;
+    }
+
+    /* Premium Toggle Switch styling */
+    .switch-control {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        background: var(--md-surface-container);
+        border: 1px solid var(--md-outline-variant);
+        border-radius: var(--r-md);
+        margin-bottom: 10px;
+        transition: var(--md-transition);
+    }
+    .switch-control:hover {
+        border-color: var(--md-outline);
+        background: var(--md-surface-container-high);
+    }
+    .switch-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .switch-label {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--md-text);
+    }
+    .switch-desc {
+        font-size: 11.5px;
+        color: var(--md-text-muted);
+    }
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 48px;
+        height: 28px;
+        flex-shrink: 0;
+    }
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: var(--md-surface-variant);
+        border: 2px solid var(--md-outline);
+        border-radius: 34px;
+        transition: .3s cubic-bezier(0.2, 0, 0.2, 1);
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: var(--md-outline);
+        border-radius: 50%;
+        transition: .3s cubic-bezier(0.2, 0, 0.2, 1);
+    }
+    input:checked + .slider {
+        background-color: var(--md-primary-container);
+        border-color: var(--md-primary);
+    }
+    input:checked + .slider:before {
+        transform: translateX(20px);
+        background-color: var(--md-primary);
+    }
+
+    /* Cleanup Console style */
+    .cleanup-log-panel {
+        margin-top: 15px;
+        display: none;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .cleanup-log-header {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--md-primary);
+    }
+    .cleanup-log {
+        background: #000;
+        border: 1px solid var(--md-outline-variant);
+        border-radius: var(--r-md);
+        padding: 12px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--md-success);
+        max-height: 180px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        line-height: 1.4;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="view-title">Speicherplatz</div>
+<div class="view-subtitle">Analyse und Bereinigung von Host-Speicher, Stacks und Docker-Volumina</div>
+
+<!-- Overview Stats Cards -->
+<div class="overview-stats">
+    <div class="stat-card">
+        <div class="stat-content">
+            <span class="stat-label">Freier Host-Speicher</span>
+            <span class="stat-value" id="stat-host-free">-</span>
+        </div>
+        <div class="stat-icon" style="background: rgba(163, 247, 191, 0.1); color: var(--md-success);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-content">
+            <span class="stat-label">Docker Gesamtgroesse</span>
+            <span class="stat-value" id="stat-docker-total">-</span>
+        </div>
+        <div class="stat-icon" style="background: rgba(168, 200, 255, 0.1); color: var(--md-info);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-content">
+            <span class="stat-label">Docker Build Cache</span>
+            <span class="stat-value" id="stat-docker-cache">-</span>
+        </div>
+        <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--md-warning);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-content">
+            <span class="stat-label">Stack-Projekte</span>
+            <span class="stat-value" id="stat-stacks-count">-</span>
+        </div>
+        <div class="stat-icon" style="background: rgba(208, 188, 255, 0.1); color: var(--md-primary);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+        </div>
+    </div>
+</div>
+
+<!-- Progress and Clean Section -->
+<div class="grid-layout grid-2">
+    <!-- Storage Gauges Card -->
+    <div class="card">
+        <div class="card-header">
+            <h4 class="card-title">Auslastungs-Verteilung</h4>
+        </div>
+        
+        <!-- Host Disk Usage -->
+        <div class="storage-progress-container">
+            <div class="storage-progress-label">
+                <span>Systemlaufwerk Belegung (<strong id="host-pct-text">-%</strong>)</span>
+                <span id="host-bytes-text">- / -</span>
+            </div>
+            <div class="storage-progress-bar">
+                <div class="storage-progress-fill" id="host-progress-fill"></div>
+            </div>
+        </div>
+
+        <div style="margin: 20px 0 10px 0; border-top: 1px solid var(--md-outline-variant); padding-top: 15px;">
+            <div class="storage-progress-label">
+                <span>Docker-Speicherverteilung (Gesamt: <strong id="docker-total-text">0 B</strong>)</span>
+            </div>
+            <!-- Stacked Docker Progress Bar -->
+            <div class="docker-progress-bar" id="docker-stacked-bar">
+                <!-- Segments will be injected dynamically -->
+            </div>
+            <div class="legend-grid" id="docker-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--md-primary);"></div>
+                    <span>Images: <strong id="legend-images">-</strong></span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--md-info);"></div>
+                    <span>Volumes: <strong id="legend-volumes">-</strong></span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--md-warning);"></div>
+                    <span>Container: <strong id="legend-containers">-</strong></span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--md-outline);"></div>
+                    <span>Build Cache: <strong id="legend-cache">-</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cleanup Suite Card -->
+    <div class="card">
+        <div class="card-header">
+            <h4 class="card-title">Speicherplatz freigeben (Cleanup)</h4>
+        </div>
+        <div style="font-size: 13.5px; color: var(--md-text-muted); margin-bottom: 16px;">
+            Ungenutzte Ressourcen entfernen, um Speicherplatz freizugeben. Wählen Sie aus, was bereinigt werden soll:
+        </div>
+
+        <div class="switch-control">
+            <div class="switch-info">
+                <span class="switch-label">Gestoppte Container löschen</span>
+                <span class="switch-desc">Entfernt alle nicht laufenden Docker-Container</span>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="clean-containers" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="switch-control">
+            <div class="switch-info">
+                <span class="switch-label">Ungenutzte Images löschen</span>
+                <span class="switch-desc">Entfernt ungenutzte Images (system prune -a)</span>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="clean-images" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="switch-control">
+            <div class="switch-info">
+                <span class="switch-label">Ungenutzte Volumes entfernen</span>
+                <span class="switch-desc">Entfernt Daten-Volumes ohne Container-Referenz</span>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="clean-volumes">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="switch-control">
+            <div class="switch-info">
+                <span class="switch-label">Docker Build Cache leeren</span>
+                <span class="switch-desc">Gibt temporären Cache für Image-Builds frei</span>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="clean-cache" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <button class="btn btn-primary" id="btn-run-cleanup" onclick="confirmAndRunCleanup()" style="margin-top: 10px; width: 100%;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            Bereinigung ausführen
+        </button>
+
+        <div class="cleanup-log-panel" id="cleanup-log-panel">
+            <div class="cleanup-log-header">Ausgabe-Protokoll:</div>
+            <div class="cleanup-log" id="cleanup-log-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs for detailed consumption -->
+<div class="tabs-container">
+    <button class="tab-btn active" onclick="switchTab('tab-stacks')" id="btn-tab-stacks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+        Stack-Verzeichnisse
+    </button>
+    <button class="tab-btn" onclick="switchTab('tab-containers')" id="btn-tab-containers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
+        Docker Container
+    </button>
+    <button class="tab-btn" onclick="switchTab('tab-images')" id="btn-tab-images">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        Docker Images
+    </button>
+    <button class="tab-btn" onclick="switchTab('tab-volumes')" id="btn-tab-volumes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"></path></svg>
+        Docker Volumes
+    </button>
+</div>
+
+<!-- Tab Content: Stacks -->
+<div id="tab-stacks" class="tab-content active">
+    <div class="table-container">
+        <div class="table-header-panel">
+            <span style="font-weight:600;">Speicherverbrauch der Compose-Projekte in /opt/stacks</span>
+        </div>
+        <table class="table" id="table-stacks">
+            <thead>
+                <tr>
+                    <th>Stack Name</th>
+                    <th>Verzeichnis-Pfad</th>
+                    <th style="text-align: right;">Speicherplatz</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="3" class="text-center" style="color:var(--md-text-muted);">Lade Verzeichnisse...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Tab Content: Containers -->
+<div id="tab-containers" class="tab-content">
+    <div class="table-container">
+        <div class="table-header-panel">
+            <span style="font-weight:600;">Container Writable Layer & Virtuelle Groessen</span>
+        </div>
+        <table class="table" id="table-containers">
+            <thead>
+                <tr>
+                    <th>Container Name</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Writable Layer</th>
+                    <th style="text-align: right;">Virtual Image Size</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="4" class="text-center" style="color:var(--md-text-muted);">Lade Container-Groessen...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Tab Content: Images -->
+<div id="tab-images" class="tab-content">
+    <div class="table-container">
+        <div class="table-header-panel">
+            <span style="font-weight:600;">Lokale Docker-Images</span>
+        </div>
+        <table class="table" id="table-images">
+            <thead>
+                <tr>
+                    <th>Repository</th>
+                    <th>Tag</th>
+                    <th>Image ID</th>
+                    <th style="text-align: right;">Speicherplatz</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="4" class="text-center" style="color:var(--md-text-muted);">Lade Images...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Tab Content: Volumes -->
+<div id="tab-volumes" class="tab-content">
+    <div class="table-container">
+        <div class="table-header-panel">
+            <span style="font-weight:600;">Lokale Docker-Volumes</span>
+        </div>
+        <table class="table" id="table-volumes">
+            <thead>
+                <tr>
+                    <th>Volume Name</th>
+                    <th>Aktive Links</th>
+                    <th style="text-align: right;">Speicherplatz</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="3" class="text-center" style="color:var(--md-text-muted);">Lade Volumes...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let storageData = null;
+
+    async function initPage(data) {
+        // Lade Speicherplatz-Informationen
+        await fetchStorageDetails();
+    }
+
+    async function fetchStorageDetails() {
+        try {
+            const res = await fetch('/api/storage/info');
+            if (res.ok) {
+                storageData = await res.json();
+                renderStorageUI();
+            } else {
+                showToast("Fehler beim Laden der Speicherplatz-Details", "error");
+            }
+        } catch (e) {
+            console.error("Fetch storage stats failure", e);
+            showToast("Verbindungsfehler zur API", "error");
+        }
+    }
+
+    function renderStorageUI() {
+        if (!storageData) return;
+
+        // 1. Stats Cards
+        const host = storageData.host;
+        const df = storageData.docker_df;
+        const folders = storageData.folders;
+
+        document.getElementById('stat-host-free').textContent = host.formatted_free;
+        document.getElementById('stat-docker-total').textContent = df.formatted_total_docker;
+        document.getElementById('stat-docker-cache').textContent = df.formatted_build_cache;
+        document.getElementById('stat-stacks-count').textContent = folders ? folders.length : 0;
+
+        // 2. Host progress bar
+        const hostPct = host.percent;
+        const hostProgress = document.getElementById('host-progress-fill');
+        document.getElementById('host-pct-text').textContent = `${hostPct}%`;
+        document.getElementById('host-bytes-text').textContent = `${host.formatted_used} / ${host.formatted_total}`;
+
+        if (hostProgress) {
+            hostProgress.style.width = `${hostPct}%`;
+            // Color according to usage severity
+            if (hostPct < 70) {
+                hostProgress.style.backgroundColor = 'var(--md-success)';
+            } else if (hostPct < 85) {
+                hostProgress.style.backgroundColor = 'var(--md-warning)';
+            } else {
+                hostProgress.style.backgroundColor = 'var(--md-danger)';
+            }
+        }
+
+        // 3. Docker stacked progress bar
+        document.getElementById('docker-total-text').textContent = df.formatted_total_docker;
+        document.getElementById('legend-images').textContent = df.formatted_images;
+        document.getElementById('legend-volumes').textContent = df.formatted_volumes;
+        document.getElementById('legend-containers').textContent = df.formatted_containers;
+        document.getElementById('legend-cache').textContent = df.formatted_build_cache;
+
+        const stackedBar = document.getElementById('docker-stacked-bar');
+        if (stackedBar) {
+            stackedBar.innerHTML = '';
+            const tSize = df.total_docker_size || 1; // avoid div by 0
+
+            const segments = [
+                { bytes: df.images_size, color: 'var(--md-primary)', label: 'Images', formatted: df.formatted_images },
+                { bytes: df.volumes_size, color: 'var(--md-info)', label: 'Volumes', formatted: df.formatted_volumes },
+                { bytes: df.containers_size, color: 'var(--md-warning)', label: 'Containers', formatted: df.formatted_containers },
+                { bytes: df.build_cache_size, color: 'var(--md-outline)', label: 'Cache', formatted: df.formatted_build_cache }
+            ];
+
+            segments.forEach(seg => {
+                const pct = (seg.bytes / tSize) * 100;
+                if (pct > 0.5) { // only render visible segments
+                    const el = document.createElement('div');
+                    el.className = 'docker-progress-segment';
+                    el.style.width = `${pct}%`;
+                    el.style.backgroundColor = seg.color;
+                    el.setAttribute('data-tooltip', `${seg.label}: ${seg.formatted} (${Math.round(pct)}%)`);
+                    stackedBar.appendChild(el);
+                }
+            });
+        }
+
+        // 4. Stacks Tab
+        const tStacks = document.querySelector('#table-stacks tbody');
+        tStacks.innerHTML = '';
+        if (!folders || folders.length === 0) {
+            tStacks.innerHTML = `<tr><td colspan="3" class="text-center" style="color:var(--md-text-muted);">Keine Compose-Projekte in /opt/stacks gefunden.</td></tr>`;
+        } else {
+            folders.forEach(f => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-weight:600;">${f.name}</td>
+                    <td style="color:var(--md-text-muted); font-size:12.5px; font-family:var(--font-mono);">${f.path}</td>
+                    <td style="text-align: right; font-weight:600; font-family:var(--font-mono);">${f.formatted_size}</td>
+                `;
+                tStacks.appendChild(row);
+            });
+        }
+
+        // 5. Containers Tab
+        const tContainers = document.querySelector('#table-containers tbody');
+        tContainers.innerHTML = '';
+        const containers = storageData.containers;
+        if (!containers || containers.length === 0) {
+            tContainers.innerHTML = `<tr><td colspan="4" class="text-center" style="color:var(--md-text-muted);">Keine Docker-Container gefunden.</td></tr>`;
+        } else {
+            containers.forEach(c => {
+                const stateClass = c.state === 'running' ? 'success' : 'danger';
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-weight:600;">${c.name}</td>
+                    <td><span class="badge ${stateClass}">${c.state}</span></td>
+                    <td style="text-align: right; font-family:var(--font-mono); font-weight:600; color:var(--md-warning);">${c.formatted_writable}</td>
+                    <td style="text-align: right; font-family:var(--font-mono);">${c.formatted_virtual}</td>
+                `;
+                tContainers.appendChild(row);
+            });
+        }
+
+        // 6. Images Tab
+        const tImages = document.querySelector('#table-images tbody');
+        tImages.innerHTML = '';
+        const images = storageData.images;
+        if (!images || images.length === 0) {
+            tImages.innerHTML = `<tr><td colspan="4" class="text-center" style="color:var(--md-text-muted);">Keine Docker-Images gefunden.</td></tr>`;
+        } else {
+            images.forEach(img => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-weight:600;">${img.repository}</td>
+                    <td><span class="badge info">${img.tag}</span></td>
+                    <td style="font-family:var(--font-mono); color:var(--md-text-muted); font-size:12px;">${img.id.replace('sha256:', '').substring(0, 12)}</td>
+                    <td style="text-align: right; font-family:var(--font-mono); font-weight:600;">${img.formatted_size}</td>
+                `;
+                tImages.appendChild(row);
+            });
+        }
+
+        // 7. Volumes Tab
+        const tVolumes = document.querySelector('#table-volumes tbody');
+        tVolumes.innerHTML = '';
+        const volumes = storageData.volumes;
+        if (!volumes || volumes.length === 0) {
+            tVolumes.innerHTML = `<tr><td colspan="3" class="text-center" style="color:var(--md-text-muted);">Keine lokalen Docker-Volumes gefunden.</td></tr>`;
+        } else {
+            volumes.forEach(vol => {
+                const linkBadge = vol.links === '0' ? '<span class="badge danger">ungenutzt</span>' : `<span class="badge success">${vol.links} Container</span>`;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-weight:600; font-size:13px; font-family:var(--font-mono);">${vol.name}</td>
+                    <td>${linkBadge}</td>
+                    <td style="text-align: right; font-family:var(--font-mono); font-weight:600; color:var(--md-info);">${vol.formatted_size}</td>
+                `;
+                tVolumes.appendChild(row);
+            });
+        }
+    }
+
+    // Switch between tabs
+    function switchTab(tabId) {
+        // Toggle active tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        if (tabId === 'tab-stacks') document.getElementById('btn-tab-stacks').classList.add('active');
+        if (tabId === 'tab-containers') document.getElementById('btn-tab-containers').classList.add('active');
+        if (tabId === 'tab-images') document.getElementById('btn-tab-images').classList.add('active');
+        if (tabId === 'tab-volumes') document.getElementById('btn-tab-volumes').classList.add('active');
+
+        // Toggle active content divs
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    // Confirm and execute the cleanup operation
+    async function confirmAndRunCleanup() {
+        const cCont = document.getElementById('clean-containers').checked;
+        const cImg = document.getElementById('clean-images').checked;
+        const cVol = document.getElementById('clean-volumes').checked;
+        const cCache = document.getElementById('clean-cache').checked;
+
+        if (!cCont && !cImg && !cVol && !cCache) {
+            showToast("Wählen Sie mindestens eine Option zur Bereinigung aus", "warning");
+            return;
+        }
+
+        let confirmMsg = "Sind Sie sicher, dass Sie die ausgewählten Bereinigungsoptionen ausführen möchten?";
+        if (cVol) {
+            confirmMsg += "\nWARNUNG: Ungenutzte Volumes werden dauerhaft gelöscht! Stellen Sie sicher, dass wichtige Datenbank-Backups existieren.";
+        }
+
+        if (!confirm(confirmMsg)) return;
+
+        const btn = document.getElementById('btn-run-cleanup');
+        const logPanel = document.getElementById('cleanup-log-panel');
+        const logContent = document.getElementById('cleanup-log-content');
+
+        btn.disabled = true;
+        btn.textContent = "Bereinigung läuft...";
+        logPanel.style.display = 'flex';
+        logContent.textContent = "Starte Bereinigungsprozess...\nBitte warten...";
+        
+        showToast("Bereinigung wurde gestartet...", "info");
+
+        try {
+            const res = await fetch('/api/storage/clean', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    unused_containers: cCont,
+                    unused_images: cImg,
+                    unused_volumes: cVol,
+                    build_cache: cCache
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                logContent.textContent = data.output || "Erfolgreich abgeschlossen.";
+                showToast(`Bereinigung beendet. Freigegeben: ${data.formatted_freed}!`, "success");
+                
+                // Aktualisiere Daten
+                await fetchStorageDetails();
+            } else {
+                logContent.textContent = "Ein Serverfehler ist während der Bereinigung aufgetreten.";
+                showToast("Fehler bei der Bereinigung", "error");
+            }
+        } catch (e) {
+            console.error("Cleanup failure", e);
+            logContent.textContent = `Verbindungsfehler: ${e.message}`;
+            showToast("Bereinigung fehlgeschlagen", "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                Bereinigung ausführen
+            `;
+        }
+    }
+</script>
+{% endblock %}

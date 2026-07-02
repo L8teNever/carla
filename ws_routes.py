@@ -22,27 +22,54 @@ IS_WINDOWS = sys.platform == "win32"
 def init(sock):
     @sock.route("/ws/terminal")
     def ws_terminal(ws):
-        cols, rows = 220, 50
+        from flask import request
+        container_name = request.args.get("container")
+        cols = request.args.get("cols", 100, type=int)
+        rows = request.args.get("rows", 30, type=int)
+        
         if IS_WINDOWS:
-            _run_winpty(ws, cols, rows)
+            _run_winpty(ws, cols, rows, container_name)
         else:
-            _run_unix_pty(ws, cols, rows)
+            _run_unix_pty(ws, cols, rows, container_name)
 
 
 # ─────────────────────────────────────────────────────────────
 # Windows  (pywinpty)
 # ─────────────────────────────────────────────────────────────
-def _run_winpty(ws, cols, rows):
+def _run_winpty(ws, cols, rows, container_name=None):
     try:
         import winpty
     except ImportError:
         ws.send("[CARLA] pywinpty fehlt\r\n"); return
 
-    shell = os.environ.get("COMSPEC", "powershell.exe")
-    try:
+    import shutil
+    proc = None
+    
+    if container_name:
+        docker_path = shutil.which("docker")
+        if docker_path:
+            import subprocess
+            has_bash = False
+            try:
+                res = subprocess.run([docker_path, "exec", container_name, "which", "bash"], 
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=2)
+                if res.returncode == 0:
+                    has_bash = True
+            except Exception:
+                pass
+            shell_cmd = f"exec -it {container_name} {'bash' if has_bash else 'sh'}"
+            try:
+                proc = winpty.PtyProcess.spawn(docker_path, cmdline=shell_cmd, dimensions=(rows, cols))
+            except Exception as e:
+                ws.send(f"[CARLA] Docker winpty Fehler: {e}\r\n")
+                return
+        else:
+            ws.send("\r\n\x1b[33m[CARLA] Docker CLI nicht gefunden. Fallback zu Powershell...\x1b[0m\r\n")
+            shell = os.environ.get("COMSPEC", "powershell.exe")
+            proc = winpty.PtyProcess.spawn(shell, dimensions=(rows, cols))
+    else:
+        shell = os.environ.get("COMSPEC", "powershell.exe")
         proc = winpty.PtyProcess.spawn(shell, dimensions=(rows, cols))
-    except Exception as e:
-        ws.send(f"[CARLA] Shell-Fehler: {e}\r\n"); return
 
     stop  = threading.Event()
     inp_q = _queue.Queue()   # ws messages  → main thread → PTY
@@ -127,10 +154,24 @@ def _run_winpty(ws, cols, rows):
 # ─────────────────────────────────────────────────────────────
 # Linux / macOS  (built-in pty)
 # ─────────────────────────────────────────────────────────────
-def _run_unix_pty(ws, cols, rows):
+def _run_unix_pty(ws, cols, rows, container_name=None):
     import pty, select, struct, fcntl, termios, subprocess
 
-    shell = os.environ.get("SHELL", "/bin/bash")
+    if container_name:
+        # Check if bash exists in the container
+        has_bash = False
+        try:
+            res = subprocess.run(["docker", "exec", container_name, "which", "bash"], 
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=2)
+            if res.returncode == 0:
+                has_bash = True
+        except Exception:
+            pass
+        shell_args = ["docker", "exec", "-it", container_name, "bash" if has_bash else "sh"]
+    else:
+        shell = os.environ.get("SHELL", "/bin/bash")
+        shell_args = [shell]
+
     master_fd, slave_fd = pty.openpty()
 
     def _winsize(fd, r, c):
@@ -141,7 +182,7 @@ def _run_unix_pty(ws, cols, rows):
 
     _winsize(master_fd, rows, cols)
     proc = subprocess.Popen(
-        [shell], stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
+        shell_args, stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
         close_fds=True, env={**os.environ, "TERM": "xterm-256color"},
     )
     os.close(slave_fd)
