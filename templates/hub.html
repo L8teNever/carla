@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CARLA Hub | Quick Links</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Theme CSS -->
+    <link rel="stylesheet" href="/static/css/theme.css?v=1.0.4">
+    <style>
+        :root {
+            /* Override or extend for dynamic hub aesthetics */
+            --hub-bg: #09080c;
+            --hub-card-bg: rgba(20, 19, 24, 0.55);
+            --hub-card-border: rgba(255, 255, 255, 0.04);
+            --hub-card-hover-border: rgba(208, 188, 255, 0.3);
+            --hub-glow: rgba(208, 188, 255, 0.15);
+            --hub-glow-success: rgba(163, 247, 191, 0.2);
+            --hub-glow-danger: rgba(255, 180, 171, 0.2);
+        }
+
+        body {
+            background-color: var(--hub-bg);
+            background-image: 
+                radial-gradient(circle at 0% 0%, rgba(208, 188, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 100% 100%, rgba(168, 200, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.01) 0%, transparent 100%);
+            overflow-x: hidden;
+            overflow-y: auto;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 40px 24px;
+            font-family: var(--font-sans);
+            color: var(--md-text);
+        }
+
+        /* Standalone layout container */
+        .hub-container {
+            width: 100%;
+            max-width: 1280px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+            animation: hubPageEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes hubPageEnter {
+            from {
+                opacity: 0;
+                transform: translateY(24px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Top Android 16 Smart Header */
+        .hub-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            background: rgba(20, 19, 24, 0.4);
+            border: 1px solid var(--hub-card-border);
+            border-radius: var(--r-xl);
+            padding: 24px 32px;
+            backdrop-filter: blur(24px);
+            box-shadow: var(--md-shadow-1);
+        }
+
+        .hub-identity {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .hub-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--md-primary), var(--md-info));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 16px var(--hub-glow);
+            color: var(--md-on-primary);
+            font-weight: 800;
+            font-size: 24px;
+        }
+
+        .hub-title-group h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--md-text);
+        }
+
+        .hub-title-group p {
+            font-size: 13.5px;
+            color: var(--md-text-muted);
+            margin-top: 2px;
+        }
+
+        /* Lockscreen-like widget inside header */
+        .hub-clock-widget {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .hub-time {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ffffff, var(--md-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-family: var(--font-sans);
+        }
+
+        .hub-date {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--md-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+
+        /* Controls Section (Search & Filter) */
+        .hub-controls-wrapper {
+            background: rgba(20, 19, 24, 0.3);
+            border: 1px solid var(--hub-card-border);
+            border-radius: var(--r-xl);
+            padding: 20px;
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .search-box-container {
+            position: relative;
+            flex: 1;
+        }
+
+        .search-box-container svg {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            color: var(--md-text-muted);
+            pointer-events: none;
+            transition: var(--md-transition);
+        }
+
+        .search-input {
+            width: 100%;
+            height: 52px;
+            background: var(--md-surface);
+            border: 1px solid var(--md-outline-variant);
+            border-radius: var(--r-full);
+            padding: 0 24px 0 54px;
+            font-family: inherit;
+            font-size: 15px;
+            color: var(--md-text);
+            outline: none;
+            transition: var(--md-transition-spring);
+        }
+
+        .search-input:focus {
+            border-color: var(--md-primary);
+            box-shadow: 0 0 20px var(--hub-glow);
+            background: var(--md-surface-variant);
+        }
+
+        .search-input:focus + svg {
+            color: var(--md-primary);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .search-clear-btn {
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--md-text-muted);
+            cursor: pointer;
+            font-size: 18px;
+            width: 24px;
+            height: 24px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: var(--md-transition);
+        }
+
+        .search-clear-btn:hover {
+            color: var(--md-text);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Filter Chips row */
+        .filter-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.03);
+            padding-top: 16px;
+        }
+
+        .chips-container {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filter-chip {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--md-outline-variant);
+            color: var(--md-text-muted);
+            padding: 8px 18px;
+            border-radius: var(--r-full);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--md-transition-spring);
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .filter-chip:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--md-text);
+            border-color: var(--md-outline);
+        }
+
+        .filter-chip.active {
+            background: var(--md-primary-container);
+            color: var(--md-on-primary-container);
+            border-color: var(--md-primary);
+            box-shadow: 0 4px 12px var(--hub-glow);
+        }
+
+        /* Layout view toggler */
+        .layout-toggle {
+            display: flex;
+            background: var(--md-surface);
+            border: 1px solid var(--md-outline-variant);
+            border-radius: var(--r-full);
+            padding: 4px;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: var(--md-text-muted);
+            padding: 6px 14px;
+            border-radius: var(--r-full);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: var(--md-transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toggle-btn.active {
+            background: var(--md-surface-variant);
+            color: var(--md-text);
+            box-shadow: var(--md-shadow-1);
+        }
+
+        /* Grid Layout */
+        .hub-grid {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            transition: var(--md-transition);
+        }
+
+        /* List View Modifier */
+        .hub-grid.list-view {
+            grid-template-columns: 1fr !important;
+            gap: 12px;
+        }
+
+        /* Card Link Wrapper */
+        .hub-card-link {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            outline: none;
+        }
+
+        /* Hub Card styling */
+        .hub-card {
+            background: var(--hub-card-bg);
+            border: 1px solid var(--hub-card-border);
+            border-radius: var(--r-xl);
+            padding: 24px;
+            backdrop-filter: blur(16px);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-height: 190px;
+            transition: var(--md-transition-spring);
+            box-shadow: var(--md-shadow-1);
+        }
+
+        /* Glass highlight ring */
+        .hub-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: var(--r-xl);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 60%);
+            pointer-events: none;
+            transition: var(--md-transition);
+        }
+
+        /* Hover states */
+        .hub-card-link:hover .hub-card {
+            transform: translateY(-6px);
+            border-color: var(--hub-card-hover-border);
+            box-shadow: 
+                0 12px 30px rgba(0, 0, 0, 0.4),
+                0 0 20px var(--hub-glow);
+        }
+
+        .hub-card-link:hover .hub-card::before {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 40%);
+        }
+
+        /* Active click ripple effect */
+        .hub-card-link:active .hub-card {
+            transform: translateY(-2px) scale(0.99);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Card sections */
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .service-badge {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 6px 12px;
+            border-radius: var(--r-full);
+            font-size: 11.5px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--md-text-muted);
+        }
+
+        .service-badge svg {
+            width: 14px;
+            height: 14px;
+            stroke-width: 2.2;
+        }
+
+        .status-badge {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 5px 10px;
+            border-radius: var(--r-full);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.checking {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--md-text-muted);
+        }
+
+        .status-badge.online {
+            background: rgba(163, 247, 191, 0.1);
+            color: var(--md-success);
+            border: 1px solid rgba(163, 247, 191, 0.2);
+            box-shadow: 0 0 8px rgba(163, 247, 191, 0.05);
+        }
+
+        .status-badge.offline {
+            background: rgba(255, 180, 171, 0.1);
+            color: var(--md-danger);
+            border: 1px solid rgba(255, 180, 171, 0.2);
+            box-shadow: 0 0 8px rgba(255, 180, 171, 0.05);
+        }
+
+        .status-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: currentColor;
+        }
+
+        .status-badge.online .dot {
+            animation: pulse-green 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.25); }
+        }
+
+        /* Domain Header */
+        .card-middle {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .domain-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.4px;
+            word-break: break-all;
+            transition: var(--md-transition);
+        }
+
+        .hub-card-link:hover .domain-title {
+            color: var(--md-primary);
+        }
+
+        .backend-target {
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            color: var(--md-text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 2px;
+        }
+
+        .backend-target svg {
+            width: 12px;
+            height: 12px;
+            stroke-width: 2.2;
+            opacity: 0.6;
+        }
+
+        /* Card footer details */
+        .card-bottom {
+            margin-top: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px dashed rgba(255, 255, 255, 0.04);
+            padding-top: 14px;
+            gap: 12px;
+        }
+
+        .card-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag-pill {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: var(--r-sm);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .tag-pill.zt {
+            background: rgba(168, 200, 255, 0.08);
+            color: var(--md-info);
+            border: 1px solid rgba(168, 200, 255, 0.15);
+        }
+
+        .tag-pill.public {
+            background: rgba(208, 188, 255, 0.08);
+            color: var(--md-primary);
+            border: 1px solid rgba(208, 188, 255, 0.15);
+        }
+
+        .tunnel-info {
+            font-size: 11px;
+            color: var(--md-text-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .tunnel-info svg {
+            width: 12px;
+            height: 12px;
+            stroke-width: 2.2;
+        }
+
+        /* Inline card action buttons */
+        .card-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .card-action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--md-text-muted);
+            cursor: pointer;
+            transition: var(--md-transition);
+        }
+
+        .card-action-btn:hover {
+            background: var(--md-surface-variant);
+            color: var(--md-text);
+            border-color: var(--md-outline);
+            transform: scale(1.08);
+        }
+
+        /* List View Adjustments */
+        .hub-grid.list-view .hub-card {
+            min-height: auto;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            gap: 20px;
+        }
+
+        .hub-grid.list-view .card-top {
+            flex-direction: row-reverse;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .hub-grid.list-view .card-middle {
+            flex: 1;
+            flex-direction: row;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .hub-grid.list-view .backend-target {
+            margin-top: 0;
+        }
+
+        .hub-grid.list-view .card-bottom {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+            gap: 24px;
+        }
+
+        /* Skeleton Loaders */
+        .skeleton-card {
+            background: rgba(20, 19, 24, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            border-radius: var(--r-xl);
+            padding: 24px;
+            min-height: 190px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .skeleton-card::after {
+            content: '';
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            transform: translateX(-100%);
+            background: linear-gradient(
+                90deg,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.03) 20%,
+                rgba(255, 255, 255, 0.05) 60%,
+                rgba(255, 255, 255, 0) 100-percent
+            );
+            animation: skeletonShimmer 1.6s infinite;
+        }
+
+        @keyframes skeletonShimmer {
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .skeleton-text {
+            height: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--r-sm);
+        }
+
+        .skeleton-title {
+            height: 24px;
+            width: 70%;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--r-sm);
+        }
+
+        /* Empty state */
+        .empty-state {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 64px 32px;
+            background: rgba(20, 19, 24, 0.2);
+            border: 1px dashed var(--md-outline-variant);
+            border-radius: var(--r-xl);
+            text-align: center;
+            animation: hubPageEnter 0.4s ease-out;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .empty-desc {
+            font-size: 13.5px;
+            color: var(--md-text-muted);
+            max-width: 400px;
+            line-height: 1.5;
+        }
+
+        /* Toast notifications inside hub */
+        .hub-toast-container {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--md-surface-container-high);
+            border: 1px solid var(--md-outline-variant);
+            box-shadow: var(--md-shadow-3);
+            border-radius: var(--r-full);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13.5px;
+            font-weight: 600;
+            z-index: 2000;
+            pointer-events: none;
+            transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+            opacity: 0;
+        }
+
+        .hub-toast-container.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .hub-toast-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Back to Dashboard Button */
+        .back-dashboard-btn {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--md-outline-variant);
+            color: var(--md-text);
+        }
+
+        .back-dashboard-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--md-primary);
+        }
+
+        /* Mobile specific adaptations */
+        @media (max-width: 768px) {
+            body {
+                padding: 16px 12px;
+            }
+
+            .hub-container {
+                gap: 20px;
+            }
+
+            .hub-header {
+                padding: 16px 20px;
+                border-radius: var(--r-lg);
+            }
+
+            .hub-time {
+                font-size: 24px;
+            }
+
+            .hub-controls-wrapper {
+                padding: 16px;
+                border-radius: var(--r-lg);
+            }
+
+            .search-input {
+                height: 48px;
+                font-size: 14px;
+                padding-left: 48px;
+            }
+
+            .search-box-container svg {
+                left: 16px;
+                width: 18px;
+                height: 18px;
+            }
+
+            .filter-chip {
+                padding: 6px 14px;
+                font-size: 12px;
+            }
+
+            .hub-grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px;
+            }
+
+            .hub-card {
+                padding: 20px;
+                border-radius: var(--r-lg);
+            }
+
+            .hub-grid.list-view .hub-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .hub-grid.list-view .card-middle {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
+
+            .hub-grid.list-view .card-bottom {
+                width: 100%;
+                border-top: 1px dashed rgba(255, 255, 255, 0.04);
+                padding-top: 14px;
+                margin-top: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hub-container">
+        
+        <!-- Header -->
+        <header class="hub-header">
+            <div class="hub-identity">
+                <div class="hub-avatar">C</div>
+                <div class="hub-title-group">
+                    <h1>CARLA Hub</h1>
+                    <p id="hub-greeting">Verbindungen werden geladen...</p>
+                </div>
+            </div>
+            
+            <div class="hub-clock-widget">
+                <div class="hub-time" id="clock-display">00:00</div>
+                <div class="hub-date" id="date-display">Lade Datum...</div>
+            </div>
+        </header>
+
+        <!-- Controls (Search + Filters) -->
+        <section class="hub-controls-wrapper">
+            <div class="search-row">
+                <div class="search-box-container">
+                    <input type="text" id="hub-search" class="search-input" placeholder="Schnellsuche nach Hostname, Container oder Stack..." autocomplete="off">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <button class="search-clear-btn" id="search-clear" title="Suche zurücksetzen">&times;</button>
+                </div>
+                
+                <a href="/" class="btn back-dashboard-btn" title="Zurück zum CARLA Dashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px; height:18px;">
+                        <rect x="3" y="3" width="7" height="9" rx="1"></rect>
+                        <rect x="14" y="3" width="7" height="5" rx="1"></rect>
+                        <rect x="14" y="12" width="7" height="9" rx="1"></rect>
+                        <rect x="3" y="16" width="7" height="5" rx="1"></rect>
+                    </svg>
+                    <span style="display: inline-block; margin-left: 2px;">Dashboard</span>
+                </a>
+            </div>
+
+            <div class="filter-row">
+                <div class="chips-container" id="chips-container">
+                    <button class="filter-chip active" data-filter="all">
+                        🌐 Alle Links
+                    </button>
+                    <button class="filter-chip" data-filter="zt">
+                        🛡️ Zero Trust
+                    </button>
+                    <button class="filter-chip" data-filter="public">
+                        🔓 Öffentlich
+                    </button>
+                    <button class="filter-chip" data-filter="container">
+                        📦 Docker
+                    </button>
+                    <button class="filter-chip" data-filter="vhost">
+                        ⚙️ Sites
+                    </button>
+                </div>
+
+                <div class="layout-toggle">
+                    <button class="toggle-btn active" id="layout-grid" title="Rasteransicht">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 14px; height: 14px;">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                        Grid
+                    </button>
+                    <button class="toggle-btn" id="layout-list" title="Listenansicht">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 14px; height: 14px;">
+                            <line x1="8" y1="6" x2="21" y2="6"></line>
+                            <line x1="8" y1="12" x2="21" y2="12"></line>
+                            <line x1="8" y1="18" x2="21" y2="18"></line>
+                            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                        </svg>
+                        Liste
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Grid/Content Container -->
+        <main class="hub-grid" id="hub-grid">
+            <!-- Skeletons will show here during load -->
+        </main>
+    </div>
+
+    <!-- Hub Toast Notification -->
+    <div class="hub-toast-container" id="hub-toast">
+        <div class="hub-toast-icon" id="hub-toast-icon"></div>
+        <span id="hub-toast-message">Meldung</span>
+    </div>
+
+    <script>
+        let allDomains = [];
+        let filteredDomains = [];
+        let currentFilter = 'all';
+        let searchQuery = '';
+        let domainStatuses = {}; // hostname -> { status, checking }
+
+        // Live Clock
+        function updateClock() {
+            const clockEl = document.getElementById('clock-display');
+            const dateEl = document.getElementById('date-display');
+            if (!clockEl || !dateEl) return;
+
+            const now = new Date();
+            let hours = now.getHours().toString().padStart(2, '0');
+            let minutes = now.getMinutes().toString().padStart(2, '0');
+            clockEl.textContent = `${hours}:${minutes}`;
+
+            const options = { weekday: 'long', day: 'numeric', month: 'long' };
+            dateEl.textContent = now.toLocaleDateString('de-DE', options);
+
+            // Dynamic greeting
+            const greetingEl = document.getElementById('hub-greeting');
+            if (greetingEl) {
+                const hour = now.getHours();
+                let greet = "Hallo!";
+                if (hour < 5) greet = "Gute Nacht!";
+                else if (hour < 11) greet = "Guten Morgen!";
+                else if (hour < 14) greet = "Mahlzeit!";
+                else if (hour < 18) greet = "Guten Tag!";
+                else greet = "Guten Abend!";
+
+                const countStr = allDomains.length > 0 
+                    ? `${allDomains.length} aktive Cloudflare Link${allDomains.length > 1 ? 's' : ''} verfügbar.`
+                    : "Keine Links konfiguriert.";
+                greetingEl.textContent = `${greet} ${countStr}`;
+            }
+        }
+
+        // Initialize Skeletons
+        function showSkeletons() {
+            const grid = document.getElementById('hub-grid');
+            let html = '';
+            for (let i = 0; i < 6; i++) {
+                html += `
+                    <div class="skeleton-card">
+                        <div class="card-top" style="display:flex; justify-content:space-between;">
+                            <div class="skeleton-text" style="width: 80px;"></div>
+                            <div class="skeleton-text" style="width: 60px;"></div>
+                        </div>
+                        <div class="card-middle" style="margin-top:10px;">
+                            <div class="skeleton-title"></div>
+                            <div class="skeleton-text" style="width: 50%; margin-top:8px;"></div>
+                        </div>
+                        <div class="card-bottom" style="margin-top:auto; display:flex; justify-content:space-between; border-top:1px dashed rgba(255,255,255,0.02); padding-top:14px;">
+                            <div class="skeleton-text" style="width: 90px;"></div>
+                            <div class="skeleton-text" style="width: 40px;"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            grid.innerHTML = html;
+        }
+
+        // Fetch Domains
+        async function fetchDomains() {
+            showSkeletons();
+            try {
+                const r = await fetch('/api/cloudflare/domains');
+                if (!r.ok) {
+                    throw new Error('API-Antwort fehlerhaft.');
+                }
+                allDomains = await r.json();
+                
+                // Sort domains alphabetically by hostname
+                allDomains.sort((a, b) => a.hostname.localeCompare(b.hostname));
+
+                // Initialize all domain status structures
+                allDomains.forEach(d => {
+                    domainStatuses[d.hostname] = { status: 'checking', checking: false };
+                });
+
+                applyFilters();
+                updateClock();
+
+                // Trigger background status check for all loaded domains
+                checkAllDomainsStatus();
+
+            } catch (e) {
+                console.error(e);
+                const grid = document.getElementById('hub-grid');
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon" style="color:var(--md-danger);">⚠️</div>
+                        <div class="empty-title">Fehler beim Laden</div>
+                        <div class="empty-desc">Die Cloudflare Domains konnten nicht abgerufen werden. Stelle sicher, dass Cloudflare in den Einstellungen konfiguriert ist und der Server läuft.</div>
+                        <button onclick="fetchDomains()" class="btn btn-primary" style="margin-top:16px;">Erneut versuchen</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Check Single Domain Status
+        async function checkDomainStatus(hostname) {
+            domainStatuses[hostname].checking = true;
+            renderGrid();
+            try {
+                const r = await fetch(`/api/cloudflare/domains/check-status?domain=${hostname}`);
+                if (r.ok) {
+                    const data = await r.json();
+                    if (data.ok) {
+                        if (data.is_cloudflare_error || data.error_msg) {
+                            domainStatuses[hostname].status = 'offline';
+                            domainStatuses[hostname].error = data.error_msg || `Cloudflare Error ${data.cloudflare_error_code || '5xx'}`;
+                        } else if (data.status_code >= 400 && data.status_code !== 401) { // 401 Zero Trust is technically "Online"
+                            domainStatuses[hostname].status = 'offline';
+                            domainStatuses[hostname].error = `HTTP ${data.status_code}`;
+                        } else {
+                            domainStatuses[hostname].status = 'online';
+                        }
+                    }
+                }
+            } catch (e) {
+                domainStatuses[hostname].status = 'offline';
+                domainStatuses[hostname].error = 'Timeout/Netzwerkfehler';
+            } finally {
+                domainStatuses[hostname].checking = false;
+                renderGrid();
+            }
+        }
+
+        // Check All Domains
+        function checkAllDomainsStatus() {
+            allDomains.forEach(d => {
+                checkDomainStatus(d.hostname);
+            });
+        }
+
+        // Apply Search & Filter
+        function applyFilters() {
+            filteredDomains = allDomains.filter(d => {
+                // Search filter
+                const matchesSearch = 
+                    d.hostname.toLowerCase().includes(searchQuery) ||
+                    d.service.toLowerCase().includes(searchQuery) ||
+                    (d.matched_target && d.matched_target.name.toLowerCase().includes(searchQuery)) ||
+                    (d.matched_target && d.matched_target.stack && d.matched_target.stack.toLowerCase().includes(searchQuery));
+
+                if (!matchesSearch) return false;
+
+                // Category filter
+                if (currentFilter === 'all') return true;
+                if (currentFilter === 'zt') return d.zero_trust === true;
+                if (currentFilter === 'public') return d.zero_trust === false;
+                if (currentFilter === 'container') return d.matched_target && d.matched_target.type === 'container';
+                if (currentFilter === 'vhost') return d.matched_target && d.matched_target.type === 'vhost';
+
+                return true;
+            });
+
+            renderGrid();
+        }
+
+        // Render Cards
+        function renderGrid() {
+            const grid = document.getElementById('hub-grid');
+            if (filteredDomains.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔍</div>
+                        <div class="empty-title">Keine Links gefunden</div>
+                        <div class="empty-desc">Es gibt keine Domains, die deiner aktuellen Suche oder deinem Filter entsprechen.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            filteredDomains.forEach(d => {
+                // Determine Service Type Badge icon/content
+                let typeText = 'Dienst';
+                let typeIcon = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`; // default layer stack
+
+                if (d.matched_target) {
+                    if (d.matched_target.type === 'container') {
+                        typeText = d.matched_target.name || 'Docker';
+                        typeIcon = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`; // folder/box icon for container
+                    } else if (d.matched_target.type === 'vhost') {
+                        typeText = d.matched_target.name.replace('Site: ', '') || 'Site';
+                        typeIcon = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`; // screen icon for vhost
+                    } else if (d.matched_target.type === 'redirect') {
+                        typeText = 'Umleitung';
+                        typeIcon = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>`; // shuffle/arrow icon
+                    }
+                }
+
+                // Determine Status Badge styling
+                const stat = domainStatuses[d.hostname] || { status: 'checking', checking: false };
+                let statusHtml = '';
+                if (stat.checking) {
+                    statusHtml = `<span class="status-badge checking"><div class="dot"></div>⌛ Prüft...</span>`;
+                } else if (stat.status === 'online') {
+                    statusHtml = `<span class="status-badge online" title="Website ist online und erreichbar"><div class="dot"></div>Online</span>`;
+                } else if (stat.status === 'offline') {
+                    statusHtml = `<span class="status-badge offline" title="${stat.error || 'Website antwortet nicht'}"><div class="dot"></div>Fehler</span>`;
+                } else {
+                    statusHtml = `<span class="status-badge checking"><div class="dot"></div>Ungeprüft</span>`;
+                }
+
+                // Zero Trust Badge
+                const ztBadge = d.zero_trust 
+                    ? `<span class="tag-pill zt" title="Durch Cloudflare Zero Trust gesichert">🛡️ Zero Trust</span>`
+                    : `<span class="tag-pill public" title="Für jeden öffentlich zugänglich">🌐 Öffentlich</span>`;
+
+                // Custom context info
+                const targetText = d.matched_target 
+                    ? (d.matched_target.stack ? `Stack: ${d.matched_target.stack}` : d.matched_target.detail || '')
+                    : 'Direkt-Tunnel';
+
+                html += `
+                    <a href="https://${d.hostname}" target="_blank" rel="noopener noreferrer" class="hub-card-link" data-hostname="${d.hostname}">
+                        <article class="hub-card">
+                            <div class="card-top">
+                                <div class="service-badge" title="${d.service}">
+                                    ${typeIcon}
+                                    <span style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${typeText}</span>
+                                </div>
+                                ${statusHtml}
+                            </div>
+                            
+                            <div class="card-middle">
+                                <h2 class="domain-title">${d.hostname}</h2>
+                                <div class="backend-target">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                                    <span style="font-family: var(--font-mono); font-size:11.5px; opacity:0.8;">${d.service}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="card-bottom">
+                                <div class="card-tags">
+                                    ${ztBadge}
+                                </div>
+                                
+                                <div class="tunnel-info" title="Tunnel: ${d.tunnel_name} (${d.tunnel_status})">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                    <span style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${d.tunnel_name}</span>
+                                </div>
+                            </div>
+                        </article>
+                    </a>
+                `;
+            });
+            grid.innerHTML = html;
+
+            // Prevent card-action links inside card from navigating the card
+            document.querySelectorAll('.card-action-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+        }
+
+        // Show toast notifications
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('hub-toast');
+            const iconEl = document.getElementById('hub-toast-icon');
+            const msgEl = document.getElementById('hub-toast-message');
+            if (!toast || !msgEl || !iconEl) return;
+
+            msgEl.textContent = message;
+            
+            // Set icon
+            if (type === 'success') {
+                iconEl.innerHTML = '✨';
+            } else if (type === 'error') {
+                iconEl.innerHTML = '⚠️';
+            } else {
+                iconEl.innerHTML = 'ℹ️';
+            }
+
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Setup Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Clock & Greeting
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            // Fetch Data
+            fetchDomains();
+
+            // Search input handlers
+            const searchInput = document.getElementById('hub-search');
+            const clearBtn = document.getElementById('search-clear');
+
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value.toLowerCase().trim();
+                clearBtn.style.display = searchQuery ? 'flex' : 'none';
+                applyFilters();
+            });
+
+            clearBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                searchQuery = '';
+                clearBtn.style.display = 'none';
+                applyFilters();
+                searchInput.focus();
+            });
+
+            // Filter Chips click handlers
+            const chips = document.querySelectorAll('.filter-chip');
+            chips.forEach(chip => {
+                chip.addEventListener('click', () => {
+                    chips.forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    currentFilter = chip.getAttribute('data-filter');
+                    applyFilters();
+                });
+            });
+
+            // Layout Toggle handlers
+            const gridToggle = document.getElementById('layout-grid');
+            const listToggle = document.getElementById('layout-list');
+            const gridContainer = document.getElementById('hub-grid');
+
+            gridToggle.addEventListener('click', () => {
+                gridToggle.classList.add('active');
+                listToggle.classList.remove('active');
+                gridContainer.classList.remove('list-view');
+            });
+
+            listToggle.addEventListener('click', () => {
+                listToggle.classList.add('active');
+                gridToggle.classList.remove('active');
+                gridContainer.classList.add('list-view');
+            });
+
+            // Hotkey 'Esc' to clear search
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && document.activeElement === searchInput) {
+                    searchInput.value = '';
+                    searchQuery = '';
+                    clearBtn.style.display = 'none';
+                    applyFilters();
+                    searchInput.blur();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

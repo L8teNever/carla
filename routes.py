@@ -339,6 +339,11 @@ def editor_view():
 def storage_route():
     return render_template("storage.html")
 
+
+@bp.route("/hub")
+def hub_route():
+    return render_template("hub.html")
+
 @bp.route("/api/timeline/snapshots", methods=["GET"])
 def api_timeline_list():
     limit = request.args.get("limit", 100, type=int)

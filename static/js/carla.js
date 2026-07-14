@@ -184,6 +184,7 @@ const SEARCHABLE_ITEMS = [
     { title: "Dateien / File Manager", desc: "Dateisystem durchsuchen und verwalten", type: "page", url: "/filemanager" },
     { title: "Terminal / Konsole", desc: "Globales System-Terminal öffnen", type: "page", url: "/terminal" },
     { title: "Einstellungen / Settings", desc: "Konfigurationen anpassen und Backups einrichten", type: "page", url: "/settings" },
+    { title: "CARLA Hub / Schnellstart", desc: "Zentraler Launcher für alle Cloudflare Webseiten", type: "page", url: "/hub" },
     
     // Core Actions
     { title: "Aktion: Daten aktualisieren (Refresh)", desc: "Docker-Infrastruktur neu einlesen", type: "action", action: "refresh" },
