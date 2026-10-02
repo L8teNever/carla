@@ -2265,12 +2265,29 @@ def api_py_list():
 @bp.route("/api/python/projects", methods=["POST"])
 def api_py_create():
     data = request.json or {}
-    return _py_res(python_projects.create_project(data.get("name", "")))
+    result = python_projects.create_project(
+        data.get("name", ""),
+        python_version=data.get("python_version") or python_projects.DEFAULT_VERSION,
+        cloudflare_data=data.get("cloudflare"))
+    if result.get("ok"):
+        start_background_fetch()
+    return _py_res(result)
 
 
 @bp.route("/api/python/<name>", methods=["DELETE"])
 def api_py_delete(name):
-    return _py_res(python_projects.delete_project(name))
+    result = python_projects.delete_project(name)
+    if result.get("ok"):
+        start_background_fetch()
+    return _py_res(result)
+
+
+@bp.route("/api/python/<name>/container/<action>", methods=["POST"])
+def api_py_container_action(name, action):
+    result = python_projects.execute_action(name, action)
+    if result.get("ok"):
+        start_background_fetch()
+    return _py_res(result, 500)
 
 
 @bp.route("/api/python/<name>/config", methods=["PUT"])

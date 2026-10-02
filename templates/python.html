@@ -35,8 +35,14 @@
     <div class="py-row" style="margin-bottom:10px;">
         <button class="btn btn-sm" onclick="closeProject()">← Projekte</button>
         <div class="view-title" style="margin:0;" id="py-title"></div>
+        <span class="badge" id="py-state-badge">…</span>
         <span class="badge info" id="py-venv-badge">venv</span>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm btn-success" onclick="containerAction('start')">▶ Start</button>
+        <button class="btn btn-sm" onclick="containerAction('restart')">⟳ Neustart</button>
+        <button class="btn btn-sm btn-danger" onclick="containerAction('stop')">■ Stop</button>
     </div>
+    <div id="py-info" style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:10px;"></div>
 
     <div class="tabs-nav" style="margin-bottom:14px;">
         <button class="tab-btn active" data-tab="files" onclick="switchTab('files')">Dateien</button>
@@ -79,7 +85,7 @@
             </div>
             <div class="py-row" style="margin-top:10px;">
                 <input type="checkbox" id="py-autostart" onchange="saveAutostart()" style="width:16px;height:16px;">
-                <label for="py-autostart" style="font-size:12.5px;cursor:pointer;">Dieses Script beim Start von CARLA automatisch starten</label>
+                <label for="py-autostart" style="font-size:12.5px;cursor:pointer;">Beim Container-Start automatisch starten (auch nach Server-Neustart)</label>
             </div>
         </div>
         <div class="py-pane">
@@ -126,7 +132,19 @@
             <label class="form-label">Projektname</label>
             <input id="py-new-name" class="input mono" placeholder="mein-bot" onkeydown="if(event.key==='Enter')createProject()">
         </div>
-        <div style="font-size:11px;color:var(--text-muted);">Legt Ordner, eigene venv, <code>main.py</code> und <code>requirements.txt</code> an.</div>
+        <div class="form-group">
+            <label class="form-label">Python-Version</label>
+            <select id="py-new-version" class="select"><option>3.13</option><option selected>3.12</option><option>3.11</option><option>3.10</option><option>3.9</option></select>
+        </div>
+        <div class="py-row" style="margin-bottom:8px;">
+            <input type="checkbox" id="py-new-cf" onchange="toggleCf()" style="width:16px;height:16px;">
+            <label for="py-new-cf" style="font-size:13px;cursor:pointer;">Über Cloudflare veröffentlichen (Webapp auf <code>$PORT</code>)</label>
+        </div>
+        <div id="py-cf-box" style="display:none;flex-direction:column;gap:8px;margin-bottom:8px;">
+            <input id="py-new-host" class="input mono" placeholder="bot.domain.de">
+            <select id="py-new-tunnel" class="select"></select>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);">Eigener Docker-Container (<code>restart: unless-stopped</code>) mit eigener venv, <code>main.py</code> und <code>requirements.txt</code>. Startet nach Server-Neustart automatisch wieder.</div>
         <div class="modal-actions">
             <button class="btn" onclick="closeCreateModal()">Abbrechen</button>
             <button class="btn btn-primary" id="py-create-btn" onclick="createProject()">Erstellen</button>
@@ -162,18 +180,32 @@
             <div class="card interactive" onclick="openProject('${esc(p.name)}')">
                 <div class="card-header">
                     <div class="card-title">🐍 ${esc(p.name)}</div>
-                    <span class="badge ${p.running ? 'success' : ''}">${p.running ? p.running + ' läuft' : 'gestoppt'}</span>
+                    <span class="badge ${p.state === 'running' ? 'success' : 'danger'}">${p.state === 'running' ? 'Container läuft' : esc(p.state)}</span>
                 </div>
-                <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">Entry: ${esc(p.entry)}${p.venv_ok ? '' : ' · ⚠ venv fehlt'}</div>
+                <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">Python ${esc(p.python)} · Port ${p.port}${p.domain ? ' · ' + esc(p.domain) : ''} · ${p.running} Script(s) aktiv${p.venv_ok ? '' : ' · venv wird erstellt…'}</div>
                 <div style="margin-top:10px;"><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteProject('${esc(p.name)}')">Löschen</button></div>
             </div>`).join('');
     }
     function openCreateModal() { document.getElementById('py-new-name').value=''; document.getElementById('py-create-modal').classList.add('active'); setTimeout(()=>document.getElementById('py-new-name').focus(),50); }
+    async function toggleCf() {
+        const on = document.getElementById('py-new-cf').checked;
+        document.getElementById('py-cf-box').style.display = on ? 'flex' : 'none';
+        if (!on) return;
+        try {
+            const t = await (await fetch('/api/cf/tunnels')).json();
+            document.getElementById('py-new-tunnel').innerHTML = (Array.isArray(t) ? t : []).map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
+        } catch(e) { showToast('Tunnels konnten nicht geladen werden', 'error'); }
+    }
     function closeCreateModal() { document.getElementById('py-create-modal').classList.remove('active'); }
     async function createProject() {
         const btn = document.getElementById('py-create-btn');
-        btn.disabled = true; btn.textContent = 'Erstelle venv...';
-        const r = await post('projects', {name: document.getElementById('py-new-name').value});
+        btn.disabled = true; btn.textContent = 'Erstelle Container (kann dauern)...';
+        const cf = document.getElementById('py-new-cf').checked;
+        const r = await post('projects', {
+            name: document.getElementById('py-new-name').value,
+            python_version: document.getElementById('py-new-version').value,
+            cloudflare: cf ? {enabled: true, hostname: document.getElementById('py-new-host').value.trim(), tunnel_id: document.getElementById('py-new-tunnel').value} : {enabled: false}
+        });
         btn.disabled = false; btn.textContent = 'Erstellen';
         if (!r.ok) return showToast(r.error, 'error');
         closeCreateModal(); showToast('Projekt erstellt'); await loadProjects(); openProject(r.name);
@@ -194,10 +226,27 @@
         document.getElementById('py-list-view').style.display = 'none';
         document.getElementById('py-project-view').style.display = 'block';
         document.getElementById('py-title').textContent = name;
-        document.getElementById('py-venv-badge').textContent = projectInfo.venv_ok ? 'venv ✓' : 'venv fehlt';
+        renderProjectInfo();
         document.getElementById('py-script').value = projectInfo.entry;
-        document.getElementById('py-autostart').checked = projectInfo.autostart.includes(projectInfo.entry);
+        document.getElementById('py-autostart').checked = projectInfo.autostart.some(a => a.script === projectInfo.entry);
+        document.getElementById('py-args').value = (projectInfo.autostart.find(a => a.script === projectInfo.entry) || {}).args || '';
         closeFile(); switchTab('files'); loadDir('');
+    }
+    function renderProjectInfo() {
+        const p = projectInfo, up = p.state === 'running';
+        const b = document.getElementById('py-state-badge');
+        b.textContent = up ? 'Container läuft' : p.state; b.className = 'badge ' + (up ? 'success' : 'danger');
+        document.getElementById('py-venv-badge').textContent = p.venv_ok ? 'venv ✓' : 'venv wird erstellt…';
+        document.getElementById('py-info').textContent = `python:${p.python}-slim · Port ${p.port} (Umgebungsvariable PORT)` + (p.domain ? ` · https://${p.domain}` : '');
+    }
+    async function refreshProject() {
+        const p = (await api('projects')).find(x => x.name === project);
+        if (p) { projectInfo = p; renderProjectInfo(); }
+    }
+    async function containerAction(action) {
+        const r = await post(`${project}/container/${action}`, {});
+        if (!r.ok) return showToast(r.error || 'Fehler', 'error');
+        showToast('OK'); setTimeout(refreshProject, 1500);
     }
     function closeProject() {
         stopPoll(); disconnectTerm(); project = null;
@@ -315,20 +364,20 @@
         const r = await post(`${project}/run`, {script, args: document.getElementById('py-args').value});
         if (!r.ok) return showToast(r.error, 'error');
         await post(`${project}/config`, {entry: script}, 'PUT');
-        curJob = 'run:' + script.replace(/^\.?\//, '');
+        curJob = r.key;
         await refreshJobs(); refreshJobLog();
     }
     async function saveAutostart() {
         const script = document.getElementById('py-script').value.trim();
-        const list = (await api('projects')).find(p => p.name === project).autostart.filter(s => s !== script);
-        if (document.getElementById('py-autostart').checked) list.push(script);
+        const list = (await api('projects')).find(p => p.name === project).autostart.filter(a => a.script !== script);
+        if (document.getElementById('py-autostart').checked) list.push({script, args: document.getElementById('py-args').value});
         await post(`${project}/config`, {entry: script, autostart: list}, 'PUT');
         showToast('Autostart gespeichert');
     }
     async function refreshJobs() {
-        const jobs = (await api(`${project}/jobs`)).filter(j => j.key.startsWith('run:'));
+        const jobs = (await api(`${project}/jobs`)).filter(j => j.key.startsWith('run-'));
         const sel = document.getElementById('py-job-select');
-        sel.innerHTML = jobs.length ? jobs.map(j => `<option value="${esc(j.key)}" ${j.key === curJob ? 'selected' : ''}>${j.running ? '🟢' : '⚪'} ${esc(j.cmd)}${j.running ? '' : ' (Exit ' + j.exit + ')'}</option>`).join('')
+        sel.innerHTML = jobs.length ? jobs.map(j => `<option value="${esc(j.key)}" ${j.key === curJob ? 'selected' : ''}>${j.running ? '🟢' : '⚪'} ${esc(j.cmd)}${j.running ? '' : ' (' + (j.exit === null ? 'beendet' : 'Exit ' + j.exit) + ')'}</option>`).join('')
                                     : '<option value="">Keine Läufe</option>';
         if (!curJob && jobs.length) curJob = jobs[0].key;
         if (curJob) sel.value = curJob;
@@ -393,6 +442,7 @@
         stopPoll();
         pollTimer = setInterval(() => {
             if (!project) return;
+            refreshProject();
             if (document.getElementById('tab-run').style.display !== 'none') { refreshJobs(); refreshJobLog(); }
             if (document.getElementById('tab-pkgs').style.display !== 'none') refreshPipLog();
         }, 1500);
