@@ -2267,7 +2267,6 @@ def api_py_create():
     data = request.json or {}
     result = python_projects.create_project(
         data.get("name", ""),
-        python_version=data.get("python_version") or python_projects.DEFAULT_VERSION,
         cloudflare_data=data.get("cloudflare"))
     if result.get("ok"):
         start_background_fetch()
@@ -2282,9 +2281,14 @@ def api_py_delete(name):
     return _py_res(result)
 
 
-@bp.route("/api/python/<name>/container/<action>", methods=["POST"])
-def api_py_container_action(name, action):
-    result = python_projects.execute_action(name, action)
+@bp.route("/api/python-container", methods=["GET"])
+def api_py_container():
+    return jsonify(python_projects.container_info())
+
+
+@bp.route("/api/python-container/<action>", methods=["POST"])
+def api_py_container_action(action):
+    result = python_projects.execute_action(action)
     if result.get("ok"):
         start_background_fetch()
     return _py_res(result, 500)

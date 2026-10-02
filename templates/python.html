@@ -27,6 +27,17 @@
         <div class="section-title">Projekte</div>
         <button onclick="openCreateModal()" class="btn btn-primary">+ Projekt erstellen</button>
     </div>
+    <div class="py-pane" style="margin-bottom:14px;">
+        <div class="py-row">
+            <span style="font-size:13px;font-weight:600;">Python-Container</span>
+            <span class="badge" id="py-ctr-badge">…</span>
+            <span id="py-ctr-info" style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);flex:1;"></span>
+            <button class="btn btn-sm btn-success" onclick="containerAction('start')">▶ Start</button>
+            <button class="btn btn-sm" onclick="containerAction('restart')">⟳ Neustart</button>
+            <button class="btn btn-sm btn-danger" onclick="containerAction('stop')">■ Stop</button>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">Ein gemeinsamer Container für alle Projekte (jedes mit eigener venv). Startet nach Server-Neustart automatisch und startet dabei alle Scripts mit Autostart.</div>
+    </div>
     <div class="grid-layout grid-2" id="py-grid"></div>
 </div>
 
@@ -37,10 +48,6 @@
         <div class="view-title" style="margin:0;" id="py-title"></div>
         <span class="badge" id="py-state-badge">…</span>
         <span class="badge info" id="py-venv-badge">venv</span>
-        <span style="flex:1"></span>
-        <button class="btn btn-sm btn-success" onclick="containerAction('start')">▶ Start</button>
-        <button class="btn btn-sm" onclick="containerAction('restart')">⟳ Neustart</button>
-        <button class="btn btn-sm btn-danger" onclick="containerAction('stop')">■ Stop</button>
     </div>
     <div id="py-info" style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:10px;"></div>
 
@@ -85,7 +92,7 @@
             </div>
             <div class="py-row" style="margin-top:10px;">
                 <input type="checkbox" id="py-autostart" onchange="saveAutostart()" style="width:16px;height:16px;">
-                <label for="py-autostart" style="font-size:12.5px;cursor:pointer;">Beim Container-Start automatisch starten (auch nach Server-Neustart)</label>
+                <label for="py-autostart" style="font-size:12.5px;cursor:pointer;">Beim Start des Python-Containers automatisch starten (auch nach Server-Neustart)</label>
             </div>
         </div>
         <div class="py-pane">
@@ -132,10 +139,6 @@
             <label class="form-label">Projektname</label>
             <input id="py-new-name" class="input mono" placeholder="mein-bot" onkeydown="if(event.key==='Enter')createProject()">
         </div>
-        <div class="form-group">
-            <label class="form-label">Python-Version</label>
-            <select id="py-new-version" class="select"><option>3.13</option><option selected>3.12</option><option>3.11</option><option>3.10</option><option>3.9</option></select>
-        </div>
         <div class="py-row" style="margin-bottom:8px;">
             <input type="checkbox" id="py-new-cf" onchange="toggleCf()" style="width:16px;height:16px;">
             <label for="py-new-cf" style="font-size:13px;cursor:pointer;">Über Cloudflare veröffentlichen (Webapp auf <code>$PORT</code>)</label>
@@ -144,7 +147,7 @@
             <input id="py-new-host" class="input mono" placeholder="bot.domain.de">
             <select id="py-new-tunnel" class="select"></select>
         </div>
-        <div style="font-size:11px;color:var(--text-muted);">Eigener Docker-Container (<code>restart: unless-stopped</code>) mit eigener venv, <code>main.py</code> und <code>requirements.txt</code>. Startet nach Server-Neustart automatisch wieder.</div>
+        <div style="font-size:11px;color:var(--text-muted);">Läuft im gemeinsamen Python-Container mit eigener venv, <code>main.py</code> und <code>requirements.txt</code>.</div>
         <div class="modal-actions">
             <button class="btn" onclick="closeCreateModal()">Abbrechen</button>
             <button class="btn btn-primary" id="py-create-btn" onclick="createProject()">Erstellen</button>
@@ -158,7 +161,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
 <script>
     let project = null, projectInfo = null, curDir = '', openFile = null, dirty = false;
-    let curJob = null, pollTimer = null, term = null, fit = null, termWs = null, termObs = null;
+    let ctrState = 'running', curJob = null, pollTimer = null, term = null, fit = null, termWs = null, termObs = null;
 
     const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const api = (p, opt) => fetch(`/api/python/${p}`, opt).then(r => r.json());
@@ -173,6 +176,10 @@
 
     // ───────── Projekte ─────────
     async function loadProjects() {
+        const ctr = await fetch('/api/python-container').then(r => r.json());
+        const cb = document.getElementById('py-ctr-badge');
+        cb.textContent = ctr.state === 'running' ? 'läuft' : ctr.state; cb.className = 'badge ' + (ctr.state === 'running' ? 'success' : 'danger');
+        document.getElementById('py-ctr-info').textContent = `${ctr.container} · ${ctr.image}`;
         const list = await api('projects');
         const grid = document.getElementById('py-grid');
         if (!list.length) { grid.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Noch keine Projekte.</div>'; return; }
@@ -180,9 +187,9 @@
             <div class="card interactive" onclick="openProject('${esc(p.name)}')">
                 <div class="card-header">
                     <div class="card-title">🐍 ${esc(p.name)}</div>
-                    <span class="badge ${p.state === 'running' ? 'success' : 'danger'}">${p.state === 'running' ? 'Container läuft' : esc(p.state)}</span>
+                    <span class="badge ${p.running ? 'success' : ''}">${p.running ? p.running + ' läuft' : 'idle'}</span>
                 </div>
-                <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">Python ${esc(p.python)} · Port ${p.port}${p.domain ? ' · ' + esc(p.domain) : ''} · ${p.running} Script(s) aktiv${p.venv_ok ? '' : ' · venv wird erstellt…'}</div>
+                <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">Port ${p.port}${p.domain ? ' · ' + esc(p.domain) : ''} · ${p.running} Script(s) aktiv${p.venv_ok ? '' : ' · venv wird erstellt…'}</div>
                 <div style="margin-top:10px;"><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteProject('${esc(p.name)}')">Löschen</button></div>
             </div>`).join('');
     }
@@ -199,11 +206,10 @@
     function closeCreateModal() { document.getElementById('py-create-modal').classList.remove('active'); }
     async function createProject() {
         const btn = document.getElementById('py-create-btn');
-        btn.disabled = true; btn.textContent = 'Erstelle Container (kann dauern)...';
+        btn.disabled = true; btn.textContent = 'Erstelle venv (beim 1. Mal Image-Download)...';
         const cf = document.getElementById('py-new-cf').checked;
         const r = await post('projects', {
             name: document.getElementById('py-new-name').value,
-            python_version: document.getElementById('py-new-version').value,
             cloudflare: cf ? {enabled: true, hostname: document.getElementById('py-new-host').value.trim(), tunnel_id: document.getElementById('py-new-tunnel').value} : {enabled: false}
         });
         btn.disabled = false; btn.textContent = 'Erstellen';
@@ -233,20 +239,21 @@
         closeFile(); switchTab('files'); loadDir('');
     }
     function renderProjectInfo() {
-        const p = projectInfo, up = p.state === 'running';
+        const p = projectInfo;
         const b = document.getElementById('py-state-badge');
-        b.textContent = up ? 'Container läuft' : p.state; b.className = 'badge ' + (up ? 'success' : 'danger');
+        b.textContent = ctrState === 'running' ? 'Container läuft' : 'Container ' + ctrState; b.className = 'badge ' + (ctrState === 'running' ? 'success' : 'danger');
         document.getElementById('py-venv-badge').textContent = p.venv_ok ? 'venv ✓' : 'venv wird erstellt…';
-        document.getElementById('py-info').textContent = `python:${p.python}-slim · Port ${p.port} (Umgebungsvariable PORT)` + (p.domain ? ` · https://${p.domain}` : '');
+        document.getElementById('py-info').textContent = `Port ${p.port} (Umgebungsvariable PORT)` + (p.domain ? ` · https://${p.domain}` : '');
     }
     async function refreshProject() {
         const p = (await api('projects')).find(x => x.name === project);
+        ctrState = (await fetch('/api/python-container').then(r => r.json())).state;
         if (p) { projectInfo = p; renderProjectInfo(); }
     }
     async function containerAction(action) {
-        const r = await post(`${project}/container/${action}`, {});
+        const r = await fetch(`/api/python-container/${action}`, {method: 'POST'}).then(x => x.json());
         if (!r.ok) return showToast(r.error || 'Fehler', 'error');
-        showToast('OK'); setTimeout(refreshProject, 1500);
+        showToast('OK'); setTimeout(() => project ? refreshProject() : loadProjects(), 1500);
     }
     function closeProject() {
         stopPoll(); disconnectTerm(); project = null;

@@ -1,20 +1,21 @@
 # ==============================================================
 # CARLA – Python Projects Service
-# Jedes Python-Projekt laeuft in einem eigenen Docker-Container
-# (python:<version>-slim, restart: unless-stopped) mit eigener
-# venv, Dateistruktur, Paketverwaltung, Script-Runner und Konsole.
+# EIN gemeinsamer Docker-Container (carla-python, restart:
+# unless-stopped) hostet alle Python-Projekte – wie carla-vhost
+# fuer HTML-Sites. Jedes Projekt hat darin eigene venv, Dateien,
+# Pakete, Scripts, Logs und Konsole.
 #
-# Layout je Projekt (auf dem Host und in CARLA identisch):
-#   /opt/stacks/carla-py-<name>/
-#       src/                <- Projektdateien (im Container /project/src)
-#       venv/               <- venv, im Container erstellt
-#       logs/               <- <key>.log / .pid / .exit je Script oder pip
-#       docker-compose.yml, entrypoint.sh, runner.sh, bashrc
-#       autostart.txt       <- Scripts, die beim Container-Start laufen
-#       meta.json           <- Einstellungen (Port, Version, Domain, ...)
+# Layout (auf dem Host und in CARLA identisch; im Container /data):
+#   /opt/stacks/carla-python/
+#       docker-compose.yml, entrypoint.sh, runner.sh
+#       projects/<name>/
+#           src/            <- Projektdateien
+#           venv/           <- eigene venv des Projekts
+#           logs/           <- <key>.log / .pid / .exit je Script oder pip
+#           autostart.txt, meta.json, port, bashrc
 #
-# Der Container nutzt network_mode: host. Scripts bekommen den
-# Port per Umgebungsvariable PORT (fuer Flask/FastAPI & Co.).
+# Der Container nutzt network_mode: host. Jedes Projekt bekommt einen
+# eigenen Port, den seine Scripts als Umgebungsvariable PORT lesen.
 # ==============================================================
 
 import json
@@ -27,12 +28,13 @@ import time
 
 from services import static_server, system_executor
 
-BASE_DIR = "/opt/stacks"
-PREFIX = "carla-py-"
+STACK_DIR = "/opt/stacks/carla-python"
+PROJECTS_DIR = os.path.join(STACK_DIR, "projects")
+CONTAINER = "carla-python"
+IMAGE = "python:3.12-slim"
+DATA = "/data"                      # Mount-Punkt im Container
 PORT_RANGE_START = 11000
 PORT_RANGE_END = 11099
-PY_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
-DEFAULT_VERSION = "3.12"
 MAX_FILE_SIZE = 2 * 1024 * 1024
 MAX_LOG_BYTES = 200 * 1024
 HIDDEN_DIRS = {"__pycache__", ".git"}
@@ -47,11 +49,12 @@ def normalize_name(name: str) -> str:
 
 
 def _pdir(name: str) -> str:
-    return os.path.join(BASE_DIR, PREFIX + name)
+    return os.path.join(PROJECTS_DIR, name)
 
 
-def _cname(name: str) -> str:
-    return PREFIX + name
+def _cpdir(name: str) -> str:
+    """Projektpfad im Container."""
+    return f"{DATA}/projects/{name}"
 
 
 def _src(name: str) -> str:
@@ -104,19 +107,9 @@ def _write(path: str, content: str, mode: int = None):
         os.chmod(path, mode)
 
 
-def _container_states() -> dict:
-    rc, out = _run(["docker", "ps", "-a", "--format", "{{.Names}}\t{{.State}}"], timeout=20)
-    states = {}
-    if rc == 0:
-        for line in out.splitlines():
-            if "\t" in line:
-                n, s = line.split("\t", 1)
-                states[n.strip()] = s.strip()
-    return states
-
-
-def _state(name: str) -> str:
-    return _container_states().get(_cname(name), "stopped")
+def _state() -> str:
+    rc, out = _run(["docker", "inspect", "--format", "{{.State.Status}}", CONTAINER], timeout=15)
+    return out.strip() if rc == 0 and out.strip() else "stopped"
 
 
 def _job_key(script: str) -> str:
@@ -128,75 +121,90 @@ def _job_key(script: str) -> str:
 # ---------------------------------------------------------------
 
 _RUNNER = r'''#!/bin/sh
-# usage: runner.sh <key> <python-args...>   (z.B. runner.sh run-main.py main.py --flag)
-key="$1"; shift
-mkdir -p /project/logs
-LOG="/project/logs/$key.log"
-echo $$ > "/project/logs/$key.pid"
-rm -f "/project/logs/$key.exit"
+# usage: runner.sh <project> <key> <python-args...>
+proj="$1"; key="$2"; shift 2
+P="/data/projects/$proj"
+export PORT="$(cat "$P/port" 2>/dev/null)"
+export PROJECT_NAME="$proj"
+mkdir -p "$P/logs"
+LOG="$P/logs/$key.log"
+echo $$ > "$P/logs/$key.pid"
+rm -f "$P/logs/$key.exit"
 echo "\$ python $*" > "$LOG"
-cd /project/src || exit 1
-[ -x /project/venv/bin/python ] || python -m venv /project/venv >> "$LOG" 2>&1
-. /project/venv/bin/activate
+cd "$P/src" || exit 1
+[ -x "$P/venv/bin/python" ] || python -m venv "$P/venv" >> "$LOG" 2>&1
+. "$P/venv/bin/activate"
 python -u "$@" >> "$LOG" 2>&1
 code=$?
 printf '\n[CARLA] Prozess beendet (Exit-Code %s)\n' "$code" >> "$LOG"
-echo "$code" > "/project/logs/$key.exit"
-rm -f "/project/logs/$key.pid"
+echo "$code" > "$P/logs/$key.exit"
+rm -f "$P/logs/$key.pid"
 '''
 
 _ENTRYPOINT = r'''#!/bin/sh
-cd /project
-mkdir -p logs src
-rm -f logs/*.pid
-[ -x venv/bin/python ] || python -m venv venv
-if [ -f autostart.txt ]; then
+mkdir -p /data/projects
+rm -f /data/projects/*/logs/*.pid
+for d in /data/projects/*/; do
+  proj=$(basename "$d")
+  [ -f "$d/autostart.txt" ] || continue
   while IFS= read -r line; do
     [ -z "$line" ] && continue
-    eval "setsid sh /project/runner.sh $line >/dev/null 2>&1 &"
-  done < autostart.txt
-fi
+    eval "setsid sh /data/runner.sh $proj $line >/dev/null 2>&1 &"
+  done < "$d/autostart.txt"
+done
 exec sleep infinity
 '''
 
 
 def _bashrc(name: str) -> str:
+    p = _cpdir(name)
     return ('[ -f ~/.bashrc ] && . ~/.bashrc\n'
-            '[ -f /project/venv/bin/activate ] && . /project/venv/bin/activate\n'
-            'cd /project/src\n'
+            f'export PORT="$(cat {p}/port 2>/dev/null)"\n'
+            f'[ -f {p}/venv/bin/activate ] && . {p}/venv/bin/activate\n'
+            f'cd {p}/src\n'
             f'PS1="({name}) \\w \\$ "\n')
 
 
-def _compose(name: str, version: str, port: int) -> str:
+def _compose() -> str:
     return f"""services:
-  app:
-    image: python:{version}-slim
-    container_name: {_cname(name)}
+  python:
+    image: {IMAGE}
+    container_name: {CONTAINER}
     restart: unless-stopped
     init: true
     network_mode: host
-    working_dir: /project/src
     environment:
-      - PORT={port}
       - PYTHONUNBUFFERED=1
     volumes:
-      - {_pdir(name)}:/project
-    command: ["sh", "/project/entrypoint.sh"]
+      - {STACK_DIR}:{DATA}
+    command: ["sh", "{DATA}/entrypoint.sh"]
 """
 
 
-def _write_support_files(name: str, meta: dict):
+def _write_stack_files():
+    os.makedirs(PROJECTS_DIR, exist_ok=True)
+    _write(os.path.join(STACK_DIR, "runner.sh"), _RUNNER, 0o755)
+    _write(os.path.join(STACK_DIR, "entrypoint.sh"), _ENTRYPOINT, 0o755)
+    _write(os.path.join(STACK_DIR, "docker-compose.yml"), _compose())
+
+
+def _write_project_files(name: str, meta: dict):
     d = _pdir(name)
-    _write(os.path.join(d, "runner.sh"), _RUNNER, 0o755)
-    _write(os.path.join(d, "entrypoint.sh"), _ENTRYPOINT, 0o755)
     _write(os.path.join(d, "bashrc"), _bashrc(name))
-    _write(os.path.join(d, "docker-compose.yml"),
-           _compose(name, meta.get("python", DEFAULT_VERSION), meta["port"]))
+    _write(os.path.join(d, "port"), str(meta["port"]))
     lines = []
     for a in meta.get("autostart", []):
-        key = _job_key(a["script"])
-        lines.append(f"{key} {shlex.quote(a['script'])} {a.get('args', '')}".rstrip())
+        lines.append(f"{_job_key(a['script'])} {shlex.quote(a['script'])} {a.get('args', '')}".rstrip())
     _write(os.path.join(d, "autostart.txt"), "\n".join(lines) + ("\n" if lines else ""))
+
+
+def _ensure_container() -> str:
+    """Stellt sicher, dass der gemeinsame Container laeuft. Gibt Fehlertext oder '' zurueck."""
+    _write_stack_files()
+    if _state() == "running":
+        return ""
+    rc, out = _run(["docker", "compose", "up", "-d"], timeout=300, cwd=STACK_DIR)
+    return "" if rc == 0 else f"Container-Start fehlgeschlagen: {out[-400:]}"
 
 
 # ---------------------------------------------------------------
@@ -212,12 +220,11 @@ def _find_free_port() -> int:
             used.add(int(line.strip()))
         except ValueError:
             pass
-    if os.path.isdir(BASE_DIR):
-        for entry in os.listdir(BASE_DIR):
-            if entry.startswith(PREFIX):
-                p = _load_meta(entry[len(PREFIX):]).get("port")
-                if p:
-                    used.add(p)
+    if os.path.isdir(PROJECTS_DIR):
+        for entry in os.listdir(PROJECTS_DIR):
+            p = _load_meta(entry).get("port")
+            if p:
+                used.add(p)
     for port in range(PORT_RANGE_START, PORT_RANGE_END + 1):
         if port not in used:
             return port
@@ -287,45 +294,46 @@ if __name__ == "__main__":
 '''
 
 
+def container_info() -> dict:
+    return {"state": _state(), "image": IMAGE, "container": CONTAINER}
+
+
 def list_projects() -> list:
-    if not os.path.isdir(BASE_DIR):
+    if not os.path.isdir(PROJECTS_DIR):
         return []
-    states = _container_states()
+    state = _state()
+    alive = _alive_all() if state == "running" else {}
     result = []
-    for entry in sorted(os.listdir(BASE_DIR)):
-        if not entry.startswith(PREFIX):
-            continue
-        name = entry[len(PREFIX):]
+    for name in sorted(os.listdir(PROJECTS_DIR)):
         if not _exists(name):
             continue
         meta = _load_meta(name)
-        state = states.get(_cname(name), "stopped")
         result.append({
             "name": name,
-            "state": state,
-            "python": meta.get("python", DEFAULT_VERSION),
             "port": meta.get("port"),
             "domain": meta.get("domain"),
             "entry": meta.get("entry", "main.py"),
             "autostart": meta.get("autostart", []),
-            "running": len([j for j in list_jobs(name, state) if j["running"] and j["key"].startswith("run-")]),
+            "running": len([k for k in alive.get(name, set()) if k.startswith("run-")]),
             "venv_ok": os.path.isfile(os.path.join(_pdir(name), "venv", "bin", "python")),
         })
     return result
 
 
-def create_project(name: str, python_version: str = DEFAULT_VERSION, cloudflare_data: dict = None) -> dict:
+def create_project(name: str, cloudflare_data: dict = None) -> dict:
     name = normalize_name(name)
     if not name:
         return {"ok": False, "error": "Ungültiger Name."}
     if _exists(name):
         return {"ok": False, "error": f"Projekt '{name}' existiert bereits."}
-    if python_version not in PY_VERSIONS:
-        return {"ok": False, "error": f"Python-Version nicht unterstützt: {python_version}"}
     try:
         port = _find_free_port()
     except RuntimeError as e:
         return {"ok": False, "error": str(e)}
+
+    err = _ensure_container()
+    if err:
+        return {"ok": False, "error": err}
 
     cloudflare_data = cloudflare_data or {"enabled": False}
     hostname = None
@@ -339,41 +347,41 @@ def create_project(name: str, python_version: str = DEFAULT_VERSION, cloudflare_
         os.makedirs(_logs(name), exist_ok=True)
         _write(os.path.join(_src(name), "main.py"), _MAIN_TEMPLATE.format(name=name))
         _write(os.path.join(_src(name), "requirements.txt"), "")
-        meta = {"name": name, "python": python_version, "port": port, "entry": "main.py",
-                "autostart": [], "domain": hostname, "cloudflare": cloudflare_data,
-                "created": int(time.time())}
+        meta = {"name": name, "port": port, "entry": "main.py", "autostart": [],
+                "domain": hostname, "cloudflare": cloudflare_data, "created": int(time.time())}
         _save_meta(name, meta)
-        _write_support_files(name, meta)
+        _write_project_files(name, meta)
     except Exception as e:
         shutil.rmtree(_pdir(name), ignore_errors=True)
         return {"ok": False, "error": str(e)}
 
-    rc, out = _run(["docker", "compose", "up", "-d"], timeout=300, cwd=_pdir(name))
+    rc, out = _run(["docker", "exec", CONTAINER, "python", "-m", "venv", f"{_cpdir(name)}/venv"], timeout=180)
     if rc != 0:
-        return {"ok": False, "error": f"Container-Start fehlgeschlagen: {out[-400:]}"}
+        shutil.rmtree(_pdir(name), ignore_errors=True)
+        return {"ok": False, "error": f"venv konnte nicht erstellt werden: {out[-300:]}"}
     return {"ok": True, "name": name, "port": port, "domain": hostname}
 
 
 def delete_project(name: str) -> dict:
     if not _exists(name):
         return {"ok": False, "error": "Projekt nicht gefunden."}
+    for key in list(_alive_all().get(name, set())) if _state() == "running" else []:
+        stop_script(name, key)
     try:
         _cf_cleanup(_load_meta(name))
     except Exception as e:
         print(f"[CARLA-PY] Cloudflare-Cleanup fehlgeschlagen: {e}")
-    _run(["docker", "compose", "down"], timeout=60, cwd=_pdir(name))
     shutil.rmtree(_pdir(name), ignore_errors=True)
     return {"ok": True}
 
 
-def execute_action(name: str, action: str) -> dict:
+def execute_action(action: str) -> dict:
+    """Start/Stop/Restart des gemeinsamen Python-Containers."""
     cmds = {"start": ["up", "-d"], "stop": ["stop"], "restart": ["restart"]}
     if action not in cmds:
         return {"ok": False, "error": f"Aktion nicht erlaubt: {action}"}
-    if not _exists(name):
-        return {"ok": False, "error": "Projekt nicht gefunden."}
-    _write_support_files(name, _load_meta(name))   # Runner/Entrypoint aktuell halten
-    rc, out = _run(["docker", "compose"] + cmds[action], timeout=120, cwd=_pdir(name))
+    _write_stack_files()
+    rc, out = _run(["docker", "compose"] + cmds[action], timeout=300, cwd=STACK_DIR)
     return {"ok": rc == 0, "output": out, "error": out if rc != 0 else None}
 
 
@@ -390,14 +398,14 @@ def update_config(name: str, entry: str = None, autostart: list = None) -> dict:
             if target:
                 args = a.get("args", "") or ""
                 try:
-                    shlex.split(args)
+                    parts = shlex.split(args)
                 except ValueError:
                     return {"ok": False, "error": f"Argumente ungültig: {args}"}
                 clean.append({"script": os.path.relpath(target, os.path.realpath(_src(name))).replace(os.sep, "/"),
-                              "args": " ".join(shlex.quote(x) for x in shlex.split(args))})
+                              "args": " ".join(shlex.quote(x) for x in parts)})
         meta["autostart"] = clean
     _save_meta(name, meta)
-    _write_support_files(name, meta)
+    _write_project_files(name, meta)
     return {"ok": True}
 
 
@@ -405,19 +413,29 @@ def update_config(name: str, entry: str = None, autostart: list = None) -> dict:
 # Jobs (Scripts & pip) – laufen per docker exec ueber runner.sh
 # ---------------------------------------------------------------
 
+def _alive_all() -> dict:
+    """{projekt: {keys}} aller Jobs, deren pid-Datei auf einen lebenden Prozess zeigt."""
+    script = ('for f in /data/projects/*/logs/*.pid; do [ -f "$f" ] || continue; p=$(cat "$f"); '
+              'kill -0 "$p" 2>/dev/null && echo "$(basename "$(dirname "$(dirname "$f")")") $(basename "$f" .pid)"; done')
+    rc, out = _run(["docker", "exec", CONTAINER, "sh", "-c", script], timeout=15)
+    alive = {}
+    if rc == 0:
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) == 2:
+                alive.setdefault(parts[0], set()).add(parts[1])
+    return alive
+
+
 def _alive_keys(name: str) -> set:
-    """Keys aller Jobs, deren pid-Datei auf einen lebenden Prozess zeigt."""
-    script = ('for f in /project/logs/*.pid; do [ -f "$f" ] || continue; '
-              'p=$(cat "$f"); kill -0 "$p" 2>/dev/null && basename "$f" .pid; done')
-    rc, out = _run(["docker", "exec", _cname(name), "sh", "-c", script], timeout=15)
-    return set(out.split()) if rc == 0 else set()
+    return _alive_all().get(name, set())
 
 
 def list_jobs(name: str, state: str = None) -> list:
     logs = _logs(name)
     if not os.path.isdir(logs):
         return []
-    state = state or _state(name)
+    state = state or _state()
     alive = _alive_keys(name) if state == "running" else set()
     jobs = []
     for f in sorted(os.listdir(logs)):
@@ -453,16 +471,16 @@ def read_log(name: str, key: str) -> dict:
         if size > MAX_LOG_BYTES:
             f.seek(size - MAX_LOG_BYTES)
         text = f.read().decode("utf-8", errors="replace")
-    running = key in _alive_keys(name) if _state(name) == "running" else False
+    running = key in _alive_keys(name) if _state() == "running" else False
     return {"ok": True, "log": text, "running": running}
 
 
 def _start_job(name: str, key: str, py_args: list) -> dict:
-    if _state(name) != "running":
-        return {"ok": False, "error": "Container läuft nicht – erst starten."}
+    if _state() != "running":
+        return {"ok": False, "error": "Python-Container läuft nicht – erst starten."}
     if key in _alive_keys(name):
         return {"ok": False, "error": "Läuft bereits."}
-    rc, out = _run(["docker", "exec", "-d", _cname(name), "setsid", "sh", "/project/runner.sh", key] + py_args, timeout=20)
+    rc, out = _run(["docker", "exec", "-d", CONTAINER, "setsid", "sh", f"{DATA}/runner.sh", name, key] + py_args, timeout=20)
     return {"ok": rc == 0, "error": None if rc == 0 else out}
 
 
@@ -490,7 +508,7 @@ def stop_script(name: str, key: str) -> dict:
     pid = open(pid_file).read().strip()
     if not pid.isdigit():
         return {"ok": False, "error": "Ungültige PID."}
-    cn = _cname(name)
+    cn = CONTAINER
     _run(["docker", "exec", cn, "kill", "-TERM", "--", f"-{pid}"], timeout=10)
     for _ in range(8):
         time.sleep(0.5)
@@ -512,15 +530,14 @@ def stop_script(name: str, key: str) -> dict:
 # ---------------------------------------------------------------
 
 _PKG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.\-\[\],=<>!~;@:/+*]*$")
-_PIP = "/project/venv/bin/python"
 
 
 def list_packages(name: str) -> dict:
     if not _exists(name):
         return {"ok": False, "error": "Projekt nicht gefunden."}
-    if _state(name) != "running":
-        return {"ok": False, "error": "Container läuft nicht."}
-    rc, out = _run(["docker", "exec", _cname(name), _PIP, "-m", "pip", "list", "--format=json",
+    if _state() != "running":
+        return {"ok": False, "error": "Python-Container läuft nicht."}
+    rc, out = _run(["docker", "exec", CONTAINER, f"{_cpdir(name)}/venv/bin/python", "-m", "pip", "list", "--format=json",
                     "--disable-pip-version-check"], timeout=60)
     if rc != 0:
         return {"ok": False, "error": out[-300:] or "venv noch nicht bereit."}
@@ -567,7 +584,7 @@ def pip_freeze(name: str) -> dict:
     """Schreibt die installierten Pakete in requirements.txt."""
     if not _exists(name):
         return {"ok": False, "error": "Projekt nicht gefunden."}
-    rc, out = _run(["docker", "exec", _cname(name), _PIP, "-m", "pip", "freeze",
+    rc, out = _run(["docker", "exec", CONTAINER, f"{_cpdir(name)}/venv/bin/python", "-m", "pip", "freeze",
                     "--disable-pip-version-check"], timeout=60)
     if rc != 0:
         return {"ok": False, "error": out[-300:]}
@@ -670,9 +687,10 @@ def save_upload(name: str, rel_dir: str, filename: str, data: bytes) -> dict:
 # ---------------------------------------------------------------
 
 def shell_spec(name: str):
-    """(argv, cwd, env) fuer die interaktive Konsole im Projekt-Container, sonst None."""
-    if not _exists(name) or _state(name) != "running":
+    """(argv, cwd, env) fuer die interaktive Konsole im Projekt, sonst None."""
+    if not _exists(name) or _state() != "running":
         return None
-    argv = ["docker", "exec", "-it", "-w", "/project/src", _cname(name),
-            "sh", "-c", "[ -x /usr/bin/bash ] && exec bash --rcfile /project/bashrc -i || exec sh"]
+    p = _cpdir(name)
+    argv = ["docker", "exec", "-it", "-w", f"{p}/src", CONTAINER,
+            "sh", "-c", f"[ -x /usr/bin/bash ] && exec bash --rcfile {p}/bashrc -i || exec sh"]
     return argv, None, {**os.environ, "TERM": "xterm-256color"}
