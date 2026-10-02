@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, jsonify, request, redirect
 import threading
 from urllib.parse import urlparse
-from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server, vhost_server, token_gate, storage_service
+from services import cloudflare, docker_service, cache, metrics_db, setup, updater, backup, ports, discovery, google_drive, file_manager, redirect_service, error_server, static_server, vhost_server, token_gate, storage_service, python_projects
 import config
 
 bp = Blueprint("main", __name__)
@@ -325,6 +325,11 @@ def redirects_route():
 @bp.route("/sites")
 def sites_route():
     return render_template("sites.html")
+
+@bp.route("/python")
+def page_python():
+    return render_template("python.html")
+
 
 @bp.route("/domains")
 def domains_route():
@@ -2241,3 +2246,118 @@ def api_cloudflare_access_apps_policies_update(app_id):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+
+
+
+# ---------------------------------------------------------------
+# Python-Projekte
+# ---------------------------------------------------------------
+
+def _py_res(result, fail=400):
+    return jsonify(result), 200 if result.get("ok") else fail
+
+
+@bp.route("/api/python/projects", methods=["GET"])
+def api_py_list():
+    return jsonify(python_projects.list_projects())
+
+
+@bp.route("/api/python/projects", methods=["POST"])
+def api_py_create():
+    data = request.json or {}
+    return _py_res(python_projects.create_project(data.get("name", "")))
+
+
+@bp.route("/api/python/<name>", methods=["DELETE"])
+def api_py_delete(name):
+    return _py_res(python_projects.delete_project(name))
+
+
+@bp.route("/api/python/<name>/config", methods=["PUT"])
+def api_py_config(name):
+    data = request.json or {}
+    return _py_res(python_projects.update_config(name, data.get("entry"), data.get("autostart")))
+
+
+@bp.route("/api/python/<name>/files", methods=["GET"])
+def api_py_files(name):
+    return _py_res(python_projects.list_dir(name, request.args.get("path", "")))
+
+
+@bp.route("/api/python/<name>/file", methods=["GET"])
+def api_py_file_read(name):
+    return _py_res(python_projects.read_file(name, request.args.get("path", "")))
+
+
+@bp.route("/api/python/<name>/file", methods=["PUT"])
+def api_py_file_write(name):
+    data = request.json or {}
+    return _py_res(python_projects.write_file(name, data.get("path", ""), data.get("content", "")))
+
+
+@bp.route("/api/python/<name>/mkdir", methods=["POST"])
+def api_py_mkdir(name):
+    return _py_res(python_projects.make_dir(name, (request.json or {}).get("path", "")))
+
+
+@bp.route("/api/python/<name>/delete", methods=["POST"])
+def api_py_delete_item(name):
+    return _py_res(python_projects.delete_item(name, (request.json or {}).get("path", "")))
+
+
+@bp.route("/api/python/<name>/rename", methods=["POST"])
+def api_py_rename(name):
+    data = request.json or {}
+    return _py_res(python_projects.rename_item(name, data.get("path", ""), data.get("new_path", "")))
+
+
+@bp.route("/api/python/<name>/upload", methods=["POST"])
+def api_py_upload(name):
+    rel_dir = request.form.get("path", "")
+    for f in request.files.getlist("files"):
+        res = python_projects.save_upload(name, rel_dir, f.filename, f.read())
+        if not res.get("ok"):
+            return _py_res(res)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/python/<name>/jobs", methods=["GET"])
+def api_py_jobs(name):
+    return jsonify(python_projects.list_jobs(name))
+
+
+@bp.route("/api/python/<name>/log", methods=["GET"])
+def api_py_log(name):
+    return jsonify(python_projects.read_log(name, request.args.get("key", "")))
+
+
+@bp.route("/api/python/<name>/run", methods=["POST"])
+def api_py_run(name):
+    data = request.json or {}
+    return _py_res(python_projects.run_script(name, data.get("script", ""), data.get("args", "")))
+
+
+@bp.route("/api/python/<name>/stop", methods=["POST"])
+def api_py_stop(name):
+    return _py_res(python_projects.stop_script(name, (request.json or {}).get("key", "")), 500)
+
+
+@bp.route("/api/python/<name>/packages", methods=["GET"])
+def api_py_packages(name):
+    return _py_res(python_projects.list_packages(name), 500)
+
+
+@bp.route("/api/python/<name>/packages/install", methods=["POST"])
+def api_py_pip_install(name):
+    data = request.json or {}
+    return _py_res(python_projects.pip_install(name, data.get("packages", ""), bool(data.get("requirements"))))
+
+
+@bp.route("/api/python/<name>/packages/uninstall", methods=["POST"])
+def api_py_pip_uninstall(name):
+    return _py_res(python_projects.pip_uninstall(name, (request.json or {}).get("packages", "")))
+
+
+@bp.route("/api/python/<name>/packages/freeze", methods=["POST"])
+def api_py_pip_freeze(name):
+    return _py_res(python_projects.pip_freeze(name), 500)

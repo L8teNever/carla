@@ -40,6 +40,8 @@ if setup.is_setup_done():
     updater.start_daemon()
     backup.start_scheduler()
     github_deploy.start_daemon()
+    from services import python_projects
+    python_projects.start_autostart()
 
     # Auto-Discovery: erkennt neue Container/Ports/Hosts ohne Neustart
     discovery.set_change_callback(start_background_fetch)

@@ -26,7 +26,17 @@ def init(sock):
         container_name = request.args.get("container")
         cols = request.args.get("cols", 100, type=int)
         rows = request.args.get("rows", 30, type=int)
-        
+        project = request.args.get("project")
+
+        if project:
+            from services import python_projects
+            spec = python_projects.shell_spec(project)
+            if IS_WINDOWS or not spec:
+                ws.send("[CARLA] Projekt-Konsole nicht verfuegbar.\r\n")
+                return
+            _run_unix_pty(ws, cols, rows, project_spec=spec)
+            return
+
         if IS_WINDOWS:
             _run_winpty(ws, cols, rows, container_name)
         else:
@@ -157,10 +167,13 @@ def _run_winpty(ws, cols, rows, container_name=None):
 # ─────────────────────────────────────────────────────────────
 # Linux / macOS  (built-in pty)
 # ─────────────────────────────────────────────────────────────
-def _run_unix_pty(ws, cols, rows, container_name=None):
+def _run_unix_pty(ws, cols, rows, container_name=None, project_spec=None):
     import pty, select, struct, fcntl, termios, subprocess
 
-    if container_name:
+    proj_env = None
+    if project_spec:
+        shell_args, cwd, proj_env = project_spec
+    elif container_name:
         # Check if bash exists in the container
         has_bash = False
         try:
@@ -188,7 +201,7 @@ def _run_unix_pty(ws, cols, rows, container_name=None):
     _winsize(master_fd, rows, cols)
     proc = subprocess.Popen(
         shell_args, stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
-        close_fds=True, env={**os.environ, "TERM": "xterm-256color"},
+        close_fds=True, env=proj_env or {**os.environ, "TERM": "xterm-256color"},
         cwd=cwd,
     )
     os.close(slave_fd)

@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css"/>
+<style>
+    .py-split { display:grid; grid-template-columns: 260px 1fr; gap:14px; min-height:480px; }
+    @media (max-width: 800px) { .py-split { grid-template-columns: 1fr; } }
+    .py-pane { background:var(--md-surface); border:1px solid var(--md-outline-variant); border-radius:var(--r-lg); padding:12px; overflow:auto; }
+    .py-file { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:var(--r-md); cursor:pointer; font-size:13px; font-family:var(--font-mono); }
+    .py-file:hover { background:rgba(255,255,255,0.06); }
+    .py-file.active { background:rgba(255,255,255,0.1); }
+    .py-file .acts { margin-left:auto; display:none; gap:4px; }
+    .py-file:hover .acts { display:flex; }
+    .py-log { background:#0d0d10; border-radius:var(--r-md); padding:12px; font-family:var(--font-mono); font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-all; min-height:220px; max-height:420px; overflow:auto; }
+    #py-editor { width:100%; min-height:420px; resize:vertical; font-family:var(--font-mono); font-size:13px; line-height:1.5; tab-size:4; }
+    #py-term { height:460px; background:#0d0d10; border-radius:var(--r-md); padding:6px; }
+    .py-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- ───────── Projektliste ───────── -->
+<div id="py-list-view">
+    <div class="view-title">Python-Projekte</div>
+    <div class="view-subtitle">Eigene Projekte mit eigener venv, Dateistruktur, Paketverwaltung, Script-Ausführung und Konsole</div>
+    <div class="section-header">
+        <div class="section-title">Projekte</div>
+        <button onclick="openCreateModal()" class="btn btn-primary">+ Projekt erstellen</button>
+    </div>
+    <div class="grid-layout grid-2" id="py-grid"></div>
+</div>
+
+<!-- ───────── Projektansicht ───────── -->
+<div id="py-project-view" style="display:none;">
+    <div class="py-row" style="margin-bottom:10px;">
+        <button class="btn btn-sm" onclick="closeProject()">← Projekte</button>
+        <div class="view-title" style="margin:0;" id="py-title"></div>
+        <span class="badge info" id="py-venv-badge">venv</span>
+    </div>
+
+    <div class="tabs-nav" style="margin-bottom:14px;">
+        <button class="tab-btn active" data-tab="files" onclick="switchTab('files')">Dateien</button>
+        <button class="tab-btn" data-tab="run" onclick="switchTab('run')">Ausführen</button>
+        <button class="tab-btn" data-tab="pkgs" onclick="switchTab('pkgs')">Pakete</button>
+        <button class="tab-btn" data-tab="term" onclick="switchTab('term')">Konsole</button>
+    </div>
+
+    <!-- Dateien -->
+    <div id="tab-files" class="py-tab">
+        <div class="py-split">
+            <div class="py-pane">
+                <div class="py-row" style="margin-bottom:8px;">
+                    <button class="btn btn-sm" onclick="newFile()" title="Neue Datei">+ Datei</button>
+                    <button class="btn btn-sm" onclick="newFolder()" title="Neuer Ordner">+ Ordner</button>
+                    <button class="btn btn-sm" onclick="document.getElementById('py-upload').click()" title="Hochladen">↑</button>
+                    <input type="file" id="py-upload" multiple style="display:none" onchange="uploadFiles(this)">
+                </div>
+                <div id="py-crumbs" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-family:var(--font-mono);"></div>
+                <div id="py-files"></div>
+            </div>
+            <div class="py-pane">
+                <div class="py-row" style="margin-bottom:8px;">
+                    <span id="py-open-name" style="font-family:var(--font-mono);font-size:13px;flex:1;color:var(--text-muted);">Keine Datei geöffnet</span>
+                    <button class="btn btn-sm btn-primary" id="py-save-btn" onclick="saveFile()" disabled>Speichern (Strg+S)</button>
+                </div>
+                <textarea id="py-editor" class="input mono" spellcheck="false" disabled></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ausführen -->
+    <div id="tab-run" class="py-tab" style="display:none;">
+        <div class="py-pane" style="margin-bottom:14px;">
+            <div class="py-row">
+                <input id="py-script" class="input mono" list="py-script-list" placeholder="main.py" style="flex:1;min-width:160px;">
+                <datalist id="py-script-list"></datalist>
+                <input id="py-args" class="input mono" placeholder="Argumente (optional)" style="flex:1;min-width:160px;">
+                <button class="btn btn-success" onclick="runScript()">▶ Starten</button>
+            </div>
+            <div class="py-row" style="margin-top:10px;">
+                <input type="checkbox" id="py-autostart" onchange="saveAutostart()" style="width:16px;height:16px;">
+                <label for="py-autostart" style="font-size:12.5px;cursor:pointer;">Dieses Script beim Start von CARLA automatisch starten</label>
+            </div>
+        </div>
+        <div class="py-pane">
+            <div class="py-row" style="margin-bottom:8px;">
+                <select id="py-job-select" class="select" style="flex:1;min-width:200px;" onchange="selectJob(this.value)"></select>
+                <button class="btn btn-danger btn-sm" id="py-stop-btn" onclick="stopJob()">■ Stoppen</button>
+            </div>
+            <div class="py-log" id="py-run-log">Noch nichts gestartet.</div>
+        </div>
+    </div>
+
+    <!-- Pakete -->
+    <div id="tab-pkgs" class="py-tab" style="display:none;">
+        <div class="py-pane" style="margin-bottom:14px;">
+            <div class="py-row">
+                <input id="py-pkg-input" class="input mono" placeholder="z.B. requests flask==3.0 pandas" style="flex:1;min-width:200px;" onkeydown="if(event.key==='Enter')pipInstall()">
+                <button class="btn btn-primary" onclick="pipInstall()">Installieren</button>
+                <button class="btn" onclick="pipInstallReq()">requirements.txt installieren</button>
+                <button class="btn" onclick="pipFreeze()" title="Aktuelle Pakete in requirements.txt schreiben">Freeze → requirements.txt</button>
+            </div>
+            <div class="py-log" id="py-pip-log" style="margin-top:10px;min-height:80px;max-height:200px;display:none;"></div>
+        </div>
+        <div class="py-pane">
+            <div id="py-pkg-list" style="font-size:13px;">Lade...</div>
+        </div>
+    </div>
+
+    <!-- Konsole -->
+    <div id="tab-term" class="py-tab" style="display:none;">
+        <div class="py-row" style="margin-bottom:8px;">
+            <span class="badge" id="py-term-status">getrennt</span>
+            <button class="btn btn-sm" onclick="connectTerm(true)">Neu verbinden</button>
+            <span style="font-size:11.5px;color:var(--text-muted);">Shell im Projektordner, venv ist aktiviert (python, pip)</span>
+        </div>
+        <div id="py-term"></div>
+    </div>
+</div>
+
+<!-- Erstellen-Modal -->
+<div id="py-create-modal" class="modal-backdrop">
+    <div class="modal" style="max-width:420px;">
+        <div class="modal-header"><h3 class="modal-title">Python-Projekt erstellen</h3></div>
+        <div class="form-group">
+            <label class="form-label">Projektname</label>
+            <input id="py-new-name" class="input mono" placeholder="mein-bot" onkeydown="if(event.key==='Enter')createProject()">
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);">Legt Ordner, eigene venv, <code>main.py</code> und <code>requirements.txt</code> an.</div>
+        <div class="modal-actions">
+            <button class="btn" onclick="closeCreateModal()">Abbrechen</button>
+            <button class="btn btn-primary" id="py-create-btn" onclick="createProject()">Erstellen</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script>
+    let project = null, projectInfo = null, curDir = '', openFile = null, dirty = false;
+    let curJob = null, pollTimer = null, term = null, fit = null, termWs = null, termObs = null;
+
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const api = (p, opt) => fetch(`/api/python/${p}`, opt).then(r => r.json());
+    const post = (p, body, method='POST') => api(p, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const join = (a, b) => a ? `${a}/${b}` : b;
+
+    async function initPage() {
+        await loadProjects();
+        const p = new URLSearchParams(location.search).get('project');
+        if (p) openProject(p);
+    }
+
+    // ───────── Projekte ─────────
+    async function loadProjects() {
+        const list = await api('projects');
+        const grid = document.getElementById('py-grid');
+        if (!list.length) { grid.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Noch keine Projekte.</div>'; return; }
+        grid.innerHTML = list.map(p => `
+            <div class="card interactive" onclick="openProject('${esc(p.name)}')">
+                <div class="card-header">
+                    <div class="card-title">🐍 ${esc(p.name)}</div>
+                    <span class="badge ${p.running ? 'success' : ''}">${p.running ? p.running + ' läuft' : 'gestoppt'}</span>
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">Entry: ${esc(p.entry)}${p.venv_ok ? '' : ' · ⚠ venv fehlt'}</div>
+                <div style="margin-top:10px;"><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteProject('${esc(p.name)}')">Löschen</button></div>
+            </div>`).join('');
+    }
+    function openCreateModal() { document.getElementById('py-new-name').value=''; document.getElementById('py-create-modal').classList.add('active'); setTimeout(()=>document.getElementById('py-new-name').focus(),50); }
+    function closeCreateModal() { document.getElementById('py-create-modal').classList.remove('active'); }
+    async function createProject() {
+        const btn = document.getElementById('py-create-btn');
+        btn.disabled = true; btn.textContent = 'Erstelle venv...';
+        const r = await post('projects', {name: document.getElementById('py-new-name').value});
+        btn.disabled = false; btn.textContent = 'Erstellen';
+        if (!r.ok) return showToast(r.error, 'error');
+        closeCreateModal(); showToast('Projekt erstellt'); await loadProjects(); openProject(r.name);
+    }
+    async function deleteProject(name) {
+        if (!confirm(`Projekt "${name}" inkl. venv und allen Dateien löschen?`)) return;
+        const r = await api(name, {method:'DELETE'});
+        if (!r.ok) return showToast(r.error, 'error');
+        loadProjects();
+    }
+
+    async function openProject(name) {
+        const list = await api('projects');
+        projectInfo = list.find(p => p.name === name);
+        if (!projectInfo) return showToast('Projekt nicht gefunden', 'error');
+        project = name; curDir = ''; openFile = null; curJob = null;
+        history.replaceState(null, '', `/python?project=${encodeURIComponent(name)}`);
+        document.getElementById('py-list-view').style.display = 'none';
+        document.getElementById('py-project-view').style.display = 'block';
+        document.getElementById('py-title').textContent = name;
+        document.getElementById('py-venv-badge').textContent = projectInfo.venv_ok ? 'venv ✓' : 'venv fehlt';
+        document.getElementById('py-script').value = projectInfo.entry;
+        document.getElementById('py-autostart').checked = projectInfo.autostart.includes(projectInfo.entry);
+        closeFile(); switchTab('files'); loadDir('');
+    }
+    function closeProject() {
+        stopPoll(); disconnectTerm(); project = null;
+        history.replaceState(null, '', '/python');
+        document.getElementById('py-project-view').style.display = 'none';
+        document.getElementById('py-list-view').style.display = 'block';
+        loadProjects();
+    }
+
+    function switchTab(t) {
+        document.querySelectorAll('.py-tab').forEach(e => e.style.display = 'none');
+        document.getElementById('tab-' + t).style.display = 'block';
+        document.querySelectorAll('.tabs-nav .tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+        stopPoll();
+        if (t === 'run') { refreshScriptList(); refreshJobs(); startPoll(); }
+        if (t === 'pkgs') { loadPackages(); refreshPipLog(); startPoll(); }
+        if (t === 'term') connectTerm(false);
+    }
+
+    // ───────── Dateien ─────────
+    async function loadDir(path) {
+        const r = await api(`${project}/files?path=${encodeURIComponent(path)}`);
+        if (!r.ok) return showToast(r.error, 'error');
+        curDir = r.path;
+        const parts = curDir ? curDir.split('/') : [];
+        document.getElementById('py-crumbs').innerHTML = '<a href="#" onclick="loadDir(\'\');return false;">src</a>' +
+            parts.map((p, i) => ` / <a href="#" onclick="loadDir('${esc(parts.slice(0, i+1).join('/'))}');return false;">${esc(p)}</a>`).join('');
+        const up = curDir ? `<div class="py-file" onclick="loadDir('${esc(parts.slice(0,-1).join('/'))}')">📁 ..</div>` : '';
+        document.getElementById('py-files').innerHTML = up + r.items.map(it => {
+            const rel = join(curDir, it.name);
+            const click = it.type === 'dir' ? `loadDir('${esc(rel)}')` : `openFileRel('${esc(rel)}')`;
+            return `<div class="py-file ${openFile === rel ? 'active' : ''}" onclick="${click}">
+                <span>${it.type === 'dir' ? '📁' : '📄'}</span><span>${esc(it.name)}</span>
+                <span class="acts"><button class="btn-icon" title="Umbenennen" onclick="event.stopPropagation();renameItem('${esc(rel)}')">✎</button>
+                <button class="btn-icon" title="Löschen" onclick="event.stopPropagation();deleteItem('${esc(rel)}')">🗑</button></span></div>`;
+        }).join('');
+    }
+    async function openFileRel(rel) {
+        if (dirty && !confirm('Ungespeicherte Änderungen verwerfen?')) return;
+        const r = await api(`${project}/file?path=${encodeURIComponent(rel)}`);
+        if (!r.ok) return showToast(r.error, 'error');
+        openFile = rel; dirty = false;
+        const ed = document.getElementById('py-editor');
+        ed.disabled = false; ed.value = r.content;
+        document.getElementById('py-open-name').textContent = rel;
+        document.getElementById('py-save-btn').disabled = false;
+        loadDir(curDir);
+    }
+    function closeFile() {
+        openFile = null; dirty = false;
+        const ed = document.getElementById('py-editor'); ed.value = ''; ed.disabled = true;
+        document.getElementById('py-open-name').textContent = 'Keine Datei geöffnet';
+        document.getElementById('py-save-btn').disabled = true;
+    }
+    async function saveFile() {
+        if (!openFile) return;
+        const r = await post(`${project}/file`, {path: openFile, content: document.getElementById('py-editor').value}, 'PUT');
+        if (!r.ok) return showToast(r.error, 'error');
+        dirty = false; showToast('Gespeichert');
+    }
+    async function newFile() {
+        const n = prompt('Dateiname (auch mit Unterordner, z.B. utils/helper.py):'); if (!n) return;
+        const rel = join(curDir, n);
+        const r = await post(`${project}/file`, {path: rel, content: ''}, 'PUT');
+        if (!r.ok) return showToast(r.error, 'error');
+        await loadDir(curDir); openFileRel(rel);
+    }
+    async function newFolder() {
+        const n = prompt('Ordnername:'); if (!n) return;
+        const r = await post(`${project}/mkdir`, {path: join(curDir, n)});
+        if (!r.ok) return showToast(r.error, 'error'); loadDir(curDir);
+    }
+    async function deleteItem(rel) {
+        if (!confirm(`"${rel}" löschen?`)) return;
+        const r = await post(`${project}/delete`, {path: rel});
+        if (!r.ok) return showToast(r.error, 'error');
+        if (openFile && (openFile === rel || openFile.startsWith(rel + '/'))) closeFile();
+        loadDir(curDir);
+    }
+    async function renameItem(rel) {
+        const base = rel.split('/').pop();
+        const n = prompt('Neuer Name:', base); if (!n || n === base) return;
+        const newRel = join(rel.split('/').slice(0, -1).join('/'), n);
+        const r = await post(`${project}/rename`, {path: rel, new_path: newRel});
+        if (!r.ok) return showToast(r.error, 'error');
+        if (openFile === rel) closeFile();
+        loadDir(curDir);
+    }
+    async function uploadFiles(input) {
+        const fd = new FormData(); fd.append('path', curDir);
+        for (const f of input.files) fd.append('files', f);
+        const r = await (await fetch(`/api/python/${project}/upload`, {method:'POST', body: fd})).json();
+        input.value = '';
+        if (!r.ok) return showToast(r.error, 'error');
+        showToast('Hochgeladen'); loadDir(curDir);
+    }
+    document.addEventListener('input', e => { if (e.target.id === 'py-editor') dirty = true; });
+    document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && document.activeElement.id === 'py-editor') { e.preventDefault(); saveFile(); }
+        if (e.key === 'Tab' && document.activeElement.id === 'py-editor') {
+            e.preventDefault(); const ed = e.target, s = ed.selectionStart;
+            ed.setRangeText('    ', s, ed.selectionEnd, 'end'); dirty = true;
+        }
+    });
+
+    // ───────── Ausführen ─────────
+    async function refreshScriptList() {
+        const r = await api(`${project}/files?path=`);
+        if (!r.ok) return;
+        document.getElementById('py-script-list').innerHTML = r.items.filter(i => i.name.endsWith('.py')).map(i => `<option value="${esc(i.name)}">`).join('');
+    }
+    async function runScript() {
+        const script = document.getElementById('py-script').value.trim();
+        if (!script) return;
+        const r = await post(`${project}/run`, {script, args: document.getElementById('py-args').value});
+        if (!r.ok) return showToast(r.error, 'error');
+        await post(`${project}/config`, {entry: script}, 'PUT');
+        curJob = 'run:' + script.replace(/^\.?\//, '');
+        await refreshJobs(); refreshJobLog();
+    }
+    async function saveAutostart() {
+        const script = document.getElementById('py-script').value.trim();
+        const list = (await api('projects')).find(p => p.name === project).autostart.filter(s => s !== script);
+        if (document.getElementById('py-autostart').checked) list.push(script);
+        await post(`${project}/config`, {entry: script, autostart: list}, 'PUT');
+        showToast('Autostart gespeichert');
+    }
+    async function refreshJobs() {
+        const jobs = (await api(`${project}/jobs`)).filter(j => j.key.startsWith('run:'));
+        const sel = document.getElementById('py-job-select');
+        sel.innerHTML = jobs.length ? jobs.map(j => `<option value="${esc(j.key)}" ${j.key === curJob ? 'selected' : ''}>${j.running ? '🟢' : '⚪'} ${esc(j.cmd)}${j.running ? '' : ' (Exit ' + j.exit + ')'}</option>`).join('')
+                                    : '<option value="">Keine Läufe</option>';
+        if (!curJob && jobs.length) curJob = jobs[0].key;
+        if (curJob) sel.value = curJob;
+        const cur = jobs.find(j => j.key === curJob);
+        document.getElementById('py-stop-btn').disabled = !(cur && cur.running);
+    }
+    function selectJob(k) { curJob = k; refreshJobLog(); refreshJobs(); }
+    async function refreshJobLog() {
+        if (!curJob) return;
+        const r = await api(`${project}/log?key=${encodeURIComponent(curJob)}`);
+        const el = document.getElementById('py-run-log');
+        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+        el.textContent = r.log || '(keine Ausgabe)';
+        if (atBottom) el.scrollTop = el.scrollHeight;
+    }
+    async function stopJob() {
+        if (!curJob) return;
+        const r = await post(`${project}/stop`, {key: curJob});
+        if (!r.ok) showToast(r.error, 'error');
+        refreshJobs(); refreshJobLog();
+    }
+
+    // ───────── Pakete ─────────
+    async function loadPackages() {
+        const el = document.getElementById('py-pkg-list');
+        const r = await api(`${project}/packages`);
+        if (!r.ok) { el.textContent = r.error; return; }
+        el.innerHTML = '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">' + r.packages.length + ' Pakete installiert</div>' +
+            r.packages.map(p => `<div class="py-file" style="cursor:default;"><span>${esc(p.name)}</span><span style="color:var(--text-muted);">${esc(p.version)}</span>
+                <span class="acts" style="display:flex;"><button class="btn-icon" title="Deinstallieren" onclick="pipUninstall('${esc(p.name)}')">🗑</button></span></div>`).join('');
+    }
+    async function pipInstall() {
+        const v = document.getElementById('py-pkg-input').value.trim(); if (!v) return;
+        const r = await post(`${project}/packages/install`, {packages: v});
+        if (!r.ok) return showToast(r.error, 'error');
+        document.getElementById('py-pkg-input').value = ''; refreshPipLog(); startPoll();
+    }
+    async function pipInstallReq() {
+        const r = await post(`${project}/packages/install`, {requirements: true});
+        if (!r.ok) return showToast(r.error, 'error'); refreshPipLog(); startPoll();
+    }
+    async function pipUninstall(name) {
+        if (!confirm(`"${name}" deinstallieren?`)) return;
+        const r = await post(`${project}/packages/uninstall`, {packages: name});
+        if (!r.ok) return showToast(r.error, 'error'); refreshPipLog(); startPoll();
+    }
+    async function pipFreeze() {
+        const r = await post(`${project}/packages/freeze`, {});
+        showToast(r.ok ? 'requirements.txt aktualisiert' : r.error, r.ok ? 'success' : 'error');
+    }
+    let lastPipRunning = false;
+    async function refreshPipLog() {
+        const r = await api(`${project}/log?key=pip`);
+        const el = document.getElementById('py-pip-log');
+        if (r.log) { el.style.display = 'block'; el.textContent = r.log; el.scrollTop = el.scrollHeight; }
+        if (lastPipRunning && !r.running) loadPackages();
+        lastPipRunning = r.running;
+    }
+
+    // ───────── Polling ─────────
+    function startPoll() {
+        stopPoll();
+        pollTimer = setInterval(() => {
+            if (!project) return;
+            if (document.getElementById('tab-run').style.display !== 'none') { refreshJobs(); refreshJobLog(); }
+            if (document.getElementById('tab-pkgs').style.display !== 'none') refreshPipLog();
+        }, 1500);
+    }
+    function stopPoll() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+
+    // ───────── Konsole ─────────
+    function setTermStatus(on) {
+        const b = document.getElementById('py-term-status');
+        b.textContent = on ? 'verbunden' : 'getrennt'; b.className = 'badge ' + (on ? 'success' : 'danger');
+    }
+    function disconnectTerm() {
+        if (termWs) { try { termWs.close(); } catch(e){} termWs = null; }
+        if (term) { term.dispose(); term = null; }
+        if (termObs) { termObs.disconnect(); termObs = null; }
+    }
+    function connectTerm(force) {
+        if (!force && termWs && termWs.readyState === WebSocket.OPEN) { setTimeout(() => fit && fit.fit(), 50); return; }
+        disconnectTerm();
+        const box = document.getElementById('py-term'); box.innerHTML = '';
+        term = new Terminal({cursorBlink: true, fontSize: 13, fontFamily: "'JetBrains Mono', monospace", scrollback: 5000,
+                             theme: {background: '#0d0d10'}});
+        fit = new FitAddon.FitAddon(); term.loadAddon(fit);
+        term.open(box); fit.fit();
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        termWs = new WebSocket(`${proto}://${location.host}/ws/terminal?project=${encodeURIComponent(project)}&cols=${term.cols}&rows=${term.rows}`);
+        const sendResize = () => { if (termWs && termWs.readyState === 1) termWs.send(JSON.stringify({type:'resize', cols: term.cols, rows: term.rows})); };
+        termWs.onopen = () => { setTermStatus(true); sendResize(); term.focus(); };
+        termWs.onmessage = ev => term.write(ev.data);
+        termWs.onclose = () => { setTermStatus(false); if (term) term.write('\r\n\x1b[31m[Verbindung getrennt]\x1b[0m\r\n'); };
+        term.onData(d => { if (termWs && termWs.readyState === 1) termWs.send(JSON.stringify({type:'input', data: d})); });
+        termObs = new ResizeObserver(() => { try { fit.fit(); sendResize(); } catch(e){} });
+        termObs.observe(box);
+    }
+</script>
+{% endblock %}

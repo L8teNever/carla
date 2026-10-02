@@ -54,6 +54,12 @@
                 </div>
                 <span>Umleit.</span>
             </a>
+            <a href="/python" class="bottom-sheet-item {% if request.path == '/python' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
+                <div class="icon-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                </div>
+                <span>Python</span>
+            </a>
             <a href="/sites" class="bottom-sheet-item {% if request.path == '/sites' %}active{% endif %}" onclick="toggleMobileBottomSheet()">
                 <div class="icon-box">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="3" width="20" height="14" rx="2"></rect><path d="M8 21h8M12 17v4"></path><path d="M7 8h2M11 8h6M7 11h4M13 11h4"></path></svg>
@@ -176,6 +182,11 @@
             <a href="/sites" class="drawer-item {% if request.path == '/sites' %}active{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="3" width="20" height="14" rx="2"></rect><path d="M8 21h8M12 17v4"></path><path d="M7 8h2M11 8h6M7 11h4M13 11h4"></path></svg>
                 <span>Sites</span>
+            </a>
+
+            <a href="/python" class="drawer-item {% if request.path == '/python' %}active{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                <span>Python</span>
             </a>
 
             <a href="/domains" class="drawer-item {% if request.path == '/domains' %}active{% endif %}">
